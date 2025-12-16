@@ -1,0 +1,213 @@
+* =========================================================
+* DIVISOR DE CORRENTE - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O divisor de corrente e um circuito que distribui a corrente
+* total entre dois ou mais caminhos em paralelo. A corrente se
+* divide inversamente proporcional as resistencias.
+*
+*              Itotal
+*                |
+*         +------+------+
+*         |             |
+*        [R1]          [R2]
+*         |             |
+*        I1            I2
+*         |             |
+*         +------+------+
+*                |
+*               GND
+*
+* FORMULA (para dois resistores em paralelo):
+* -------------------------------------------
+*   I1 = Itotal * R2 / (R1 + R2)    <- "resistor oposto"
+*   I2 = Itotal * R1 / (R1 + R2)
+*
+* ATENCAO: Note que a corrente em cada resistor depende do
+* OUTRO resistor! Isso e o contrario do divisor de tensao.
+*
+* Exemplo numerico:
+*   Itotal = 10mA, R1 = 1k, R2 = 2k
+*   I1 = 10mA * 2k / (1k + 2k) = 10mA * 2/3 = 6.67mA
+*   I2 = 10mA * 1k / (1k + 2k) = 10mA * 1/3 = 3.33mA
+*
+* REGRA PRATICA:
+* --------------
+* "Menor resistencia = maior corrente"
+* A corrente prefere o caminho mais facil (menor resistencia)
+*
+* APLICACOES:
+* -----------
+* - Divisao de carga entre componentes paralelos
+* - LEDs em paralelo com resistores balanceadores
+* - Medicao de corrente com shunt
+* - Circuitos de espelhamento de corrente
+*
+* =========================================================
+
+* =========================================================
+* EXEMPLO 1: Dois resistores em paralelo (basico)
+* Entrada: 10mA, R1 = 1k, R2 = 2k
+* I1 esperado: 6.67mA (2/3 da corrente total)
+* I2 esperado: 3.33mA (1/3 da corrente total)
+* =========================================================
+
+* Fonte de corrente de 10mA
+* (a corrente entra pelo no positivo e sai pelo negativo)
+Iin 0 no1 DC 10m
+
+* Resistores em paralelo
+R1 no1 0 1k
+R2 no1 0 2k
+
+* =========================================================
+* EXEMPLO 2: Tres resistores em paralelo
+* Para N resistores em paralelo, a corrente em Rn e:
+*   In = Itotal * (Req_sem_Rn) / (Req_sem_Rn + Rn)
+*
+* Ou de forma mais simples:
+*   In = Itotal * (1/Rn) / (1/R1 + 1/R2 + ... + 1/Rn)
+*   In = Itotal * Gn / Gtotal  (onde G = condutancia = 1/R)
+*
+* Exemplo: Itotal = 12mA, R3 = 1k, R4 = 2k, R5 = 3k
+* G3 = 1/1k = 1mS
+* G4 = 1/2k = 0.5mS
+* G5 = 1/3k = 0.333mS
+* Gtotal = 1.833mS
+*
+* I3 = 12mA * 1/1.833 = 6.55mA
+* I4 = 12mA * 0.5/1.833 = 3.27mA
+* I5 = 12mA * 0.333/1.833 = 2.18mA
+* =========================================================
+
+Iin2 0 no2 DC 12m
+
+R3 no2 0 1k
+R4 no2 0 2k
+R5 no2 0 3k
+
+* =========================================================
+* EXEMPLO 3: Aplicacao pratica - LEDs em paralelo
+* Dois LEDs com resistores de valores diferentes
+* mostram como a corrente se divide
+*
+* Alimentacao: 12V
+* LED vermelho: Vf = 2V, R_led1 = 470 ohms -> I ~ 21mA
+* LED verde: Vf = 2.2V, R_led2 = 1k -> I ~ 9.8mA
+* =========================================================
+
+Vled 0 vcc DC 12
+
+* LED 1 (vermelho) - modelado como diodo + resistor
+D1 vcc n_led1 LED_RED
+Rled1 n_led1 0 470
+
+* LED 2 (verde) - modelado como diodo + resistor
+D2 vcc n_led2 LED_GREEN
+Rled2 n_led2 0 1k
+
+* Modelo simplificado de LED (diodo com Vf especifico)
+.model LED_RED D(IS=1e-20 N=1.5 RS=0.5 BV=5 IBV=1u)
+.model LED_GREEN D(IS=1e-21 N=1.6 RS=0.5 BV=5 IBV=1u)
+
+* =========================================================
+* ANALISES
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=============================================="
+  echo "    DIVISOR DE CORRENTE - Analise DC"
+  echo "=============================================="
+  echo ""
+
+  * Analise do ponto de operacao
+  op
+
+  echo "--- EXEMPLO 1: Dois Resistores em Paralelo ---"
+  echo "Corrente total: 10mA"
+  echo "R1 = 1k, R2 = 2k"
+  echo ""
+  echo "Corrente em R1 (I1): " $&i(R1) "A"
+  echo "  Esperado: 6.67mA (maior corrente no menor resistor)"
+  echo ""
+  echo "Corrente em R2 (I2): " $&i(R2) "A"
+  echo "  Esperado: 3.33mA"
+  echo ""
+  echo "Verificacao: I1 + I2 = " $&i(R1)+i(R2) "A (deve ser 10mA)"
+  echo ""
+  echo "Tensao no no1 (comum): " $&v(no1) "V"
+  echo "  V = I * Req = 10mA * (1k||2k) = 10mA * 667 = 6.67V"
+  echo ""
+
+  echo "--- EXEMPLO 2: Tres Resistores em Paralelo ---"
+  echo "Corrente total: 12mA"
+  echo "R3 = 1k, R4 = 2k, R5 = 3k"
+  echo ""
+  echo "Corrente em R3: " $&i(R3) "A"
+  echo "  Esperado: ~6.55mA (maior condutancia)"
+  echo ""
+  echo "Corrente em R4: " $&i(R4) "A"
+  echo "  Esperado: ~3.27mA"
+  echo ""
+  echo "Corrente em R5: " $&i(R5) "A"
+  echo "  Esperado: ~2.18mA (menor condutancia)"
+  echo ""
+  echo "Verificacao: I3 + I4 + I5 = " $&i(R3)+i(R4)+i(R5) "A"
+  echo ""
+
+  echo "--- EXEMPLO 3: LEDs em Paralelo ---"
+  echo "Tensao de alimentacao: 12V"
+  echo ""
+  echo "Corrente no LED vermelho (R=470): " $&i(Rled1) "A"
+  echo "Corrente no LED verde (R=1k): " $&i(Rled2) "A"
+  echo ""
+  echo "O LED com menor resistencia conduz mais corrente!"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Sweep de corrente para ver a divisao
+  * ---------------------------------------------------------
+  echo "=============================================="
+  echo "    Sweep: Variando corrente total de 0 a 20mA"
+  echo "=============================================="
+
+  dc Iin 0 20m 0.5m
+
+  * Plotar as correntes nos resistores
+  plot i(R1) i(R2) title 'Divisor de Corrente - R1=1k vs R2=2k'
+
+  * Salvar grafico
+  set hcopydevtype=png
+  hardcopy divisor_corrente_dc.png i(R1) i(R2)
+
+  * Exportar dados
+  set filetype=ascii
+  set wr_vecnames
+  wrdata divisor_corrente.csv i(Iin) i(R1) i(R2)
+
+  echo ""
+  echo "=============================================="
+  echo "    RESUMO CONCEITUAL"
+  echo "=============================================="
+  echo ""
+  echo "1. No divisor de TENSAO (serie):"
+  echo "   - Corrente e a MESMA em todos os resistores"
+  echo "   - Tensao se divide PROPORCIONALMENTE a R"
+  echo ""
+  echo "2. No divisor de CORRENTE (paralelo):"
+  echo "   - Tensao e a MESMA em todos os resistores"
+  echo "   - Corrente se divide INVERSAMENTE a R"
+  echo ""
+  echo "Arquivos gerados:"
+  echo "  - divisor_corrente_dc.png (grafico)"
+  echo "  - divisor_corrente.csv (dados)"
+  echo ""
+
+.endc
+
+.end

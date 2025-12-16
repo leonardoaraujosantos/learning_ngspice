@@ -1,0 +1,100 @@
+* =========================================================
+* colpitts_bc548.spice
+* Colpitts Oscillator ~ 1 MHz (BC548) - VCC = 10 V
+* Batch-friendly: salva CSV (tempo e FFT), sem necessidade de GUI/X11
+* =========================================================
+*
+* POR QUE USAR "uic"?
+* - Osciladores podem ficar travados no ponto DC perfeito.
+* - "uic" (Use Initial Conditions) pula o .op inicial do transiente,
+*   e usa as condições iniciais (IC= em C/L e/ou .ic) para iniciar.
+*
+* COMO GARANTIMOS STARTUP?
+* - Um pequeno IC= no capacitor C1 quebra simetria e dá o "kick" inicial.
+* =========================================================
+
+.options plotwinsize=0 reltol=1e-4 abstol=1e-12 vabstol=1e-6
+
+* ---------- Alimentação ----------
+VCC vcc 0 DC 10
+
+* ---------- Polarização DC do BJT ----------
+* Divisor de base (ajusta Vb). Valores típicos, pode ajustar conforme necessário.
+RB1 vcc b 47k
+RB2 b   0  10k
+
+* Base em AC-ground (estabiliza a base para o sinal)
+CB  b 0 100n
+
+* Emissor (define corrente DC e adiciona estabilização)
+RE  e 0 680
+
+* ---------- Transistor ----------
+Q1 c b e BC548
+
+* ---------- Tanque Colpitts ----------
+* Frequência aproximada:
+*   f0 ~ 1/(2*pi*sqrt(L * Ceq))
+*   Ceq = (C1*C2)/(C1 + C2)
+*
+* Com L=470uH, C1=100p, C2=120p -> Ceq ~ 54.5pF -> f ~ 1 MHz (aprox.)
+LTANK c 0 470u
+
+* Capacitores do divisor capacitivo (feedback)
+* IC= em C1 dá o "kick" de partida (inicializa tensão no capacitor)
+C1 c e 100p IC=200m
+C2 e 0 120p IC=0
+
+* ---------- Alimentação do coletor (isolando o tanque) ----------
+* Indutor de alimentação (RF choke) fornece DC ao coletor e alta impedância em 1 MHz
+LFEED vcc c 2.2m
+
+* Desacoplamento da fonte (essencial para estabilidade)
+CDECV vcc 0 10u
+CDECH vcc 0 100n
+
+* ---------- Saída (acoplada) ----------
+COUT c out 10n
+RLOAD out 0 10k
+
+* ---------- Modelo BC548 (aproximado) ----------
+.model BC548 NPN (
++ IS=1e-14 BF=200 VAF=100
++ CJE=8p CJC=3p
++ TF=0.35n TR=50n
++ RB=50 RE=0.5 RC=1
+)
+
+* ---------- Análise Transiente ----------
+* uic: pula OP e usa IC= para startup (bom para osciladores)
+.tran 0.1u 10m uic
+
+* ============================
+* CONTROLE (batch-friendly)
+* ============================
+.control
+  set noaskquit
+  run
+
+  * --- Salva dados no tempo em CSV ---
+  * Colunas: time, v(c), v(out)
+  wrdata colpitts_time.csv time v(c) v(out)
+
+  * --- FFT e salva em CSV ---
+  * Após fft, o eixo costuma aparecer como "frequency"
+  fft v(c)
+
+  * Magnitude em dB do espectro
+  let vc_db = db(v(c))
+  wrdata colpitts_fft.csv frequency vc_db
+
+  * --- Medição de período/frequência (mais robusta) ---
+  * Mede depois de 2ms para evitar a fase de start-up
+  meas tran TPER TRIG v(c) VAL=0 RISE=1 TARG v(c) VAL=0 RISE=2 FROM=2m
+  meas tran FOSC PARAM='1/TPER'
+
+  print TPER FOSC
+  quit
+.endc
+
+.end

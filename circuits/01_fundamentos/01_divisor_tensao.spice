@@ -1,0 +1,144 @@
+* =========================================================
+* DIVISOR DE TENSAO - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O divisor de tensao e um circuito fundamental que usa dois
+* resistores em serie para criar uma tensao de saida que e
+* uma fracao da tensao de entrada.
+*
+*        Vin
+*         |
+*        [R1]
+*         |
+*         +---- Vout
+*         |
+*        [R2]
+*         |
+*        GND
+*
+* FORMULA:
+* --------
+*   Vout = Vin * R2 / (R1 + R2)
+*
+* Exemplo numerico:
+*   Vin = 12V, R1 = 10k, R2 = 10k
+*   Vout = 12V * 10k / (10k + 10k) = 12V * 0.5 = 6V
+*
+* APLICACOES:
+* -----------
+* - Reducao de nivel de tensao
+* - Polarizacao de transistores
+* - Leitura de tensoes altas com ADC (microcontroladores)
+* - Ajuste de referencia de tensao
+*
+* =========================================================
+
+* ---------------------------------------------------------
+* EXEMPLO 1: Divisor simetrico (50/50)
+* Entrada: 12V, R1 = R2 = 10k
+* Saida esperada: 6V
+* ---------------------------------------------------------
+
+.subckt divisor_simetrico vin vout gnd
+R1 vin vout 10k
+R2 vout gnd 10k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: Divisor assimetrico (reducao para 1/4)
+* Entrada: 12V, R1 = 30k, R2 = 10k
+* Saida esperada: 12V * 10k/(30k+10k) = 3V
+* ---------------------------------------------------------
+
+.subckt divisor_quarto vin vout gnd
+R1 vin vout 30k
+R2 vout gnd 10k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: Divisor para leitura de bateria com ADC
+* Entrada: 0-20V (bateria), Saida: 0-3.3V (ADC)
+* R2/(R1+R2) = 3.3/20 = 0.165
+* Usando R1 = 100k, R2 = 19.76k (aprox 20k)
+* ---------------------------------------------------------
+
+.subckt divisor_adc vin vout gnd
+R1 vin vout 100k
+R2 vout gnd 20k
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE PRINCIPAL
+* =========================================================
+
+* Fonte de alimentacao de 12V
+Vin entrada 0 DC 12
+
+* Instanciando os tres divisores para comparar
+X1 entrada saida1 0 divisor_simetrico
+X2 entrada saida2 0 divisor_quarto
+X3 entrada saida3 0 divisor_adc
+
+* =========================================================
+* ANALISES
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=============================================="
+  echo "    DIVISOR DE TENSAO - Analise DC"
+  echo "=============================================="
+  echo ""
+
+  * Analise do ponto de operacao (DC)
+  op
+
+  echo "Tensao de entrada: " $&v(entrada) "V"
+  echo ""
+  echo "--- Divisor Simetrico (R1=R2=10k) ---"
+  echo "  Vout = " $&v(saida1) "V"
+  echo "  Esperado: 6.0V (12V * 10k/20k)"
+  echo ""
+  echo "--- Divisor 1/4 (R1=30k, R2=10k) ---"
+  echo "  Vout = " $&v(saida2) "V"
+  echo "  Esperado: 3.0V (12V * 10k/40k)"
+  echo ""
+  echo "--- Divisor ADC (R1=100k, R2=20k) ---"
+  echo "  Vout = " $&v(saida3) "V"
+  echo "  Esperado: 2.0V (12V * 20k/120k)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Variacao da tensao de entrada (sweep DC)
+  * ---------------------------------------------------------
+  echo "=============================================="
+  echo "    Sweep DC: Variando Vin de 0V a 20V"
+  echo "=============================================="
+
+  dc Vin 0 20 0.5
+
+  * Plotar a relacao entrada/saida
+  plot v(entrada) v(saida1) v(saida2) v(saida3) title 'Divisores de Tensao - Comparacao'
+
+  * Salvar grafico
+  set hcopydevtype=png
+  hardcopy divisor_tensao_dc.png v(entrada) v(saida1) v(saida2) v(saida3)
+
+  * Exportar dados para CSV
+  set filetype=ascii
+  set wr_vecnames
+  wrdata divisor_tensao.csv v(entrada) v(saida1) v(saida2) v(saida3)
+
+  echo ""
+  echo "Arquivos gerados:"
+  echo "  - divisor_tensao_dc.png (grafico)"
+  echo "  - divisor_tensao.csv (dados)"
+  echo ""
+
+.endc
+
+.end

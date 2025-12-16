@@ -1,0 +1,70 @@
+* ==========================================================
+* EXEMPLO: Seção .control com run, plot, print, Bode, sweep
+*          e exportação CSV (wrdata)
+* Circuito: Filtro RC passa-baixa
+*
+* Vin -> R -> Vout, e C de Vout para GND
+* ==========================================================
+
+***************
+* Circuito    *
+***************
+.param R=1k
+.param C=100n
+
+V1 in 0 DC 1 AC 1
+R1 in out {R}
+C1 out 0 {C}
+
+***************
+* Controle    *
+***************
+.control
+  * ---- Ajustes úteis para exportação ----
+  set filetype=ascii
+  set wr_vecnames
+  set wr_singlescale
+
+  echo "===== (1) PONTO DE OPERACAO (.op) ====="
+  op
+  * print (console): tensões e corrente na fonte
+  print v(in) v(out) i(v1)
+
+  echo "===== (2) BODE PLOT (.ac) ====="
+  * varredura log: 100 pontos por década, 10 Hz a 1 MHz
+  ac dec 100 10 1Meg
+
+  * Gráficos "legais" típicos de Bode:
+  * magnitude em dB e fase em graus
+  plot db(v(out)) phase(v(out))
+
+  * Exporta CSV do Bode
+  * Colunas: freq, mag_db, fase_deg
+  wrdata bode.csv frequency db(v(out)) phase(v(out))
+
+  echo "===== (3) TRANSIENTE (.tran) - resposta ao degrau ====="
+  * Para um degrau: fonte DC já é 1V; vamos “subir” em t=0 com PULSE:
+  alter @v1[dc]=0
+  alter V1 PULSE(0 1 0 1u 1u 5m 10m)
+  tran 10u 20m
+
+  plot v(in) v(out)
+  wrdata tran.csv time v(in) v(out)
+
+  echo "===== (4) SWEEP DE PARAMETRO (R) com export por rodada ====="
+  * Volta a fonte para AC/DC simples antes do sweep AC
+  alter V1 DC 1 AC 1
+  reset
+
+  * Varre R em alguns valores e gera um CSV por valor
+  foreach rval 500 1k 2k 5k 10k
+    alterparam R = $rval
+    ac dec 100 10 1Meg
+    plot db(v(out))     ; sobrepõe curvas no mesmo gráfico
+    wrdata bode_R_$rval.csv frequency db(v(out)) phase(v(out))
+  end
+
+  echo "FIM: CSV gerados: bode.csv, tran.csv, bode_R_*.csv"
+.endc
+
+.end
