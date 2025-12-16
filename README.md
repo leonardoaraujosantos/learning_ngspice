@@ -7,7 +7,12 @@ Repositorio para aprendizado de simulacao de circuitos eletronicos usando **ngsp
 ```
 learning_ngspice/
 ├── circuits/
-│   ├── 01_fundamentos/           # Circuitos basicos
+│   ├── 00_esquematicos/          # Circuitos simples para gerar esquematicos
+│   │   ├── divisor_tensao.spice
+│   │   ├── divisor_corrente.spice
+│   │   ├── filtro_rc.spice
+│   │   └── amplificador_ec.spice
+│   ├── 01_fundamentos/           # Circuitos didaticos com teoria
 │   │   ├── 01_divisor_tensao.spice
 │   │   └── 02_divisor_corrente.spice
 │   ├── 02_filtros/               # Filtros passivos e ativos
@@ -80,19 +85,70 @@ cargo install just
 ### LaTeX (para esquematicos de alta qualidade)
 
 O script `spice_to_schematic.py` usa **lcapy** + **circuitikz** para gerar esquematicos profissionais.
+LaTeX e **obrigatorio** para gerar os esquematicos com simbolos corretos.
 
-**macOS:**
+#### macOS
+
+**Opcao 1: BasicTeX (recomendado, ~100MB)**
+```bash
+brew install --cask basictex
+
+# Adicionar ao PATH (ou reinicie o terminal)
+eval "$(/usr/libexec/path_helper)"
+
+# Instalar pacotes necessarios
+sudo tlmgr update --self
+sudo tlmgr install circuitikz pgf standalone dvipng
+```
+
+**Opcao 2: MacTeX completo (~4GB)**
 ```bash
 brew install --cask mactex
+
+# Reinicie o terminal apos a instalacao
 ```
 
-**Ubuntu/Debian:**
+#### Ubuntu/Debian
+
 ```bash
-sudo apt install texlive-pictures texlive-latex-extra
+sudo apt update
+sudo apt install texlive-latex-base texlive-pictures texlive-latex-extra dvipng
 ```
 
-**Windows:**
-Instale MiKTeX: https://miktex.org/download
+#### Fedora/RHEL
+
+```bash
+sudo dnf install texlive-scheme-basic texlive-circuitikz texlive-standalone dvipng
+```
+
+#### Arch Linux
+
+```bash
+sudo pacman -S texlive-basic texlive-pictures texlive-latexextra
+```
+
+#### Windows
+
+**Opcao 1: MiKTeX (recomendado)**
+1. Baixe o instalador em: https://miktex.org/download
+2. Execute o instalador e siga as instrucoes
+3. Abra o MiKTeX Console e instale os pacotes: `circuitikz`, `pgf`, `standalone`
+
+**Opcao 2: TeX Live**
+1. Baixe em: https://tug.org/texlive/windows.html
+2. Execute o instalador
+3. Selecione os pacotes: `circuitikz`, `pgf`, `standalone`
+
+#### Verificar instalacao
+
+Apos instalar, verifique se o LaTeX esta funcionando:
+```bash
+just check
+# Deve mostrar: ✓ LaTeX instalado
+
+# Ou manualmente:
+pdflatex --version
+```
 
 ## Comandos (just)
 
@@ -187,24 +243,37 @@ just full-all
 
 ## Conteudo dos Circuitos
 
-### 01_fundamentos
+### 00_esquematicos
+
+Circuitos simples (sem subcircuitos) otimizados para geracao de esquematicos PNG.
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `01_divisor_tensao.spice` | Teoria e exemplos de divisores de tensao |
-| `02_divisor_corrente.spice` | Teoria e exemplos de divisores de corrente |
+| `divisor_tensao.spice` | Divisor de tensao basico (Vin-R1-R2-GND) |
+| `divisor_corrente.spice` | Fonte de corrente com resistores em paralelo |
+| `filtro_rc.spice` | Filtro RC passa-baixa simples |
+| `amplificador_ec.spice` | Amplificador emissor comum com BC548 |
+
+### 01_fundamentos
+
+Circuitos didaticos com teoria explicada nos comentarios e uso de subcircuitos.
+
+| Arquivo | Descricao |
+|---------|-----------|
+| `01_divisor_tensao.spice` | Teoria completa e 3 exemplos de divisores de tensao |
+| `02_divisor_corrente.spice` | Teoria completa e exemplos de divisores de corrente |
 
 ### 02_filtros
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `filtro_rc_passa_baixa.spice` | Filtro RC com analise Bode e sweep |
+| `filtro_rc_passa_baixa.spice` | Filtro RC com analise Bode e sweep de parametros |
 
 ### 03_osciladores
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `colpitts_bc548.spice` | Oscilador Colpitts ~1MHz com BC548 |
+| `colpitts_bc548.spice` | Oscilador Colpitts ~1MHz com transistor BC548 |
 
 ## Scripts
 
