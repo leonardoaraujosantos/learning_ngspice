@@ -1,0 +1,203 @@
+# Justfile para learning_ngspice
+# Uso: just <comando>
+
+# Variaveis
+python := "uv run python"
+ngspice := "ngspice"
+
+# Comando padrao - mostra ajuda
+default:
+    @just --list
+
+# =============================================================================
+# SETUP
+# =============================================================================
+
+# Instala dependencias com uv
+setup:
+    uv sync
+    @echo "Dependencias instaladas!"
+    @echo "Certifique-se de ter ngspice e LaTeX instalados:"
+    @echo "  macOS: brew install ngspice && brew install --cask mactex"
+    @echo "  Ubuntu: sudo apt install ngspice texlive-pictures texlive-latex-extra"
+
+# Verifica se todas as dependencias estao instaladas
+check:
+    @echo "Verificando dependencias..."
+    @which ngspice > /dev/null && echo "✓ ngspice instalado" || echo "✗ ngspice NAO encontrado"
+    @which pdflatex > /dev/null && echo "✓ LaTeX instalado" || echo "✗ LaTeX NAO encontrado (necessario para esquematicos)"
+    @{{python}} -c "import matplotlib; print('✓ matplotlib', matplotlib.__version__)" 2>/dev/null || echo "✗ matplotlib NAO encontrado"
+    @{{python}} -c "import numpy; print('✓ numpy', numpy.__version__)" 2>/dev/null || echo "✗ numpy NAO encontrado"
+    @{{python}} -c "import lcapy; print('✓ lcapy', lcapy.__version__)" 2>/dev/null || echo "✗ lcapy NAO encontrado"
+
+# =============================================================================
+# SIMULACAO
+# =============================================================================
+
+# Simula um circuito especifico (modo interativo)
+sim file:
+    {{ngspice}} {{file}}
+
+# Simula um circuito em modo batch (sem interface)
+sim-batch file:
+    {{ngspice}} -b {{file}}
+
+# Simula todos os circuitos de fundamentos
+sim-fundamentos:
+    @echo "Simulando circuitos de fundamentos..."
+    {{ngspice}} -b circuits/01_fundamentos/01_divisor_tensao.spice
+    {{ngspice}} -b circuits/01_fundamentos/02_divisor_corrente.spice
+    @echo "Concluido!"
+
+# Simula todos os circuitos de filtros
+sim-filtros:
+    @echo "Simulando circuitos de filtros..."
+    {{ngspice}} -b circuits/02_filtros/filtro_rc_passa_baixa.spice
+    @echo "Concluido!"
+
+# Simula todos os circuitos de osciladores
+sim-osciladores:
+    @echo "Simulando circuitos de osciladores..."
+    {{ngspice}} -b circuits/03_osciladores/colpitts_bc548.spice
+    @echo "Concluido!"
+
+# Simula TODOS os circuitos do projeto
+sim-all: sim-fundamentos sim-filtros sim-osciladores
+    @echo "Todas as simulacoes concluidas!"
+
+# =============================================================================
+# ESQUEMATICOS
+# =============================================================================
+
+# Gera esquematico PNG de um arquivo SPICE
+schematic file:
+    {{python}} scripts/spice_to_schematic.py {{file}}
+
+# Gera esquematico com modo verbose
+schematic-verbose file:
+    {{python}} scripts/spice_to_schematic.py -v {{file}}
+
+# Gera esquematicos de todos os circuitos de fundamentos
+schematic-fundamentos:
+    @echo "Gerando esquematicos de fundamentos..."
+    {{python}} scripts/spice_to_schematic.py circuits/01_fundamentos/
+
+# Gera esquematicos de todos os circuitos de filtros
+schematic-filtros:
+    @echo "Gerando esquematicos de filtros..."
+    {{python}} scripts/spice_to_schematic.py circuits/02_filtros/
+
+# Gera esquematicos de todos os circuitos de osciladores
+schematic-osciladores:
+    @echo "Gerando esquematicos de osciladores..."
+    {{python}} scripts/spice_to_schematic.py circuits/03_osciladores/
+
+# Gera TODOS os esquematicos do projeto
+schematic-all: schematic-fundamentos schematic-filtros schematic-osciladores
+    @echo "Todos os esquematicos gerados!"
+
+# =============================================================================
+# GRAFICOS CSV -> PNG
+# =============================================================================
+
+# Converte CSV para PNG
+csv file:
+    {{python}} scripts/csv_to_png.py {{file}}
+
+# Converte todos os CSVs de um diretorio
+csv-dir dir:
+    {{python}} scripts/csv_to_png.py {{dir}}
+
+# Converte todos os CSVs do projeto
+csv-all:
+    @echo "Convertendo todos os CSVs para PNG..."
+    {{python}} scripts/csv_to_png.py circuits/
+    @echo "Conversao concluida!"
+
+# =============================================================================
+# WORKFLOWS COMPLETOS
+# =============================================================================
+
+# Simula um circuito e gera graficos dos CSVs
+run file:
+    @echo "=== Simulando {{file}} ==="
+    {{ngspice}} -b {{file}}
+    @echo "=== Convertendo CSVs para PNG ==="
+    {{python}} scripts/csv_to_png.py $(dirname {{file}})/
+    @echo "=== Concluido! ==="
+
+# Workflow completo: simula, gera CSVs->PNG e esquematico
+full file:
+    @echo "=== Workflow completo para {{file}} ==="
+    @echo "1. Simulando..."
+    {{ngspice}} -b {{file}}
+    @echo "2. Gerando graficos dos CSVs..."
+    {{python}} scripts/csv_to_png.py $(dirname {{file}})/ || true
+    @echo "3. Gerando esquematico..."
+    {{python}} scripts/spice_to_schematic.py {{file}}
+    @echo "=== Workflow concluido! ==="
+
+# Executa workflow completo em TODOS os circuitos
+full-all:
+    @echo "=== Workflow completo para todos os circuitos ==="
+    just sim-all
+    just csv-all
+    just schematic-all
+    @echo "=== Todos os workflows concluidos! ==="
+
+# =============================================================================
+# LIMPEZA
+# =============================================================================
+
+# Remove arquivos gerados (CSVs, PNGs, RAWs)
+clean:
+    @echo "Removendo arquivos gerados..."
+    find circuits/ -name "*.csv" -delete 2>/dev/null || true
+    find circuits/ -name "*.png" -delete 2>/dev/null || true
+    find circuits/ -name "*.raw" -delete 2>/dev/null || true
+    @echo "Limpeza concluida!"
+
+# Remove apenas CSVs
+clean-csv:
+    find circuits/ -name "*.csv" -delete 2>/dev/null || true
+    @echo "CSVs removidos!"
+
+# Remove apenas PNGs
+clean-png:
+    find circuits/ -name "*.png" -delete 2>/dev/null || true
+    @echo "PNGs removidos!"
+
+# =============================================================================
+# DESENVOLVIMENTO
+# =============================================================================
+
+# Formata codigo Python
+fmt:
+    uv run black scripts/
+
+# Lint do codigo Python
+lint:
+    uv run ruff check scripts/
+
+# Executa testes
+test:
+    uv run pytest
+
+# =============================================================================
+# EXEMPLOS RAPIDOS
+# =============================================================================
+
+# Exemplo: divisor de tensao
+exemplo-divisor:
+    @echo "=== Exemplo: Divisor de Tensao ==="
+    just full circuits/01_fundamentos/01_divisor_tensao.spice
+
+# Exemplo: filtro RC
+exemplo-filtro:
+    @echo "=== Exemplo: Filtro RC Passa-Baixa ==="
+    just full circuits/02_filtros/filtro_rc_passa_baixa.spice
+
+# Exemplo: oscilador Colpitts
+exemplo-colpitts:
+    @echo "=== Exemplo: Oscilador Colpitts ==="
+    just full circuits/03_osciladores/colpitts_bc548.spice

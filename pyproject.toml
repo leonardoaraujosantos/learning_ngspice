@@ -1,0 +1,27 @@
+[project]
+name = "learning-ngspice"
+version = "0.1.0"
+description = "Repositorio para aprendizado de simulacao de circuitos com ngspice e SPICE"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "matplotlib>=3.7",
+    "numpy>=1.24",
+    "lcapy>=1.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "ruff>=0.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "ruff>=0.1",
+]

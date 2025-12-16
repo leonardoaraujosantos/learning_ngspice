@@ -1,149 +1,247 @@
 # Learning ngspice
 
-Repositorio dedicado ao aprendizado de simulacao de circuitos eletronicos usando **ngspice** e a linguagem **SPICE**.
-
-## O que e ngspice?
-
-O [ngspice](http://ngspice.sourceforge.net/) e um simulador de circuitos de codigo aberto baseado no SPICE (Simulation Program with Integrated Circuit Emphasis), originalmente desenvolvido na UC Berkeley. E amplamente utilizado para:
-
-- Simulacao de circuitos analogicos e digitais
-- Analise DC, AC e transiente
-- Projeto e verificacao de circuitos antes da montagem fisica
+Repositorio para aprendizado de simulacao de circuitos eletronicos usando **ngspice** e a linguagem **SPICE**.
 
 ## Estrutura do Projeto
 
 ```
 learning_ngspice/
 ├── circuits/
-│   ├── 01_fundamentos/        # Circuitos basicos
+│   ├── 01_fundamentos/           # Circuitos basicos
 │   │   ├── 01_divisor_tensao.spice
 │   │   └── 02_divisor_corrente.spice
-│   ├── 02_filtros/            # Filtros passivos e ativos
+│   ├── 02_filtros/               # Filtros passivos e ativos
 │   │   └── filtro_rc_passa_baixa.spice
-│   └── 03_osciladores/        # Circuitos osciladores
+│   └── 03_osciladores/           # Circuitos osciladores
 │       └── colpitts_bc548.spice
-├── docs/                      # Documentacao e tutoriais
-│   └── tutorial_spice.md
-├── scripts/                   # Scripts utilitarios
-│   └── csv_to_png.py          # Converte CSV para graficos PNG
-├── LICENSE
+├── docs/
+│   └── tutorial_spice.md         # Tutorial completo da linguagem SPICE
+├── scripts/
+│   ├── csv_to_png.py             # Converte CSV para graficos PNG
+│   └── spice_to_schematic.py     # Gera esquematico PNG (usa lcapy)
+├── justfile                      # Comandos de automacao
+├── pyproject.toml                # Dependencias Python (uv)
 └── README.md
+```
+
+## Quick Start
+
+```bash
+# 1. Instalar dependencias
+just setup
+
+# 2. Verificar instalacao
+just check
+
+# 3. Rodar um exemplo completo (simula + graficos + esquematico)
+just exemplo-divisor
 ```
 
 ## Pre-requisitos
 
-### Instalacao do ngspice
+### ngspice
 
-**macOS (Homebrew):**
+**macOS:**
 ```bash
 brew install ngspice
 ```
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt-get install ngspice
-```
-
-**Fedora:**
-```bash
-sudo dnf install ngspice
+sudo apt install ngspice
 ```
 
 **Windows:**
-Baixe o instalador em: http://ngspice.sourceforge.net/download.html
+Baixe em: http://ngspice.sourceforge.net/download.html
 
-### Python (para scripts)
+### uv (gerenciador de pacotes Python)
 
 ```bash
-pip install matplotlib numpy
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-## Como Executar
+### just (command runner)
 
-### Modo interativo
 ```bash
-ngspice circuits/01_fundamentos/01_divisor_tensao.spice
+# macOS
+brew install just
+
+# Ubuntu/Debian
+sudo apt install just
+
+# Cargo
+cargo install just
 ```
 
-### Modo batch (sem interface)
+### LaTeX (para esquematicos de alta qualidade)
+
+O script `spice_to_schematic.py` usa **lcapy** + **circuitikz** para gerar esquematicos profissionais.
+
+**macOS:**
 ```bash
-ngspice -b circuits/01_fundamentos/01_divisor_tensao.spice
+brew install --cask mactex
 ```
 
-### Executar e sair automaticamente
+**Ubuntu/Debian:**
 ```bash
-ngspice -b -r output.raw circuits/01_fundamentos/01_divisor_tensao.spice
+sudo apt install texlive-pictures texlive-latex-extra
 ```
 
-## Conteudo dos Exemplos
+**Windows:**
+Instale MiKTeX: https://miktex.org/download
+
+## Comandos (just)
+
+### Setup
+
+| Comando | Descricao |
+|---------|-----------|
+| `just setup` | Instala dependencias Python com uv |
+| `just check` | Verifica se todas as dependencias estao instaladas |
+
+### Simulacao
+
+| Comando | Descricao |
+|---------|-----------|
+| `just sim <arquivo>` | Simula circuito (modo interativo) |
+| `just sim-batch <arquivo>` | Simula circuito (modo batch) |
+| `just sim-fundamentos` | Simula todos os circuitos de fundamentos |
+| `just sim-filtros` | Simula todos os filtros |
+| `just sim-osciladores` | Simula todos os osciladores |
+| `just sim-all` | Simula TODOS os circuitos |
+
+### Esquematicos
+
+| Comando | Descricao |
+|---------|-----------|
+| `just schematic <arquivo>` | Gera esquematico PNG de um arquivo |
+| `just schematic-verbose <arquivo>` | Gera com informacoes detalhadas |
+| `just schematic-all` | Gera esquematicos de TODOS os circuitos |
+
+### Graficos (CSV -> PNG)
+
+| Comando | Descricao |
+|---------|-----------|
+| `just csv <arquivo>` | Converte CSV para PNG |
+| `just csv-dir <diretorio>` | Converte todos CSVs de um diretorio |
+| `just csv-all` | Converte TODOS os CSVs do projeto |
+
+### Workflows Completos
+
+| Comando | Descricao |
+|---------|-----------|
+| `just run <arquivo>` | Simula + converte CSVs |
+| `just full <arquivo>` | Simula + CSVs + esquematico |
+| `just full-all` | Workflow completo em TODOS os circuitos |
+
+### Exemplos Rapidos
+
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-divisor` | Exemplo: divisor de tensao |
+| `just exemplo-filtro` | Exemplo: filtro RC passa-baixa |
+| `just exemplo-colpitts` | Exemplo: oscilador Colpitts |
+
+### Limpeza
+
+| Comando | Descricao |
+|---------|-----------|
+| `just clean` | Remove todos os arquivos gerados |
+| `just clean-csv` | Remove apenas CSVs |
+| `just clean-png` | Remove apenas PNGs |
+
+## Exemplos de Uso
+
+### Simular um circuito especifico
+
+```bash
+# Modo interativo (com graficos)
+just sim circuits/01_fundamentos/01_divisor_tensao.spice
+
+# Modo batch (sem interface)
+just sim-batch circuits/01_fundamentos/01_divisor_tensao.spice
+```
+
+### Gerar esquematico
+
+```bash
+just schematic circuits/01_fundamentos/01_divisor_tensao.spice
+```
+
+### Workflow completo
+
+```bash
+# Simula, gera graficos dos CSVs e esquematico
+just full circuits/02_filtros/filtro_rc_passa_baixa.spice
+```
+
+### Processar todos os circuitos
+
+```bash
+just full-all
+```
+
+## Conteudo dos Circuitos
 
 ### 01_fundamentos
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `01_divisor_tensao.spice` | Teoria e exemplos praticos de divisores de tensao |
+| `01_divisor_tensao.spice` | Teoria e exemplos de divisores de tensao |
 | `02_divisor_corrente.spice` | Teoria e exemplos de divisores de corrente |
 
 ### 02_filtros
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `filtro_rc_passa_baixa.spice` | Filtro RC com analise Bode, sweep de parametros e exportacao CSV |
+| `filtro_rc_passa_baixa.spice` | Filtro RC com analise Bode e sweep |
 
 ### 03_osciladores
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `colpitts_bc548.spice` | Oscilador Colpitts ~1MHz com transistor BC548 |
+| `colpitts_bc548.spice` | Oscilador Colpitts ~1MHz com BC548 |
 
-## Documentacao
-
-Consulte o tutorial completo da linguagem SPICE em:
-- [Tutorial SPICE](docs/tutorial_spice.md)
-
-## Scripts Utilitarios
+## Scripts
 
 ### csv_to_png.py
 
-Converte arquivos CSV gerados pelo ngspice em graficos PNG de alta qualidade.
+Converte arquivos CSV gerados pelo ngspice em graficos PNG.
 
-```bash
-# Processar todos os CSVs em circuits/
-python scripts/csv_to_png.py
+- Detecta automaticamente tipo de dados (tempo, frequencia, DC)
+- Ajusta escalas (ms, us, ns; log para frequencia)
+- Reconhece unidades pelos nomes das colunas
 
-# Processar arquivo especifico
-python scripts/csv_to_png.py circuits/01_fundamentos/divisor_tensao.csv
+### spice_to_schematic.py
 
-# Processar CSVs em um diretorio
-python scripts/csv_to_png.py circuits/01_fundamentos/
+Gera esquematicos PNG a partir de arquivos SPICE usando **lcapy**.
 
-# Modo verbose
-python scripts/csv_to_png.py -v
-```
+Componentes suportados:
+- **R** - Resistores
+- **C** - Capacitores
+- **L** - Indutores
+- **D** - Diodos
+- **Q** - BJT (NPN/PNP)
+- **M** - MOSFET (NMOS/PMOS)
+- **J** - JFET
+- **V** - Fontes de tensao
+- **I** - Fontes de corrente
+- **X** - Subcircuitos / Op-Amps
 
-O script detecta automaticamente:
-- Tipo de dados (tempo, frequencia, DC sweep)
-- Escala apropriada (ms, us, ns para tempo; log para frequencia)
-- Unidades (V, mA, dB, graus)
+## Documentacao
 
-## Comandos Uteis do ngspice
-
-```spice
-* Dentro do ngspice (modo interativo):
-help              ; lista de comandos
-source file.spice ; carrega um arquivo
-run               ; executa a simulacao
-plot v(out)       ; plota tensao no no 'out'
-print all         ; imprime todos os valores
-quit              ; sai do ngspice
-```
+- [Tutorial SPICE](docs/tutorial_spice.md) - Tutorial completo da linguagem SPICE
 
 ## Referencias
 
 - [Manual do ngspice](http://ngspice.sourceforge.net/docs.html)
-- [SPICE Quick Reference](http://bwrcs.eecs.berkeley.edu/Classes/IcsBook/SPICE/)
-- [ngspice User Manual (PDF)](http://ngspice.sourceforge.net/docs/ngspice-manual.pdf)
+- [lcapy Documentation](https://lcapy.readthedocs.io/)
+- [Circuitikz Manual](https://ctan.org/pkg/circuitikz)
 
 ## Licenca
 
-Este projeto esta licenciado sob a licenca MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+MIT - veja [LICENSE](LICENSE)
