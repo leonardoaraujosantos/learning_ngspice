@@ -20,7 +20,6 @@ Componentes suportados:
     J  - JFET (NJF/PJF)
     V  - Fonte de tensao
     I  - Fonte de corrente
-    X  - Subcircuito / Op-Amp
 """
 
 import sys
@@ -46,38 +45,29 @@ except ImportError:
 class SpiceComponent:
     """Representa um componente do circuito SPICE."""
 
-    def __init__(self, name, comp_type, nodes, value=None, model=None, params=None):
+    def __init__(self, name, comp_type, nodes, value=None, model=None):
         self.name = name
         self.comp_type = comp_type
         self.nodes = nodes
         self.value = value
         self.model = model
-        self.params = params or {}
 
     def __repr__(self):
-        return f"{self.comp_type}:{self.name}({self.nodes}) = {self.value}"
+        return f"{self.comp_type}:{self.name}({self.nodes}) = {self.value or self.model}"
 
 
 def parse_value(value_str):
     """Converte string de valor SPICE para formato legivel."""
     if not value_str:
         return ""
-
     value_str = value_str.strip()
-
-    # Remover chaves de expressao
     if value_str.startswith('{') and value_str.endswith('}'):
         return value_str[1:-1]
-
-    # Manter sufixos SPICE como estao (1k, 100n, etc.)
     return value_str
 
 
 def parse_spice_file(filepath):
-    """
-    Parseia arquivo SPICE e retorna lista de componentes.
-    Ignora componentes dentro de .subckt (apenas pega o circuito principal).
-    """
+    """Parseia arquivo SPICE e retorna lista de componentes."""
     components = []
     title = ""
     in_subckt = False
@@ -89,7 +79,6 @@ def parse_spice_file(filepath):
     if not lines:
         return components, title
 
-    # Primeira linha e o titulo
     title = lines[0].strip()
     if title.startswith('*'):
         title = title[1:].strip()
@@ -109,21 +98,17 @@ def parse_spice_file(filepath):
     if current_line:
         joined_lines.append(current_line)
 
-    # Parsear cada linha
     for line in joined_lines:
         line = line.strip()
 
-        # Ignorar comentarios e linhas vazias
         if not line or line.startswith('*'):
             continue
 
-        # Remover comentario inline
         if ';' in line:
             line = line[:line.index(';')].strip()
         if not line:
             continue
 
-        # Verificar diretivas
         line_upper = line.upper()
 
         if line_upper.startswith('.SUBCKT'):
@@ -139,7 +124,6 @@ def parse_spice_file(filepath):
             in_control = False
             continue
 
-        # Ignorar outras diretivas e conteudo de subckt/control
         if line.startswith('.') or in_subckt or in_control:
             continue
 
@@ -151,50 +135,36 @@ def parse_spice_file(filepath):
         comp_type = name[0]
 
         try:
-            if comp_type == 'R':
-                nodes = [parts[1].lower(), parts[2].lower()]
+            if comp_type in ['R', 'C', 'L']:
+                nodes = [parts[1], parts[2]]
                 value = parse_value(parts[3]) if len(parts) > 3 else ""
-                components.append(SpiceComponent(name, 'R', nodes, value))
-
-            elif comp_type == 'C':
-                nodes = [parts[1].lower(), parts[2].lower()]
-                value = parse_value(parts[3]) if len(parts) > 3 else ""
-                components.append(SpiceComponent(name, 'C', nodes, value))
-
-            elif comp_type == 'L':
-                nodes = [parts[1].lower(), parts[2].lower()]
-                value = parse_value(parts[3]) if len(parts) > 3 else ""
-                components.append(SpiceComponent(name, 'L', nodes, value))
+                components.append(SpiceComponent(name, comp_type, nodes, value))
 
             elif comp_type == 'D':
-                nodes = [parts[1].lower(), parts[2].lower()]
+                nodes = [parts[1], parts[2]]
                 model = parts[3] if len(parts) > 3 else ""
                 components.append(SpiceComponent(name, 'D', nodes, model=model))
 
             elif comp_type == 'Q':
-                # Qnome coletor base emissor modelo
                 if len(parts) >= 5:
-                    nodes = [parts[1].lower(), parts[2].lower(), parts[3].lower()]
+                    nodes = [parts[1], parts[2], parts[3]]  # C, B, E
                     model = parts[4]
                     components.append(SpiceComponent(name, 'Q', nodes, model=model))
 
             elif comp_type == 'M':
-                # Mnome drain gate source bulk modelo
                 if len(parts) >= 6:
-                    nodes = [parts[1].lower(), parts[2].lower(), parts[3].lower(), parts[4].lower()]
+                    nodes = [parts[1], parts[2], parts[3], parts[4]]  # D, G, S, B
                     model = parts[5]
                     components.append(SpiceComponent(name, 'M', nodes, model=model))
 
             elif comp_type == 'J':
-                # Jnome drain gate source modelo
                 if len(parts) >= 5:
-                    nodes = [parts[1].lower(), parts[2].lower(), parts[3].lower()]
+                    nodes = [parts[1], parts[2], parts[3]]  # D, G, S
                     model = parts[4]
                     components.append(SpiceComponent(name, 'J', nodes, model=model))
 
             elif comp_type == 'V':
-                nodes = [parts[1].lower(), parts[2].lower()]
-                # Extrair valor DC
+                nodes = [parts[1], parts[2]]
                 value = ""
                 rest = ' '.join(parts[3:]).upper()
                 dc_match = re.search(r'DC\s+([^\s]+)', rest)
@@ -205,7 +175,7 @@ def parse_spice_file(filepath):
                 components.append(SpiceComponent(name, 'V', nodes, value))
 
             elif comp_type == 'I':
-                nodes = [parts[1].lower(), parts[2].lower()]
+                nodes = [parts[1], parts[2]]
                 value = ""
                 rest = ' '.join(parts[3:]).upper()
                 dc_match = re.search(r'DC\s+([^\s]+)', rest)
@@ -214,20 +184,6 @@ def parse_spice_file(filepath):
                 elif len(parts) > 3 and parts[3].upper() not in ['AC', 'PULSE', 'SIN', 'PWL']:
                     value = parse_value(parts[3])
                 components.append(SpiceComponent(name, 'I', nodes, value))
-
-            elif comp_type == 'X':
-                # Xnome no1 no2 ... subckt_name
-                # Ultimo item (antes de params) e o nome do subcircuito
-                nodes = []
-                subckt_name = None
-                for i, p in enumerate(parts[1:], 1):
-                    if '=' in p or p.upper() == 'PARAMS:':
-                        break
-                    nodes.append(p.lower())
-                if nodes:
-                    subckt_name = nodes.pop()  # Ultimo e o nome do subcircuito
-                if subckt_name:
-                    components.append(SpiceComponent(name, 'X', nodes, model=subckt_name))
 
         except (IndexError, ValueError):
             continue
@@ -240,209 +196,224 @@ def parse_spice_file(filepath):
 # =============================================================================
 
 def normalize_node(node):
-    """Normaliza nome de no para lcapy (sem caracteres especiais)."""
-    node = str(node).lower()
-    # lcapy usa numeros para nos, mas aceita nomes
-    # Substituir caracteres problematicos
+    """Normaliza nome de no para lcapy."""
+    node = str(node).lower().strip()
+    # Substituir 0 por 0 (terra)
+    if node == '0' or node == 'gnd':
+        return '0'
+    # Remover caracteres invalidos
     node = re.sub(r'[^a-z0-9_]', '_', node)
+    # Garantir que nao comeca com numero (exceto 0)
+    if node and node[0].isdigit() and node != '0':
+        node = 'n' + node
     return node
 
 
-def build_node_graph(components):
-    """Constroi grafo de conexoes entre nos."""
-    graph = defaultdict(set)
-    for comp in components:
-        nodes = [normalize_node(n) for n in comp.nodes]
-        for i, n1 in enumerate(nodes):
-            for n2 in nodes[i+1:]:
-                graph[n1].add(n2)
-                graph[n2].add(n1)
-    return graph
-
-
-def assign_positions(components):
-    """
-    Atribui posicoes e orientacoes aos componentes.
-    Retorna dict {comp_name: (x, y, direction)}
-    """
-    positions = {}
-    node_pos = {'0': (0, 0)}  # GND no centro-baixo
-
-    # Primeira passada: posicionar nos conectados ao GND
-    gnd_connected = []
-    other_comps = []
-
-    for comp in components:
-        nodes = [normalize_node(n) for n in comp.nodes]
-        if '0' in nodes:
-            gnd_connected.append(comp)
-        else:
-            other_comps.append(comp)
-
-    # Posicionar componentes conectados ao GND em linha horizontal
-    x_offset = 0
-    for comp in gnd_connected:
-        nodes = [normalize_node(n) for n in comp.nodes]
-        other_node = [n for n in nodes if n != '0'][0] if len(nodes) > 1 else nodes[0]
-
-        if other_node not in node_pos:
-            node_pos[other_node] = (x_offset, 2)
-
-        positions[comp.name] = {
-            'from': other_node,
-            'to': '0',
-            'dir': 'down'
-        }
-        x_offset += 3
-
-    # Posicionar outros componentes
-    for comp in other_comps:
-        nodes = [normalize_node(n) for n in comp.nodes]
-
-        # Encontrar no ja posicionado
-        known = [n for n in nodes if n in node_pos]
-        unknown = [n for n in nodes if n not in node_pos]
-
-        if known and unknown:
-            base = known[0]
-            base_x, base_y = node_pos[base]
-
-            for i, n in enumerate(unknown):
-                node_pos[n] = (base_x + 3 * (i + 1), base_y)
-
-            positions[comp.name] = {
-                'from': nodes[0],
-                'to': nodes[1] if len(nodes) > 1 else nodes[0],
-                'dir': 'right'
-            }
-        elif len(known) >= 2:
-            # Ambos nos conhecidos
-            n1, n2 = nodes[0], nodes[1]
-            x1, y1 = node_pos.get(n1, (0, 0))
-            x2, y2 = node_pos.get(n2, (1, 0))
-
-            if abs(x2 - x1) > abs(y2 - y1):
-                direction = 'right' if x2 > x1 else 'left'
-            else:
-                direction = 'up' if y2 > y1 else 'down'
-
-            positions[comp.name] = {
-                'from': n1,
-                'to': n2,
-                'dir': direction
-            }
-        else:
-            # Nenhum no conhecido - criar novos
-            for n in nodes:
-                if n not in node_pos:
-                    node_pos[n] = (x_offset, 2)
-                    x_offset += 3
-
-            if len(nodes) >= 2:
-                positions[comp.name] = {
-                    'from': nodes[0],
-                    'to': nodes[1],
-                    'dir': 'right'
-                }
-
-    return positions, node_pos
-
-
-def component_to_lcapy(comp, positions):
-    """Converte um componente SPICE para sintaxe lcapy."""
-    pos = positions.get(comp.name, {})
-    direction = pos.get('dir', 'right')
-    node_from = pos.get('from', normalize_node(comp.nodes[0]) if comp.nodes else '1')
-    node_to = pos.get('to', normalize_node(comp.nodes[1]) if len(comp.nodes) > 1 else '0')
-
-    # Garantir que nos sao validos
-    node_from = normalize_node(node_from)
-    node_to = normalize_node(node_to)
-
-    # Label do componente
-    label = comp.name
-    if comp.value:
-        label = f"{comp.name}={comp.value}"
-
-    if comp.comp_type == 'R':
-        return f"R{comp.name[1:]} {node_from} {node_to}; {direction}, l={{{label}}}"
-
-    elif comp.comp_type == 'C':
-        return f"C{comp.name[1:]} {node_from} {node_to}; {direction}, l={{{label}}}"
-
-    elif comp.comp_type == 'L':
-        return f"L{comp.name[1:]} {node_from} {node_to}; {direction}, l={{{label}}}"
-
-    elif comp.comp_type == 'D':
-        model_str = comp.model or ""
-        return f"D{comp.name[1:]} {node_from} {node_to}; {direction}, l={{{comp.name} {model_str}}}"
-
-    elif comp.comp_type == 'V':
-        # Fonte de tensao
-        val = comp.value or ""
-        return f"V{comp.name[1:]} {node_from} {node_to}; {direction}, l={{{comp.name} {val}}}"
-
-    elif comp.comp_type == 'I':
-        val = comp.value or ""
-        return f"I{comp.name[1:]} {node_from} {node_to}; {direction}, l={{{comp.name} {val}}}"
-
-    elif comp.comp_type == 'Q':
-        # BJT: Q nome c b e
-        nodes = [normalize_node(n) for n in comp.nodes]
-        if len(nodes) >= 3:
-            c, b, e = nodes[0], nodes[1], nodes[2]
-            kind = 'npn' if 'NPN' in (comp.model or '').upper() else 'pnp'
-            if 'NPN' not in (comp.model or '').upper() and 'PNP' not in (comp.model or '').upper():
-                kind = 'npn'  # Default
-            return f"Q{comp.name[1:]} {c} {b} {e}; {direction}, l={{{comp.name}}}, kind={kind}"
-        return ""
-
-    elif comp.comp_type == 'M':
-        # MOSFET: M nome d g s b
-        nodes = [normalize_node(n) for n in comp.nodes]
-        if len(nodes) >= 3:
-            d, g, s = nodes[0], nodes[1], nodes[2]
-            kind = 'nfet' if 'NMOS' in (comp.model or '').upper() else 'pfet'
-            if 'NMOS' not in (comp.model or '').upper() and 'PMOS' not in (comp.model or '').upper():
-                kind = 'nfet'
-            return f"M{comp.name[1:]} {d} {g} {s}; {direction}, l={{{comp.name}}}, kind={kind}"
-        return ""
-
-    elif comp.comp_type == 'J':
-        # JFET: J nome d g s
-        nodes = [normalize_node(n) for n in comp.nodes]
-        if len(nodes) >= 3:
-            d, g, s = nodes[0], nodes[1], nodes[2]
-            kind = 'njf' if 'NJF' in (comp.model or '').upper() else 'pjf'
-            if 'NJF' not in (comp.model or '').upper() and 'PJF' not in (comp.model or '').upper():
-                kind = 'njf'
-            return f"J{comp.name[1:]} {d} {g} {s}; {direction}, l={{{comp.name}}}, kind={kind}"
-        return ""
-
-    elif comp.comp_type == 'X':
-        # Subcircuito - desenhar como caixa
-        nodes = [normalize_node(n) for n in comp.nodes]
-        if len(nodes) >= 2:
-            return f"W {nodes[0]} {nodes[1]}; {direction}, l={{{comp.name}: {comp.model or ''}}}"
-        return ""
-
-    return ""
-
-
 def create_lcapy_netlist(components, title):
-    """Cria netlist no formato lcapy."""
-    positions, node_pos = assign_positions(components)
+    """
+    Cria netlist no formato lcapy com layout correto.
+
+    Estrategia de layout:
+    - Fontes de tensao: verticais (down) conectando no superior ao terra
+    - Resistores/Indutores: horizontais (right)
+    - Capacitores: verticais (down) para terra
+    - Usar nos auxiliares (_2, _3) e fios (W) para conectar terras
+    """
+    if not components:
+        return ""
 
     lines = []
-    lines.append(f"# {title}")
+
+    # Analisar topologia do circuito
+    node_connections = defaultdict(list)  # node -> [(comp, other_node)]
+    gnd_nodes = set()  # nos conectados ao terra
 
     for comp in components:
-        lcapy_line = component_to_lcapy(comp, positions)
-        if lcapy_line:
-            lines.append(lcapy_line)
+        if len(comp.nodes) >= 2:
+            n1, n2 = normalize_node(comp.nodes[0]), normalize_node(comp.nodes[1])
+            node_connections[n1].append((comp, n2))
+            node_connections[n2].append((comp, n1))
+            if n1 == '0':
+                gnd_nodes.add(n2)
+            if n2 == '0':
+                gnd_nodes.add(n1)
 
-    # Adicionar configuracoes de desenho
-    lines.append("; draw_nodes=connections, label_nodes=primary, label_ids=false")
+    # Encontrar no de entrada (conectado a fonte de tensao)
+    input_node = None
+    for comp in components:
+        if comp.comp_type == 'V' and len(comp.nodes) >= 2:
+            n1, n2 = normalize_node(comp.nodes[0]), normalize_node(comp.nodes[1])
+            input_node = n1 if n2 == '0' else n2
+            break
+
+    # Mapear nos para posicoes no esquematico
+    # Usar numeracao simples: 1, 2, 3... para nos do circuito
+    node_map = {'0': '0'}
+    node_counter = 1
+
+    # Primeiro mapear o no de entrada
+    if input_node and input_node != '0':
+        node_map[input_node] = str(node_counter)
+        node_counter += 1
+
+    # Mapear outros nos
+    for comp in components:
+        for node in comp.nodes:
+            n = normalize_node(node)
+            if n not in node_map:
+                node_map[n] = str(node_counter)
+                node_counter += 1
+
+    # Contador para nos auxiliares de terra
+    gnd_aux_counter = 0
+    gnd_aux_nodes = []
+
+    # Gerar componentes lcapy
+    for comp in components:
+        if len(comp.nodes) < 2:
+            continue
+
+        n1 = node_map.get(normalize_node(comp.nodes[0]), '1')
+        n2 = node_map.get(normalize_node(comp.nodes[1]), '0')
+
+        # Determinar orientacao baseado nos nos
+        is_to_ground = (n2 == '0')
+
+        if comp.comp_type == 'V':
+            # Fonte de tensao: vertical, no positivo em cima
+            label = comp.name
+            if comp.value:
+                label = f"{comp.value}V"
+            if is_to_ground:
+                lines.append(f"V{comp.name[1:]} {n1} 0; down, l=${{{label}}}$")
+            else:
+                # Se nao vai pro terra, precisa de no auxiliar
+                gnd_aux_counter += 1
+                aux = f"0_{gnd_aux_counter}"
+                gnd_aux_nodes.append(aux)
+                lines.append(f"V{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+
+        elif comp.comp_type == 'I':
+            label = comp.name
+            if comp.value:
+                label = f"{comp.value}A"
+            if is_to_ground:
+                lines.append(f"I{comp.name[1:]} {n1} 0; down, l=${{{label}}}$")
+            else:
+                gnd_aux_counter += 1
+                aux = f"0_{gnd_aux_counter}"
+                gnd_aux_nodes.append(aux)
+                lines.append(f"I{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+
+        elif comp.comp_type == 'R':
+            label = comp.name
+            if comp.value:
+                label = f"{comp.value}"
+            if is_to_ground:
+                # Resistor para terra: vertical
+                gnd_aux_counter += 1
+                aux = f"0_{gnd_aux_counter}"
+                gnd_aux_nodes.append(aux)
+                lines.append(f"R{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+            else:
+                # Resistor entre nos: horizontal
+                lines.append(f"R{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+
+        elif comp.comp_type == 'C':
+            label = comp.name
+            if comp.value:
+                label = f"{comp.value}"
+            if is_to_ground:
+                gnd_aux_counter += 1
+                aux = f"0_{gnd_aux_counter}"
+                gnd_aux_nodes.append(aux)
+                lines.append(f"C{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+            else:
+                lines.append(f"C{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+
+        elif comp.comp_type == 'L':
+            label = comp.name
+            if comp.value:
+                label = f"{comp.value}"
+            if is_to_ground:
+                gnd_aux_counter += 1
+                aux = f"0_{gnd_aux_counter}"
+                gnd_aux_nodes.append(aux)
+                lines.append(f"L{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+            else:
+                lines.append(f"L{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+
+        elif comp.comp_type == 'D':
+            label = comp.name
+            if is_to_ground:
+                gnd_aux_counter += 1
+                aux = f"0_{gnd_aux_counter}"
+                gnd_aux_nodes.append(aux)
+                lines.append(f"D{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+            else:
+                lines.append(f"D{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+
+        elif comp.comp_type == 'Q':
+            # BJT: precisa de 3 terminais
+            if len(comp.nodes) >= 3:
+                c = node_map.get(normalize_node(comp.nodes[0]), '1')
+                b = node_map.get(normalize_node(comp.nodes[1]), '2')
+                e = node_map.get(normalize_node(comp.nodes[2]), '0')
+
+                is_npn = 'PNP' not in (comp.model or '').upper()
+                kind = 'npn' if is_npn else 'pnp'
+
+                # Se emissor vai pro terra, usar no auxiliar
+                if e == '0':
+                    gnd_aux_counter += 1
+                    e = f"0_{gnd_aux_counter}"
+                    gnd_aux_nodes.append(e)
+
+                lines.append(f"Q{comp.name[1:]} {c} {b} {e}; down, l=${{{comp.name}}}$, kind={kind}")
+
+        elif comp.comp_type == 'M':
+            # MOSFET: D, G, S, B
+            if len(comp.nodes) >= 3:
+                d = node_map.get(normalize_node(comp.nodes[0]), '1')
+                g = node_map.get(normalize_node(comp.nodes[1]), '2')
+                s = node_map.get(normalize_node(comp.nodes[2]), '0')
+
+                is_nmos = 'PMOS' not in (comp.model or '').upper()
+                kind = 'nfet' if is_nmos else 'pfet'
+
+                if s == '0':
+                    gnd_aux_counter += 1
+                    s = f"0_{gnd_aux_counter}"
+                    gnd_aux_nodes.append(s)
+
+                lines.append(f"M{comp.name[1:]} {d} {g} {s}; down, l=${{{comp.name}}}$, kind={kind}")
+
+        elif comp.comp_type == 'J':
+            # JFET: D, G, S
+            if len(comp.nodes) >= 3:
+                d = node_map.get(normalize_node(comp.nodes[0]), '1')
+                g = node_map.get(normalize_node(comp.nodes[1]), '2')
+                s = node_map.get(normalize_node(comp.nodes[2]), '0')
+
+                is_njf = 'PJF' not in (comp.model or '').upper()
+                kind = 'njf' if is_njf else 'pjf'
+
+                if s == '0':
+                    gnd_aux_counter += 1
+                    s = f"0_{gnd_aux_counter}"
+                    gnd_aux_nodes.append(s)
+
+                lines.append(f"J{comp.name[1:]} {d} {g} {s}; down, l=${{{comp.name}}}$, kind={kind}")
+
+    # Adicionar fios conectando os nos auxiliares de terra
+    if gnd_aux_nodes:
+        prev = '0'
+        for aux in gnd_aux_nodes:
+            lines.append(f"W {prev} {aux}; right")
+            prev = aux
+
+    # Configuracoes de desenho
+    lines.append("; draw_nodes=connections, label_ids=false, label_nodes=none")
 
     return '\n'.join(lines)
 
@@ -455,9 +426,13 @@ def create_schematic_lcapy(components, title, output_path):
 
     netlist = create_lcapy_netlist(components, title)
 
+    if not netlist:
+        print("  Erro: netlist vazio")
+        return None
+
     try:
         cct = Circuit(netlist)
-        cct.draw(output_path, draw_nodes='connections', label_nodes='primary')
+        cct.draw(output_path, draw_nodes='connections', label_ids=False, label_nodes='none')
         return output_path
     except Exception as e:
         print(f"  Erro lcapy: {e}")
@@ -465,21 +440,16 @@ def create_schematic_lcapy(components, title, output_path):
         return None
 
 
-# =============================================================================
-# FALLBACK: MATPLOTLIB (versao simplificada)
-# =============================================================================
-
 def create_schematic_matplotlib(components, title, output_path):
-    """Fallback usando matplotlib quando lcapy nao esta disponivel."""
+    """Fallback usando matplotlib."""
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle, FancyBboxPatch
+    from matplotlib.patches import FancyBboxPatch
 
     fig, ax = plt.subplots(figsize=(12, 8), dpi=150)
     ax.set_aspect('equal')
     ax.axis('off')
     ax.set_title(title, fontsize=14, fontweight='bold')
 
-    # Layout simples em grid
     n_cols = min(4, len(components))
     n_rows = (len(components) + n_cols - 1) // n_cols
 
@@ -490,14 +460,12 @@ def create_schematic_matplotlib(components, title, output_path):
         x = col * 3 + 1.5
         y = (n_rows - row - 1) * 2 + 1
 
-        # Desenhar caixa do componente
         rect = FancyBboxPatch((x - 0.8, y - 0.4), 1.6, 0.8,
                              boxstyle="round,pad=0.05",
                              facecolor='lightyellow',
                              edgecolor='black', linewidth=1.5)
         ax.add_patch(rect)
 
-        # Texto do componente
         label = f"{comp.name}"
         if comp.value:
             label += f"\n{comp.value}"
@@ -505,15 +473,12 @@ def create_schematic_matplotlib(components, title, output_path):
             label += f"\n{comp.model}"
 
         ax.text(x, y, label, ha='center', va='center', fontsize=8)
-
-        # Nos
         nodes_str = ' - '.join(comp.nodes[:2]) if comp.nodes else ""
         ax.text(x, y - 0.6, nodes_str, ha='center', va='top', fontsize=6, color='blue')
 
     ax.set_xlim(0, n_cols * 3)
     ax.set_ylim(0, n_rows * 2 + 1)
 
-    # Legenda
     ax.text(0.02, 0.02, f"Componentes: {len(components)}\n(Instale lcapy para esquematicos melhores)",
            transform=ax.transAxes, fontsize=8, va='bottom',
            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
@@ -526,13 +491,11 @@ def create_schematic_matplotlib(components, title, output_path):
 
 
 def create_schematic(components, title, output_path):
-    """Cria esquematico usando lcapy ou fallback para matplotlib."""
+    """Cria esquematico usando lcapy ou fallback."""
     if LCAPY_AVAILABLE:
         result = create_schematic_lcapy(components, title, output_path)
         if result:
             return result
-
-    # Fallback para matplotlib
     return create_schematic_matplotlib(components, title, output_path)
 
 
@@ -541,7 +504,7 @@ def create_schematic(components, title, output_path):
 # =============================================================================
 
 def find_spice_files(search_path):
-    """Encontra arquivos SPICE em um diretorio."""
+    """Encontra arquivos SPICE."""
     if os.path.isfile(search_path):
         return [search_path]
 
@@ -581,7 +544,6 @@ Tambem precisa de LaTeX com circuitikz:
 
     args = parser.parse_args()
 
-    # Verificar lcapy
     if not LCAPY_AVAILABLE:
         print("=" * 50)
         print("AVISO: lcapy nao encontrado!")
@@ -591,7 +553,6 @@ Tambem precisa de LaTeX com circuitikz:
         print("Usando fallback matplotlib (qualidade reduzida)")
         print("=" * 50)
 
-    # Encontrar arquivos
     spice_files = find_spice_files(args.input)
 
     if not spice_files:
@@ -609,7 +570,6 @@ Tambem precisa de LaTeX com circuitikz:
             if args.verbose:
                 print(f"Processando: {spice_path}")
 
-            # Parsear arquivo
             components, title = parse_spice_file(spice_path)
 
             if args.verbose:
@@ -621,19 +581,16 @@ Tambem precisa de LaTeX com circuitikz:
                 print(f"  Aviso: Nenhum componente encontrado em {spice_path}")
                 continue
 
-            # Mostrar netlist se solicitado
             if args.netlist:
                 netlist = create_lcapy_netlist(components, title)
                 print(f"\nNetlist lcapy:\n{netlist}\n")
 
-            # Definir saida
             if args.output and len(spice_files) == 1:
                 output_path = args.output
             else:
                 base = os.path.splitext(spice_path)[0]
                 output_path = base + '_schematic.png'
 
-            # Criar esquematico
             result = create_schematic(components, title or os.path.basename(spice_path), output_path)
 
             if result:
