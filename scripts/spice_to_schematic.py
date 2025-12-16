@@ -213,148 +213,135 @@ def create_lcapy_netlist(components, title):
     """
     Cria netlist no formato lcapy com layout correto.
 
-    Estrategia de layout:
-    - Fontes de tensao: verticais (down) conectando no superior ao terra
-    - Resistores/Indutores: horizontais (right)
-    - Capacitores: verticais (down) para terra
-    - Usar nos auxiliares (_2, _3) e fios (W) para conectar terras
+    Nova estrategia:
+    - Detectar componentes paralelos e usar wires para separa-los
+    - Layout mais simples sem chain de ground nodes
+    - Usar implicit ground connections
     """
     if not components:
         return ""
 
     lines = []
 
-    # Analisar topologia do circuito
-    node_connections = defaultdict(list)  # node -> [(comp, other_node)]
-    gnd_nodes = set()  # nos conectados ao terra
-
-    for comp in components:
-        if len(comp.nodes) >= 2:
-            n1, n2 = normalize_node(comp.nodes[0]), normalize_node(comp.nodes[1])
-            node_connections[n1].append((comp, n2))
-            node_connections[n2].append((comp, n1))
-            if n1 == '0':
-                gnd_nodes.add(n2)
-            if n2 == '0':
-                gnd_nodes.add(n1)
-
-    # Encontrar no de entrada (conectado a fonte de tensao)
-    input_node = None
-    for comp in components:
-        if comp.comp_type == 'V' and len(comp.nodes) >= 2:
-            n1, n2 = normalize_node(comp.nodes[0]), normalize_node(comp.nodes[1])
-            input_node = n1 if n2 == '0' else n2
-            break
-
-    # Mapear nos para posicoes no esquematico
-    # Usar numeracao simples: 1, 2, 3... para nos do circuito
-    node_map = {'0': '0'}
+    # Mapear nos para formato lcapy
+    node_map = {'0': '0', 'gnd': '0'}
     node_counter = 1
 
-    # Primeiro mapear o no de entrada
-    if input_node and input_node != '0':
-        node_map[input_node] = str(node_counter)
+    # Primeiro passar: identificar todos os nos unicos
+    all_nodes = set()
+    for comp in components:
+        for node in comp.nodes[:4]:  # Max 4 nodes (MOSFET)
+            n = normalize_node(node)
+            all_nodes.add(n)
+
+    # Remover ground
+    all_nodes.discard('0')
+
+    # Mapear nos em ordem alfabetica para consistencia
+    for node in sorted(all_nodes):
+        node_map[node] = str(node_counter)
         node_counter += 1
 
-    # Mapear outros nos
+    # Detectar componentes paralelos (mesmos nos)
+    connection_map = defaultdict(list)
     for comp in components:
-        for node in comp.nodes:
-            n = normalize_node(node)
-            if n not in node_map:
-                node_map[n] = str(node_counter)
-                node_counter += 1
+        if len(comp.nodes) >= 2:
+            n1 = node_map.get(normalize_node(comp.nodes[0]), '0')
+            n2 = node_map.get(normalize_node(comp.nodes[1]), '0')
+            key = tuple(sorted([n1, n2]))
+            connection_map[key].append(comp)
 
-    # Contador para nos auxiliares de terra
-    gnd_aux_counter = 0
-    gnd_aux_nodes = []
+    # Criar nos auxiliares para componentes paralelos
+    parallel_node_map = {}
+    aux_counter = 100
+
+    for key, comps in connection_map.items():
+        if len(comps) > 1:  # Componentes em paralelo
+            # Primeiro componente usa os nos originais
+            # Demais usam nos auxiliares
+            for i, comp in enumerate(comps[1:], 1):
+                n1, n2 = key
+                # Criar no auxiliar apenas para o no nao-ground
+                if n1 != '0' and n2 == '0':
+                    aux_node = f"{aux_counter}"
+                    parallel_node_map[comp.name] = (n1, aux_node, n2)
+                    aux_counter += 1
+                elif n2 != '0' and n1 == '0':
+                    aux_node = f"{aux_counter}"
+                    parallel_node_map[comp.name] = (n2, aux_node, n1)
+                    aux_counter += 1
 
     # Gerar componentes lcapy
+    wires_needed = []
+
     for comp in components:
         if len(comp.nodes) < 2:
             continue
 
-        n1 = node_map.get(normalize_node(comp.nodes[0]), '1')
-        n2 = node_map.get(normalize_node(comp.nodes[1]), '0')
+        # Verificar se este componente precisa de no auxiliar
+        if comp.name in parallel_node_map:
+            orig_node, aux_node, gnd_node = parallel_node_map[comp.name]
+            wires_needed.append((orig_node, aux_node))
+            n1, n2 = aux_node, gnd_node
+        else:
+            n1 = node_map.get(normalize_node(comp.nodes[0]), '0')
+            n2 = node_map.get(normalize_node(comp.nodes[1]), '0')
 
-        # Determinar orientacao baseado nos nos
-        is_to_ground = (n2 == '0')
+        # Determinar orientacao
+        is_to_ground = (n2 == '0' or n1 == '0')
+
+        # Sempre colocar ground como segundo no
+        if n1 == '0' and n2 != '0':
+            n1, n2 = n2, n1
 
         if comp.comp_type == 'V':
-            # Fonte de tensao: vertical, no positivo em cima
             label = comp.name
             if comp.value:
                 label = f"{comp.value}V"
-            if is_to_ground:
-                lines.append(f"V{comp.name[1:]} {n1} 0; down, l=${{{label}}}$")
-            else:
-                # Se nao vai pro terra, precisa de no auxiliar
-                gnd_aux_counter += 1
-                aux = f"0_{gnd_aux_counter}"
-                gnd_aux_nodes.append(aux)
-                lines.append(f"V{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+            lines.append(f"V{comp.name[1:]} {n1} {n2}; down, v={{{label}}}")
 
         elif comp.comp_type == 'I':
             label = comp.name
             if comp.value:
                 label = f"{comp.value}A"
-            if is_to_ground:
-                lines.append(f"I{comp.name[1:]} {n1} 0; down, l=${{{label}}}$")
-            else:
-                gnd_aux_counter += 1
-                aux = f"0_{gnd_aux_counter}"
-                gnd_aux_nodes.append(aux)
-                lines.append(f"I{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+            lines.append(f"I{comp.name[1:]} {n1} {n2}; down, i={{{label}}}")
 
         elif comp.comp_type == 'R':
             label = comp.name
             if comp.value:
                 label = f"{comp.value}"
             if is_to_ground:
-                # Resistor para terra: vertical
-                gnd_aux_counter += 1
-                aux = f"0_{gnd_aux_counter}"
-                gnd_aux_nodes.append(aux)
-                lines.append(f"R{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+                lines.append(f"R{comp.name[1:]} {n1} {n2}; down")
             else:
-                # Resistor entre nos: horizontal
-                lines.append(f"R{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+                lines.append(f"R{comp.name[1:]} {n1} {n2}; right")
 
         elif comp.comp_type == 'C':
             label = comp.name
             if comp.value:
                 label = f"{comp.value}"
             if is_to_ground:
-                gnd_aux_counter += 1
-                aux = f"0_{gnd_aux_counter}"
-                gnd_aux_nodes.append(aux)
-                lines.append(f"C{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+                lines.append(f"C{comp.name[1:]} {n1} {n2}; down")
             else:
-                lines.append(f"C{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+                lines.append(f"C{comp.name[1:]} {n1} {n2}; right")
 
         elif comp.comp_type == 'L':
             label = comp.name
             if comp.value:
                 label = f"{comp.value}"
             if is_to_ground:
-                gnd_aux_counter += 1
-                aux = f"0_{gnd_aux_counter}"
-                gnd_aux_nodes.append(aux)
-                lines.append(f"L{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+                lines.append(f"L{comp.name[1:]} {n1} {n2}; down")
             else:
-                lines.append(f"L{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+                lines.append(f"L{comp.name[1:]} {n1} {n2}; right")
 
         elif comp.comp_type == 'D':
             label = comp.name
             if is_to_ground:
-                gnd_aux_counter += 1
-                aux = f"0_{gnd_aux_counter}"
-                gnd_aux_nodes.append(aux)
-                lines.append(f"D{comp.name[1:]} {n1} {aux}; down, l=${{{label}}}$")
+                lines.append(f"D{comp.name[1:]} {n1} {n2}; down")
             else:
-                lines.append(f"D{comp.name[1:]} {n1} {n2}; right, l=${{{label}}}$")
+                lines.append(f"D{comp.name[1:]} {n1} {n2}; right")
 
         elif comp.comp_type == 'Q':
-            # BJT: precisa de 3 terminais
+            # BJT: precisa de 3 terminais (C, B, E)
             if len(comp.nodes) >= 3:
                 c = node_map.get(normalize_node(comp.nodes[0]), '1')
                 b = node_map.get(normalize_node(comp.nodes[1]), '2')
@@ -363,13 +350,7 @@ def create_lcapy_netlist(components, title):
                 is_npn = 'PNP' not in (comp.model or '').upper()
                 kind = 'npn' if is_npn else 'pnp'
 
-                # Se emissor vai pro terra, usar no auxiliar
-                if e == '0':
-                    gnd_aux_counter += 1
-                    e = f"0_{gnd_aux_counter}"
-                    gnd_aux_nodes.append(e)
-
-                lines.append(f"Q{comp.name[1:]} {c} {b} {e}; down, l=${{{comp.name}}}$, kind={kind}")
+                lines.append(f"Q{comp.name[1:]} {c} {b} {e}; {kind}")
 
         elif comp.comp_type == 'M':
             # MOSFET: D, G, S, B
@@ -381,12 +362,7 @@ def create_lcapy_netlist(components, title):
                 is_nmos = 'PMOS' not in (comp.model or '').upper()
                 kind = 'nfet' if is_nmos else 'pfet'
 
-                if s == '0':
-                    gnd_aux_counter += 1
-                    s = f"0_{gnd_aux_counter}"
-                    gnd_aux_nodes.append(s)
-
-                lines.append(f"M{comp.name[1:]} {d} {g} {s}; down, l=${{{comp.name}}}$, kind={kind}")
+                lines.append(f"M{comp.name[1:]} {d} {g} {s}; {kind}")
 
         elif comp.comp_type == 'J':
             # JFET: D, G, S
@@ -398,22 +374,14 @@ def create_lcapy_netlist(components, title):
                 is_njf = 'PJF' not in (comp.model or '').upper()
                 kind = 'njf' if is_njf else 'pjf'
 
-                if s == '0':
-                    gnd_aux_counter += 1
-                    s = f"0_{gnd_aux_counter}"
-                    gnd_aux_nodes.append(s)
+                lines.append(f"J{comp.name[1:]} {d} {g} {s}; {kind}")
 
-                lines.append(f"J{comp.name[1:]} {d} {g} {s}; down, l=${{{comp.name}}}$, kind={kind}")
-
-    # Adicionar fios conectando os nos auxiliares de terra
-    if gnd_aux_nodes:
-        prev = '0'
-        for aux in gnd_aux_nodes:
-            lines.append(f"W {prev} {aux}; right")
-            prev = aux
+    # Adicionar wires para conectar nos paralelos (stack vertical)
+    for n1, n2 in wires_needed:
+        lines.append(f"W {n1} {n2}; up")
 
     # Configuracoes de desenho
-    lines.append("; draw_nodes=connections, label_ids=false, label_nodes=none")
+    lines.append("; draw_nodes=connections, label_nodes=none")
 
     return '\n'.join(lines)
 
@@ -435,6 +403,19 @@ def create_schematic_lcapy(components, title, output_path):
         cct.draw(output_path, draw_nodes='connections', label_ids=False, label_nodes='none')
         return output_path
     except Exception as e:
+        error_msg = str(e)
+        # Se for erro de pdflatex, avisar especificamente
+        if "pdflatex" in error_msg.lower():
+            print(f"  Aviso: pdflatex nao instalado ou nao disponivel")
+            print(f"  Instale LaTeX: sudo apt install texlive-latex-base texlive-pictures")
+            print(f"  Usando fallback matplotlib...")
+            return None
+        # Se for erro de loop no grafico (circuito muito complexo), usar fallback
+        if "loop" in error_msg.lower() or "graph" in error_msg.lower() or "size violation" in error_msg.lower():
+            print(f"  Aviso lcapy: Circuito muito complexo para layout automatico")
+            print(f"  Usando fallback matplotlib...")
+            return None
+        # Outros erros
         print(f"  Erro lcapy: {e}")
         print(f"  Netlist gerado:\n{netlist}")
         return None
