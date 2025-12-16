@@ -1,0 +1,17 @@
+# Dados gerados pelo ngspice
+*.csv
+*.raw
+
+# Graficos gerados
+*.png
+
+# Arquivos temporarios
+*.log
+*.tmp
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
