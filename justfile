@@ -201,3 +201,79 @@ exemplo-filtro:
 exemplo-colpitts:
     @echo "=== Exemplo: Oscilador Colpitts ==="
     just full circuits/03_osciladores/colpitts_bc548.spice
+
+# Exemplo: oscilador Pierce com JFET e cristal
+exemplo-pierce:
+    @echo "=== Exemplo: Oscilador Pierce (JFET + Cristal 10MHz) ==="
+    just run circuits/03_osciladores/oscilador_pierce_jfet.spice
+
+# Exemplo: oscilador Hartley
+exemplo-hartley:
+    @echo "=== Exemplo: Oscilador Hartley ==="
+    just run circuits/03_osciladores/oscilador_hartley.spice
+
+# Exemplo: oscilador Ring
+exemplo-ring:
+    @echo "=== Exemplo: Oscilador Ring (3 e 5 estagios) ==="
+    just run circuits/03_osciladores/oscilador_ring.spice
+
+# Exemplo: VCO senoidal
+exemplo-vco:
+    @echo "=== Exemplo: VCO Senoidal (controle por tensao) ==="
+    just run circuits/03_osciladores/vco_senoidal.spice
+
+# Exemplo: multivibrador astavel 10Hz
+exemplo-multivibrador:
+    @echo "=== Exemplo: Multivibrador Astavel 10Hz ==="
+    just run circuits/03_osciladores/multivibrador_astavel_10hz.spice
+
+# Exemplo: amplificador classe A/B
+exemplo-classe-ab:
+    @echo "=== Exemplo: Amplificador Classe A/B Push-Pull ==="
+    just run circuits/04_amplificadores/classe_ab_push_pull.spice
+
+# Exemplo: amplificador JFET
+exemplo-jfet:
+    @echo "=== Exemplo: Amplificador JFET Self-Bias ==="
+    just run circuits/04_amplificadores/amplificador_jfet_self_bias.spice
+
+# Exemplo: amp-op inversor
+exemplo-amp-op-inv:
+    @echo "=== Exemplo: Amplificador Operacional Inversor ==="
+    just run circuits/05_amplificadores_operacionais/01_amp_op_inversor.spice
+
+# Exemplo: amp-op integrador
+exemplo-integrador:
+    @echo "=== Exemplo: Amplificador Operacional Integrador ==="
+    just run circuits/05_amplificadores_operacionais/04_amp_op_integrador.spice
+
+# Exemplo: mixer com diodo
+exemplo-mixer:
+    @echo "=== Exemplo: Mixer de Frequencia (Diodo) ==="
+    just run circuits/06_rf_comunicacoes/mixer_diodo.spice
+
+# Exemplo: modulador AM
+exemplo-am:
+    @echo "=== Exemplo: Modulador AM ==="
+    just run circuits/06_rf_comunicacoes/modulador_am.spice
+
+# Exemplo: PLL completo
+exemplo-pll:
+    @echo "=== Exemplo: PLL (Phase-Locked Loop) ==="
+    just run circuits/06_rf_comunicacoes/pll_completo.spice
+
+# Exemplo: portas logicas CMOS
+exemplo-cmos:
+    @echo "=== Exemplo: Portas Logicas CMOS (7 portas) ==="
+    just run circuits/07_logica_digital_cmos/portas_logicas_cmos.spice
+
+# Simula todos os novos osciladores
+exemplo-osciladores-todos:
+    @echo "=== Simulando TODOS os osciladores ==="
+    just exemplo-colpitts
+    just exemplo-pierce
+    just exemplo-hartley
+    just exemplo-ring
+    just exemplo-vco
+    just exemplo-multivibrador
+    @echo "=== Todos osciladores simulados! ==="
