@@ -1,0 +1,284 @@
+* ============================================================================
+* FILTROS ATIVOS SALLEN-KEY - Passa-Baixa e Passa-Alta
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* Filtros ativos de 2ª ordem usando topologia Sallen-Key com amplificador
+* operacional. Esta é uma das topologias mais populares devido à sua
+* simplicidade e excelente desempenho.
+*
+* VANTAGENS DOS FILTROS ATIVOS:
+* ------------------------------
+* - Ganho ajustável (≥1)
+* - Não necessita de indutores (caros e grandes)
+* - Alta impedância de entrada
+* - Baixa impedância de saída
+* - Resposta controlada (Butterworth, Chebyshev, Bessel)
+*
+* ============================================================================
+* TOPOLOGIA SALLEN-KEY PASSA-BAIXA (2ª ORDEM)
+* ============================================================================
+*
+*          R1        R2
+*   Vin ---\/\/\---+---\/\/\---+--- Vout
+*                  |           |
+*                 [C1]       [C2]
+*                  |           |
+*                  |    +------+
+*                  |    |      |
+*                  |    |   [Rf]
+*                  |    |      |
+*                  +----+------+
+*                       |    [Rg]
+*                      (+)     |
+*                   Op-Amp    GND
+*                      (-)-----+
+*
+* RESPOSTA BUTTERWORTH (máximamente plana):
+* -----------------------------------------
+* Para ganho unitário (K=1): Rf=0, Rg=infinito
+*   R1 = R2 = R
+*   C1 = C2 = C
+*   fc = 1 / (2π × R × C)
+*   Q = 0.707 (Butterworth)
+*   Ganho DC = 1 (0 dB)
+*   Atenuação = -40 dB/década
+*
+* Para ganho K > 1:
+*   K = 1 + Rf/Rg
+*   Ajustar valores de C1, C2 para manter Q
+*
+* EXEMPLO: fc = 1kHz, R=10kΩ
+*   C = 1 / (2π × 10k × 1kHz) ≈ 15.9nF → usar 15nF (padrão)
+*
+* ============================================================================
+* TOPOLOGIA SALLEN-KEY PASSA-ALTA (2ª ORDEM)
+* ============================================================================
+*
+*          C1        C2
+*   Vin ---||---+----||----+--- Vout
+*              |            |
+*            [R1]         [R2]
+*              |            |
+*              |     +------+
+*              |     |      |
+*              |     |   [Rf]
+*              |     |      |
+*              +-----+------+
+*                    |    [Rg]
+*                   (+)     |
+*                Op-Amp    GND
+*                   (-)-----+
+*
+* Capacitores e resistores trocam de posição em relação ao passa-baixa.
+*
+* RESPOSTA BUTTERWORTH:
+* ---------------------
+* Para ganho unitário (K=1):
+*   C1 = C2 = C
+*   R1 = R2 = R
+*   fc = 1 / (2π × R × C)
+*   Q = 0.707 (Butterworth)
+*   Atenuação = +40 dB/década (abaixo de fc)
+*
+* ============================================================================
+* TIPOS DE RESPOSTA:
+* ------------------
+* - BUTTERWORTH: Resposta plana na banda passante, roll-off moderado
+* - CHEBYSHEV: Ripple na banda passante, roll-off mais íngreme
+* - BESSEL: Fase linear (preserva forma de onda), roll-off suave
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Filtros Ativos Sallen-Key - Passa-Baixa e Passa-Alta
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* ALIMENTACAO
+* ============================================================================
+Vcc vcc 0 DC 12
+Vee vee 0 DC -12
+
+* ============================================================================
+* SINAL DE ENTRADA (Sweep de frequência simulado com AC)
+* ============================================================================
+* Para análise AC: amplitude 1V @ diferentes frequências
+Vin_lpf in_lpf 0 AC 1 DC 0
+Vin_hpf in_hpf 0 AC 1 DC 0
+
+* Para análise transiente: onda quadrada 100Hz + 1kHz
+Vin_lpf_tran in_lpf_tran 0 PULSE(0 1 0 1u 1u 5m 10m)
+Vin_hpf_tran in_hpf_tran 0 PULSE(0 1 0 1u 1u 5m 10m)
+
+* ============================================================================
+* FILTRO PASSA-BAIXA SALLEN-KEY (fc = 1kHz, Butterworth)
+* ============================================================================
+* R1 = R2 = 10kΩ, C1 = C2 = 15nF
+* fc = 1/(2π × 10k × 15nF) ≈ 1061 Hz ≈ 1kHz
+
+* Rede RC
+R1_lpf in_lpf n_lpf1 10k
+R2_lpf n_lpf1 n_lpf2 10k
+C1_lpf n_lpf1 0 15n
+C2_lpf n_lpf2 out_lpf 15n
+
+* Op-amp em configuração seguidor (ganho unitário)
+XU1_lpf n_lpf2 out_lpf vcc vee out_lpf OPAMP_IDEAL
+
+* Carga de saída
+Rload_lpf out_lpf 0 100k
+
+* ============================================================================
+* FILTRO PASSA-ALTA SALLEN-KEY (fc = 1kHz, Butterworth)
+* ============================================================================
+* C1 = C2 = 15nF, R1 = R2 = 10kΩ
+
+* Rede CR
+C1_hpf in_hpf n_hpf1 15n
+C2_hpf n_hpf1 n_hpf2 15n
+R1_hpf n_hpf1 0 10k
+R2_hpf n_hpf2 out_hpf 10k
+
+* Op-amp em configuração seguidor (ganho unitário)
+XU1_hpf n_hpf2 out_hpf vcc vee out_hpf OPAMP_IDEAL
+
+* Carga de saída
+Rload_hpf out_hpf 0 100k
+
+* ============================================================================
+* FILTRO PASSA-BAIXA COM GANHO (fc = 1kHz, K = 2)
+* ============================================================================
+* Mesmo filtro mas com ganho de 2× (6dB)
+* K = 1 + Rf/Rg = 2 → Rf = Rg = 10k
+
+R1_lpf_gain in_lpf n_lpfg1 10k
+R2_lpf_gain n_lpfg1 n_lpfg2 10k
+C1_lpf_gain n_lpfg1 0 15n
+C2_lpf_gain n_lpfg2 out_lpf_gain 15n
+
+* Op-amp não-inversor com ganho 2
+XU1_lpf_gain n_lpfg2 n_lpfg_fb vcc vee out_lpf_gain OPAMP_IDEAL
+Rg_lpf_gain n_lpfg_fb 0 10k
+Rf_lpf_gain out_lpf_gain n_lpfg_fb 10k
+
+Rload_lpf_gain out_lpf_gain 0 100k
+
+* ============================================================================
+* MODELOS
+* ============================================================================
+
+* Op-amp ideal (simplificado)
+.subckt OPAMP_IDEAL inp inn vcc vee out
+* Ganho muito alto, alta impedância de entrada
+Rin inp inn 10Meg
+Eout out 0 inp inn 100000
+Rout out 0 10
+* Limitação de saída nas tensões de alimentação
+.ends OPAMP_IDEAL
+
+* ============================================================================
+* ANALISE AC (BODE)
+* ============================================================================
+* Sweep de 10Hz a 100kHz
+.ac dec 50 10 100k
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.01m 100m
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+
+* Ganho em DC e na frequência de corte (1kHz)
+.measure ac gain_dc_lpf FIND vdb(out_lpf) AT=10
+.measure ac gain_1k_lpf FIND vdb(out_lpf) AT=1k
+.measure ac gain_10k_lpf FIND vdb(out_lpf) AT=10k
+
+.measure ac gain_dc_hpf FIND vdb(out_hpf) AT=100
+.measure ac gain_1k_hpf FIND vdb(out_hpf) AT=1k
+.measure ac gain_10k_hpf FIND vdb(out_hpf) AT=10k
+
+* Frequência de corte (-3dB)
+.measure ac fc_lpf WHEN vdb(out_lpf)=-3
+.measure ac fc_hpf WHEN vdb(out_hpf)=-3
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Diagrama de Bode - Passa-Baixa
+plot vdb(out_lpf) vdb(out_lpf_gain) xlog
++ title "Filtro Sallen-Key Passa-Baixa - Diagrama de Bode (fc=1kHz)" xlabel "Frequencia (Hz)" ylabel "Ganho (dB)"
+
+set hcopydevtype=postscript
+plot vp(out_lpf) xlog
++ title "Filtro Sallen-Key Passa-Baixa - Fase" xlabel "Frequencia (Hz)" ylabel "Fase (graus)"
+
+* Plot 2: Diagrama de Bode - Passa-Alta
+plot vdb(out_hpf) xlog
++ title "Filtro Sallen-Key Passa-Alta - Diagrama de Bode (fc=1kHz)" xlabel "Frequencia (Hz)" ylabel "Ganho (dB)"
+
+plot vp(out_hpf) xlog
++ title "Filtro Sallen-Key Passa-Alta - Fase" xlabel "Frequencia (Hz)" ylabel "Fase (graus)"
+
+* Plot 3: Comparação Passa-Baixa vs Passa-Alta
+plot vdb(out_lpf) vdb(out_hpf) xlog
++ title "Comparacao: Passa-Baixa vs Passa-Alta" xlabel "Frequencia (Hz)" ylabel "Ganho (dB)"
+
+* Plot 4: Resposta transiente - Passa-Baixa
+tran 0.01m 100m
+plot v(in_lpf_tran) v(out_lpf)
++ title "Resposta Transiente - Filtro Passa-Baixa (onda quadrada 100Hz)" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+
+* AC analysis
+wrdata circuits/11_filtros_ativos/sallen_key_bode_lpf.csv frequency vdb(out_lpf) vp(out_lpf)
+wrdata circuits/11_filtros_ativos/sallen_key_bode_hpf.csv frequency vdb(out_hpf) vp(out_hpf)
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DOS FILTROS SALLEN-KEY"
+echo "============================================================================"
+echo ""
+echo "FILTRO PASSA-BAIXA (fc = 1kHz):"
+echo "  Ganho DC:" gain_dc_lpf "dB"
+echo "  Ganho @ 1kHz:" gain_1k_lpf "dB (deve ser ~-3dB)"
+echo "  Ganho @ 10kHz:" gain_10k_lpf "dB"
+echo "  Frequencia de corte:" fc_lpf "Hz"
+echo ""
+echo "FILTRO PASSA-ALTA (fc = 1kHz):"
+echo "  Ganho @ 100Hz:" gain_dc_hpf "dB"
+echo "  Ganho @ 1kHz:" gain_1k_hpf "dB (deve ser ~-3dB)"
+echo "  Ganho @ 10kHz:" gain_10k_hpf "dB"
+echo "  Frequencia de corte:" fc_hpf "Hz"
+echo ""
+echo "CARACTERISTICAS:"
+echo "  - Ordem: 2ª (roll-off de 40dB/decada)"
+echo "  - Resposta: Butterworth (maximamente plana)"
+echo "  - Q: 0.707"
+echo "  - Impedancia de entrada: alta (>10MΩ)"
+echo "  - Impedancia de saida: baixa (<10Ω)"
+echo "============================================================================"
+echo ""
+
+print fc_lpf fc_hpf gain_1k_lpf gain_1k_hpf
+
+quit
+.endc
+
+.end

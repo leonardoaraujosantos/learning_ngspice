@@ -1,0 +1,277 @@
+* ============================================================================
+* AMPLIFICADOR DIFERENCIAL COM BJT (Par Diferencial)
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* O par diferencial (differential pair) é um dos blocos fundamentais mais
+* importantes da eletrônica analógica. É a base de:
+* - Amplificadores operacionais
+* - Amplificadores de instrumentação
+* - Conversores analógico-digitais
+* - Comparadores
+*
+* TOPOLOGIA BASICA:
+* -----------------
+*          Vcc
+*           |
+*     Rc1  |\|  Rc2
+*      |---| |---|
+*      |   |/    |
+*     Vo1  Q1   Vo2
+*          |\ /|
+*   Vin1 --| X |-- Vin2
+*          |/ \|
+*           Q2
+*            |
+*           Iee (fonte de corrente)
+*            |
+*           Vee
+*
+* PRINCIPIO DE FUNCIONAMENTO:
+* ---------------------------
+* 1. Fonte de corrente Iee mantém corrente total constante
+* 2. Corrente se divide entre Q1 e Q2 baseado em Vin1 - Vin2
+* 3. Saídas Vo1 e Vo2 variam de forma oposta (diferencial)
+*
+* MODOS DE OPERACAO:
+* -------------------
+* - Modo Diferencial: Vin1 ≠ Vin2 (sinal útil)
+*   Ganho diferencial: Ad = -gm × Rc / 2
+*   Vo_diff = Ad × (Vin1 - Vin2)
+*
+* - Modo Comum: Vin1 = Vin2 (ruído, interferência)
+*   Ganho de modo comum: Acm ≈ -Rc / (2×Ree)
+*   Idealmente Acm = 0 (rejeição total)
+*
+* CMRR (Common Mode Rejection Ratio):
+* ------------------------------------
+* CMRR = Ad / Acm = gm × Ree
+*
+* Quanto maior o CMRR, melhor a rejeição de ruído comum.
+* CMRR típico: 60-100 dB
+*
+* PARAMETROS IMPORTANTES:
+* ------------------------
+* - Transcondutância: gm = Ic / Vt ≈ 40 × Ic (@ 25°C)
+* - Impedância de entrada: Zin ≈ 2×β×re (alta)
+* - Impedância de saída: Zout ≈ Rc (média)
+* - Slew rate: limitado por Iee e capacitâncias
+*
+* APLICACOES:
+* -----------
+* - Entrada de amplificadores operacionais
+* - Sensoriamento diferencial
+* - Rejeição de ruído de modo comum
+* - Conversão single-ended para diferencial
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Amplificador Diferencial com BJT - Par Diferencial
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* ALIMENTACAO
+* ============================================================================
+Vcc vcc 0 DC 12
+Vee vee 0 DC -12
+
+* ============================================================================
+* PAR DIFERENCIAL BASICO (Simétrico)
+* ============================================================================
+* Projeto: Iee = 1mA, Ic_Q1 = Ic_Q2 = 0.5mA (balanceado)
+*          Vce ≈ 6V, ganho ≈ 100
+
+* Resistores de coletor (definem ganho)
+Rc1 vcc vo1 10k
+Rc2 vcc vo2 10k
+
+* Transistores NPN (BC547)
+Q1 vo1 vin1 n_ee NPN_MODEL
+Q2 vo2 vin2 n_ee NPN_MODEL
+
+* Fonte de corrente de cauda (Iee)
+Iee n_ee vee DC 1m
+
+* Resistor de emissor para melhorar CMRR (opcional)
+* Ree n_ee vee 10k
+
+* ============================================================================
+* SINAIS DE ENTRADA
+* ============================================================================
+* Configuração 1: Sinal diferencial puro
+* Vin1 = +Vdiff/2, Vin2 = -Vdiff/2
+
+Vin1 vin1 0 DC 0 AC 0.5 SIN(0 0.01 1k)    ; Sinal +10mVpk @ 1kHz
+Vin2 vin2 0 DC 0 AC 0.5 SIN(0 -0.01 1k)   ; Sinal -10mVpk @ 1kHz (oposto)
+
+* ============================================================================
+* PAR DIFERENCIAL COM CARGA ATIVA (Espelho de Corrente)
+* ============================================================================
+* Melhor CMRR e maior ganho usando carga ativa
+
+* Resistores de coletor para carga ativa
+Rc1_act vcc vo1_act 10k
+Rc2_act vcc n_mirror 10k
+
+* Par diferencial
+Q1_act vo1_act vin1_act n_ee_act NPN_MODEL
+Q2_act n_mirror vin2_act n_ee_act NPN_MODEL
+
+* Espelho de corrente PNP como carga ativa
+Q3_mirror vcc n_mirror n_mirror PNP_MODEL
+Q4_mirror vcc vo1_act n_mirror PNP_MODEL
+
+* Fonte de corrente de cauda
+Iee_act n_ee_act vee DC 1m
+
+* Entradas para teste de modo comum
+Vin1_act vin1_act 0 DC 0 SIN(0 0.01 1k)
+Vin2_act vin2_act 0 DC 0 SIN(0 0.01 1k)  ; Mesmo sinal (modo comum)
+
+* ============================================================================
+* PAR DIFERENCIAL COM DEGENERACAO DE EMISSOR
+* ============================================================================
+* Resistores de emissor para linearizar e controlar ganho
+* Ganho reduzido mas mais linear e estável
+
+Rc1_deg vcc vo1_deg 10k
+Rc2_deg vcc vo2_deg 10k
+
+Q1_deg vo1_deg vin1_deg n_e1_deg NPN_MODEL
+Q2_deg vo2_deg vin2_deg n_e2_deg NPN_MODEL
+
+* Resistores de emissor (degeneração)
+Re1_deg n_e1_deg n_ee_deg 1k
+Re2_deg n_e2_deg n_ee_deg 1k
+
+* Fonte de corrente
+Iee_deg n_ee_deg vee DC 1m
+
+* Entradas
+Vin1_deg vin1_deg 0 DC 0 SIN(0 0.05 1k)   ; Sinal maior (50mVpk)
+Vin2_deg vin2_deg 0 DC 0 SIN(0 -0.05 1k)
+
+* ============================================================================
+* MODELOS DE TRANSISTORES
+* ============================================================================
+
+* NPN genérico (BC547-like)
+.model NPN_MODEL NPN(
++ IS=1e-14 BF=200 VAF=100
++ IKF=0.3 ISE=1e-14 NE=2
++ BR=5 VAR=20 IKR=0.3
++ RE=0.5 RC=1 RB=10
++ CJE=13p VJE=0.7 MJE=0.33
++ CJC=4p VJC=0.5 MJC=0.33
++ TF=0.5n TR=20n
++ )
+
+* PNP genérico (BC557-like)
+.model PNP_MODEL PNP(
++ IS=1e-14 BF=150 VAF=80
++ IKF=0.3 ISE=1e-14 NE=2
++ BR=5 VAR=20 IKR=0.3
++ RE=0.5 RC=1 RB=10
++ CJE=13p VJE=0.7 MJE=0.33
++ CJC=4p VJC=0.5 MJC=0.33
++ TF=0.5n TR=20n
++ )
+
+* ============================================================================
+* ANALISE DC (Ponto de Operacao)
+* ============================================================================
+.op
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.01m 5m
+
+* ============================================================================
+* ANALISE AC (Ganho e Fase)
+* ============================================================================
+.ac dec 50 1 1Meg
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+
+* DC: correntes de coletor
+.measure dc Ic1 FIND i(Rc1) AT=0
+.measure dc Ic2 FIND i(Rc2) AT=0
+
+* Ganho diferencial AC
+.measure ac Ad_mag FIND vdb(vo1,vo2) AT=1k
+.measure ac Ad_phase FIND vp(vo1,vo2) AT=1k
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Ponto de operação DC
+print Ic1 Ic2 v(vo1) v(vo2)
+
+* Plot 2: Resposta transiente - Par diferencial básico
+plot v(vin1) v(vin2) v(vo1) v(vo2)
++ title "Par Diferencial BJT - Entradas e Saidas" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 3: Saída diferencial
+plot v(vo1,vo2)
++ title "Saida Diferencial (Vo1 - Vo2)" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 4: Resposta em frequência (Bode)
+plot vdb(vo1,vo2) xlog
++ title "Ganho Diferencial vs Frequencia" xlabel "Frequencia (Hz)" ylabel "Ganho (dB)"
+
+plot vp(vo1,vo2) xlog
++ title "Fase Diferencial vs Frequencia" xlabel "Frequencia (Hz)" ylabel "Fase (graus)"
+
+* Plot 5: Comparação das três configurações
+tran 0.01m 5m
+plot v(vo1,vo2) v(vo1_deg,vo2_deg)
++ title "Comparacao: Basico vs Com Degeneracao" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/12_amplificadores_diferenciais/diff_bjt_transiente.csv v(vin1) v(vin2) v(vo1) v(vo2)
+wrdata circuits/12_amplificadores_diferenciais/diff_bjt_bode.csv frequency vdb(vo1,vo2) vp(vo1,vo2)
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DO AMPLIFICADOR DIFERENCIAL BJT"
+echo "============================================================================"
+echo ""
+echo "PONTO DE OPERACAO:"
+echo "  Ic1 =" Ic1 "A (deve ser ~0.5mA)"
+echo "  Ic2 =" Ic2 "A (deve ser ~0.5mA)"
+echo "  Vo1 =" v(vo1) "V"
+echo "  Vo2 =" v(vo2) "V"
+echo ""
+echo "GANHO DIFERENCIAL (@ 1kHz):"
+echo "  Magnitude:" Ad_mag "dB"
+echo "  Fase:" Ad_phase "graus"
+echo "  Ganho teorico: Ad = -gm×Rc/2 ≈ -40×0.5m×10k/2 = -100 (40dB)"
+echo ""
+echo "CARACTERISTICAS:"
+echo "  - Alta impedancia de entrada (~100kΩ)"
+echo "  - Excelente rejeicao de modo comum (CMRR > 60dB)"
+echo "  - Ganho controlado por Rc"
+echo "  - Base de amplificadores operacionais"
+echo "============================================================================"
+echo ""
+
+quit
+.endc
+
+.end

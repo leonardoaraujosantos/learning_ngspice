@@ -39,9 +39,21 @@ learning_ngspice/
 │   │   └── pll_completo.spice              # Phase-Locked Loop
 │   ├── 07_logica_digital_cmos/             # Lógica CMOS (1 circuito)
 │   │   └── portas_logicas_cmos.spice       # 7 portas (NOT a XNOR)
-│   └── 08_logica_digital/                  # Lógica Digital Comportamental (2 circuitos)
-│       ├── somador_4bits_digital.spice     # Somador 4 bits com portas ideais
-│       └── contador_bcd_0_10.spice         # Contador BCD 0-10 com reset
+│   ├── 08_logica_digital/                  # Lógica Digital Comportamental (2 circuitos)
+│   │   ├── somador_4bits_digital.spice     # Somador 4 bits com portas ideais
+│   │   └── contador_bcd_0_10.spice         # Contador BCD 0-10 com reset
+│   ├── 09_fontes_alimentacao/              # Fontes e Reguladores (2 circuitos)
+│   │   ├── 01_retificadores.spice          # Meia onda, onda completa, ponte
+│   │   └── 02_reguladores_tensao.spice     # Zener, LM7805, LM317
+│   ├── 10_timer_555/                       # Timer 555 (1 circuito)
+│   │   └── 01_timer_555_astavel_monostavel_pwm.spice  # 3 modos
+│   ├── 11_filtros_ativos/                  # Filtros Ativos (1 circuito)
+│   │   └── 01_sallen_key_passa_baixa_passa_alta.spice  # 2ª ordem
+│   ├── 12_amplificadores_diferenciais/     # Amplificadores Diferenciais (2 circuitos)
+│   │   ├── 01_par_diferencial_bjt.spice    # Par diferencial BJT
+│   │   └── 02_par_diferencial_jfet.spice   # Par diferencial JFET
+│   └── 13_espelhos_corrente/               # Espelhos de Corrente (1 circuito)
+│       └── 01_espelhos_corrente_bjt_jfet_mosfet.spice  # BJT, JFET, MOSFET
 ├── docs/
 │   ├── tutorial_spice.md                   # Tutorial completo SPICE
 │   └── circuitikzmanual.pdf                # Manual CircuiTikZ
@@ -263,6 +275,33 @@ pdflatex --version
 | `just exemplo-somador` | Somador 4 Bits Digital (portas ideais) |
 | `just exemplo-contador` | Contador BCD 0-10 Digital (portas ideais) |
 
+#### Fontes de Alimentação
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-retificadores` | Retificadores (meia onda, onda completa, ponte) |
+| `just exemplo-reguladores` | Reguladores de Tensão (Zener, LM7805, LM317) |
+
+#### Timer 555
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-555` | Timer 555 (astável, monostável, PWM) |
+
+#### Filtros Ativos
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-sallen-key` | Filtros Sallen-Key (passa-baixa, passa-alta) |
+
+#### Amplificadores Diferenciais
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-diff-bjt` | Amplificador Diferencial BJT |
+| `just exemplo-diff-jfet` | Amplificador Diferencial JFET |
+
+#### Espelhos de Corrente
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-espelhos` | Espelhos de Corrente (BJT, JFET, MOSFET) |
+
 ### Limpeza
 
 | Comando | Descricao |
@@ -302,7 +341,7 @@ just full circuits/02_filtros/filtro_rc_passa_baixa.spice
 just full-all
 ```
 
-## Conteúdo dos Circuitos (26 circuitos)
+## Conteúdo dos Circuitos (35 circuitos)
 
 ### 00_esquematicos
 
@@ -380,6 +419,48 @@ Circuitos digitais puros usando portas lógicas comportamentais (B-sources).
 |---------|-----------|
 | `somador_4bits_digital.spice` | Somador binário de 4 bits com full adders (portas XOR, AND, OR) |
 | `contador_bcd_0_10.spice` | Contador BCD com reset automático em 10 (detector de estado + reset) |
+
+### 09_fontes_alimentacao (2 circuitos)
+
+Retificadores e reguladores de tensão para fontes de alimentação.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_retificadores.spice` | Meia onda, onda completa e ponte retificadora (com/sem filtro capacitivo) |
+| `02_reguladores_tensao.spice` | Reguladores Zener, LM7805 (5V fixo) e LM317 (ajustável 1.25-37V) |
+
+### 10_timer_555 (1 circuito)
+
+O icônico CI 555 em suas três configurações principais.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_timer_555_astavel_monostavel_pwm.spice` | Astável (oscilador), monostável (one-shot) e PWM |
+
+### 11_filtros_ativos (1 circuito)
+
+Filtros ativos de 2ª ordem usando amplificadores operacionais.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_sallen_key_passa_baixa_passa_alta.spice` | Topologia Sallen-Key Butterworth (fc=1kHz) |
+
+### 12_amplificadores_diferenciais (2 circuitos)
+
+Pares diferenciais - blocos fundamentais de amplificadores operacionais.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_par_diferencial_bjt.spice` | Par diferencial com BJT (BC547), alta CMRR, configurações variadas |
+| `02_par_diferencial_jfet.spice` | Par diferencial com JFET (2N5457), altíssima impedância de entrada |
+
+### 13_espelhos_corrente (1 circuito)
+
+Espelhos de corrente - replicação precisa de correntes.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_espelhos_corrente_bjt_jfet_mosfet.spice` | Espelhos simples e Wilson (BJT), JFET e MOSFET com razões |
 
 ## Scripts
 

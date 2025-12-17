@@ -1,0 +1,278 @@
+* ============================================================================
+* AMPLIFICADOR DIFERENCIAL COM JFET (Par Diferencial)
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* Par diferencial usando transistores JFET (Junction Field Effect Transistor).
+* Oferece vantagens específicas sobre BJT:
+*
+* VANTAGENS DO JFET vs BJT:
+* -------------------------
+* - Impedância de entrada MUITO alta (>100MΩ vs ~100kΩ)
+* - Corrente de porta desprezível (<1nA vs ~µA)
+* - Menor ruído em baixas frequências
+* - Melhor para sinais de alta impedância
+* - Ideal para amplificadores de instrumentação
+* - Melhor matching (casamento) em temperatura
+*
+* DESVANTAGENS:
+* -------------
+* - Menor transcondutância (gm) que BJT
+* - Menor ganho para mesma corrente
+* - Maior dispersão de parâmetros
+* - Vgs negativo (JFET tipo N)
+*
+* TOPOLOGIA:
+* ----------
+*          Vdd
+*           |
+*     Rd1  |D|  Rd2
+*      |---| |---|
+*      |   |S    |
+*     Vo1  J1   Vo2
+*          |G /|
+*   Vin1 --| X |-- Vin2
+*          |/ \|
+*           J2
+*            |
+*           Iss (fonte de corrente)
+*            |
+*           Vss
+*
+* EQUACOES FUNDAMENTAIS:
+* ----------------------
+* Corrente de dreno (região de saturação):
+*   Id = Idss × (1 - Vgs/Vp)²
+*
+* Transcondutância:
+*   gm = 2×√(Idss×Id) / |Vp|
+*   gm ≈ 2×Idss×(1 - Vgs/Vp) / |Vp|
+*
+* Ganho diferencial:
+*   Ad = -gm × Rd / 2
+*
+* CMRR:
+*   CMRR ≈ gm × Rss (onde Rss é impedância da fonte de corrente)
+*
+* PONTO DE OPERACAO:
+* ------------------
+* Para JFET canal N (ex: 2N5457):
+*   Idss ≈ 5mA (corrente com Vgs=0)
+*   Vp ≈ -3V (tensão de pinch-off)
+*   gm @ Id=1mA ≈ 2mS
+*
+* Design: Escolher Id, calcular Vgs necessário, definir Rd para swing
+*
+* APLICACOES:
+* -----------
+* - Amplificadores de instrumentação
+* - Pré-amplificadores de áudio (baixo ruído)
+* - Buffers de alta impedância
+* - Sensores piezoelétricos
+* - Medição de pH (eletrodos de alta impedância)
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Amplificador Diferencial com JFET - Par Diferencial
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* ALIMENTACAO
+* ============================================================================
+Vdd vdd 0 DC 15
+Vss vss 0 DC -15
+
+* ============================================================================
+* PAR DIFERENCIAL JFET BASICO
+* ============================================================================
+* Projeto: Iss = 2mA, Id_J1 = Id_J2 = 1mA (balanceado)
+*          Vds ≈ 7.5V, ganho moderado
+
+* Resistores de dreno (definem ganho)
+Rd1 vdd vo1_jfet 7.5k
+Rd2 vdd vo2_jfet 7.5k
+
+* JFETs canal N (2N5457)
+J1 vo1_jfet vin1_jfet n_ss_jfet JFET_N_MODEL
+J2 vo2_jfet vin2_jfet n_ss_jfet JFET_N_MODEL
+
+* Fonte de corrente de source (Iss)
+Iss n_ss_jfet vss DC 2m
+
+* ============================================================================
+* SINAIS DE ENTRADA JFET
+* ============================================================================
+* Sinal diferencial: ±20mVpk @ 1kHz
+Vin1_jfet vin1_jfet 0 DC 0 AC 0.5 SIN(0 0.02 1k)
+Vin2_jfet vin2_jfet 0 DC 0 AC 0.5 SIN(0 -0.02 1k)
+
+* ============================================================================
+* PAR DIFERENCIAL JFET COM SOURCE RESISTOR
+* ============================================================================
+* Resistor de source para estabilização térmica e controle de ganho
+
+Rd1_sr vdd vo1_sr 7.5k
+Rd2_sr vdd vo2_sr 7.5k
+
+J1_sr vo1_sr vin1_sr n_s1_sr JFET_N_MODEL
+J2_sr vo2_sr vin2_sr n_s2_sr JFET_N_MODEL
+
+* Resistores de source (degeneração)
+Rs1_sr n_s1_sr n_ss_sr 1k
+Rs2_sr n_s2_sr n_ss_sr 1k
+
+* Fonte de corrente
+Iss_sr n_ss_sr vss DC 2m
+
+* Entradas
+Vin1_sr vin1_sr 0 DC 0 SIN(0 0.05 1k)
+Vin2_sr vin2_sr 0 DC 0 SIN(0 -0.05 1k)
+
+* ============================================================================
+* PAR DIFERENCIAL JFET COM CARGA ATIVA (Espelho de Corrente)
+* ============================================================================
+* Usa espelho de corrente JFET como carga para maior ganho
+
+Rd1_ca vdd vo1_ca 7.5k
+
+* Par diferencial
+J1_ca vo1_ca vin1_ca n_ss_ca JFET_N_MODEL
+J2_ca n_d2_ca vin2_ca n_ss_ca JFET_N_MODEL
+
+* Espelho de corrente JFET canal P como carga ativa
+J3_mirror n_d2_ca n_d2_ca vdd JFET_P_MODEL
+J4_mirror vo1_ca n_d2_ca vdd JFET_P_MODEL
+
+* Fonte de corrente
+Iss_ca n_ss_ca vss DC 2m
+
+* Entradas
+Vin1_ca vin1_ca 0 DC 0 SIN(0 0.02 1k)
+Vin2_ca vin2_ca 0 DC 0 SIN(0 -0.02 1k)
+
+* ============================================================================
+* MODELOS DE JFET
+* ============================================================================
+
+* JFET canal N (2N5457-like)
+.model JFET_N_MODEL NJF(
++ VTO=-3           ; Tensão de threshold (Vp)
++ BETA=0.7m        ; Parâmetro de transcondutância (A/V²)
++ LAMBDA=0.01      ; Modulação de canal (1/V)
++ IS=1e-14         ; Corrente de saturação da junção
++ RD=10            ; Resistência de dreno (Ω)
++ RS=10            ; Resistência de source (Ω)
++ CGS=4p           ; Capacitância gate-source (F)
++ CGD=2p           ; Capacitância gate-drain (F)
++ )
+
+* JFET canal P (2N5460-like)
+.model JFET_P_MODEL PJF(
++ VTO=3            ; Tensão de threshold
++ BETA=0.7m
++ LAMBDA=0.01
++ IS=1e-14
++ RD=10
++ RS=10
++ CGS=4p
++ CGD=2p
++ )
+
+* ============================================================================
+* ANALISE DC
+* ============================================================================
+.op
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.01m 5m
+
+* ============================================================================
+* ANALISE AC
+* ============================================================================
+.ac dec 50 1 10Meg
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+
+* DC: correntes de dreno
+.measure dc Id1 FIND i(Rd1_jfet) AT=0
+.measure dc Id2 FIND i(Rd2_jfet) AT=0
+
+* Ganho diferencial
+.measure ac Ad_jfet_mag FIND vdb(vo1_jfet,vo2_jfet) AT=1k
+.measure ac Ad_jfet_phase FIND vp(vo1_jfet,vo2_jfet) AT=1k
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Ponto de operação
+print Id1 Id2 v(vo1_jfet) v(vo2_jfet)
+
+* Plot 2: Resposta transiente
+plot v(vin1_jfet) v(vin2_jfet) v(vo1_jfet) v(vo2_jfet)
++ title "Par Diferencial JFET - Entradas e Saidas" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 3: Saída diferencial
+plot v(vo1_jfet,vo2_jfet)
++ title "Saida Diferencial JFET (Vo1 - Vo2)" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 4: Resposta em frequência
+plot vdb(vo1_jfet,vo2_jfet) xlog
++ title "Ganho Diferencial JFET vs Frequencia" xlabel "Frequencia (Hz)" ylabel "Ganho (dB)"
+
+* Plot 5: Comparação: básico vs source resistor vs carga ativa
+plot v(vo1_jfet,vo2_jfet) v(vo1_sr,vo2_sr) v(vo1_ca)
++ title "Comparacao: Basico vs Source Resistor vs Carga Ativa" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/12_amplificadores_diferenciais/diff_jfet_transiente.csv v(vin1_jfet) v(vin2_jfet) v(vo1_jfet) v(vo2_jfet)
+wrdata circuits/12_amplificadores_diferenciais/diff_jfet_bode.csv frequency vdb(vo1_jfet,vo2_jfet) vp(vo1_jfet,vo2_jfet)
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DO AMPLIFICADOR DIFERENCIAL JFET"
+echo "============================================================================"
+echo ""
+echo "PONTO DE OPERACAO:"
+echo "  Id1 =" Id1 "A (deve ser ~1mA)"
+echo "  Id2 =" Id2 "A (deve ser ~1mA)"
+echo "  Vo1 =" v(vo1_jfet) "V"
+echo "  Vo2 =" v(vo2_jfet) "V"
+echo ""
+echo "GANHO DIFERENCIAL (@ 1kHz):"
+echo "  Magnitude:" Ad_jfet_mag "dB"
+echo "  Fase:" Ad_jfet_phase "graus"
+echo "  Ganho teorico: Ad = -gm×Rd/2 (gm @ 1mA ≈ 2mS)"
+echo ""
+echo "VANTAGENS DO JFET:"
+echo "  - Impedancia de entrada MUITO alta (>100MΩ)"
+echo "  - Corrente de gate desprezivel (<1nA)"
+echo "  - Ideal para sinais de alta impedancia"
+echo "  - Baixo ruído em baixas frequencias"
+echo ""
+echo "COMPARACAO BJT vs JFET:"
+echo "  BJT: maior gm, maior ganho, menor Zin"
+echo "  JFET: menor gm, menor ganho, maior Zin (100x)"
+echo "============================================================================"
+echo ""
+
+quit
+.endc
+
+.end

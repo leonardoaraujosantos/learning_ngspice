@@ -1,0 +1,275 @@
+* ============================================================================
+* REGULADORES DE TENSAO - Zener, LM7805 e LM317
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* Este circuito demonstra três tipos de reguladores de tensão lineares:
+* 1. Regulador Zener simples
+* 2. Regulador linear série (LM7805 - 5V fixo)
+* 3. Regulador linear ajustável (LM317 - 1.25V a 37V)
+*
+* TOPOLOGIAS E TEORIA:
+* --------------------
+*
+* 1. REGULADOR ZENER:
+*    Vin --[Rs]--+-- Vout
+*                |
+*              [Dz]  Rload
+*                |    |
+*               GND--GND
+*
+*    - Diodo Zener em paralelo com a carga
+*    - Resistor série Rs limita corrente
+*    - Vout = Vz (tensão Zener)
+*    - Regulação de linha: ruim (~5-10%)
+*    - Regulação de carga: ruim
+*    - Eficiência: baixa
+*    - Uso: baixas correntes (<100mA), não crítico
+*
+*    Design: Rs = (Vin_min - Vz) / (Iz + Iload_max)
+*            Pz = Vz × Iz_max
+*
+* 2. REGULADOR LINEAR SERIE (LM7805):
+*    Vin --[LM7805]-- Vout (5V)
+*          |      |
+*         GND    GND
+*
+*    - Tensão fixa de saída (5V, 9V, 12V, etc.)
+*    - Regulação de linha: excelente (<0.01%/V)
+*    - Regulação de carga: excelente (<0.5%)
+*    - Dropout: ~2-2.5V (Vin_min = Vout + 2V)
+*    - Corrente máxima: 1A (com dissipador)
+*    - Proteção: curto-circuito e térmica
+*
+*    Dissipação: P = (Vin - Vout) × Iout
+*
+* 3. REGULADOR AJUSTAVEL (LM317):
+*    Vin --[LM317]-- Vout
+*          |  |  |
+*         ADJ |  +--[R1]--+
+*            GND          |
+*                      [R2]
+*                         |
+*                        GND
+*
+*    - Tensão ajustável: 1.25V a 37V
+*    - Vout = 1.25V × (1 + R2/R1) + Iadj×R2
+*    - Iadj ≈ 50µA (desprezível)
+*    - Dropout: ~3V
+*    - Corrente máxima: 1.5A
+*
+*    Design típico: R1 = 240Ω, R2 = 240Ω × (Vout/1.25 - 1)
+*
+* COMPARACAO:
+* -----------
+* | Tipo    | Reg.Linha | Reg.Carga | Dropout | Custo | Uso              |
+* |---------|-----------|-----------|---------|-------|------------------|
+* | Zener   | Ruim      | Ruim      | Baixo   | $     | Baixa corrente   |
+* | 78xx    | Excelente | Excelente | 2-3V    | $$    | Tensão fixa      |
+* | LM317   | Excelente | Excelente | 3V      | $$    | Tensão ajustável |
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Reguladores de Tensao - Zener, LM7805 e LM317
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* FONTES DE ENTRADA (Pós-retificação)
+* ============================================================================
+* Simula saída de retificador com ripple
+
+* Para Zener: 12V DC com ripple de 1V @ 120Hz
+VZENER vin_zener 0 DC 12 AC 0 SIN(0 0.5 120)
+
+* Para LM7805: 9V DC com ripple de 0.5V @ 120Hz
+V7805 vin_7805 0 DC 9 AC 0 SIN(0 0.25 120)
+
+* Para LM317: 15V DC com ripple de 0.5V @ 120Hz
+V317 vin_317 0 DC 15 AC 0 SIN(0 0.25 120)
+
+* ============================================================================
+* REGULADOR ZENER (5.1V)
+* ============================================================================
+* Design: Vout = 5.1V, Iload_max = 50mA, Iz_min = 5mA
+*         Rs = (12V - 5.1V) / (55mA) ≈ 125Ω
+*         Usar 120Ω (valor padrão)
+
+Rs_zener vin_zener n_zener 120
+Dz n_zener 0 DZ5V1
+Rload_zener n_zener 0 200  ; 50mA @ 5.1V ≈ 100Ω, usando 200Ω (25mA)
+
+* Capacitor de saída para filtro adicional (opcional)
+Cout_zener n_zener 0 10u
+
+* ============================================================================
+* REGULADOR LINEAR FIXO LM7805 (5V)
+* ============================================================================
+* Pinagem: IN (1), GND (2), OUT (3)
+
+* Capacitores de entrada e saída (recomendados)
+Cin_7805 vin_7805 0 10u   ; Filtro de entrada
+X7805 vin_7805 0 out_7805 LM7805_MODEL
+Cout_7805 out_7805 0 1u   ; Filtro de saída (estabilidade)
+Rload_7805 out_7805 0 50  ; 100mA @ 5V
+
+* ============================================================================
+* REGULADOR AJUSTAVEL LM317 (12V)
+* ============================================================================
+* Vout = 1.25V × (1 + R2/R1)
+* Para 12V: R2/R1 = 12/1.25 - 1 = 8.6
+* R1 = 240Ω (padrão), R2 = 240Ω × 8.6 = 2064Ω ≈ 2k
+
+Cin_317 vin_317 0 10u
+X317 vin_317 out_317 adj_317 LM317_MODEL
+R1_317 adj_317 0 240
+R2_317 out_317 adj_317 2k
+Cout_317 out_317 0 1u
+Rload_317 out_317 0 120  ; 100mA @ 12V
+
+* ============================================================================
+* MODELOS
+* ============================================================================
+
+* Diodo Zener 5.1V (1N4733A)
+.model DZ5V1 D(
++ IS=1e-14
++ RS=0.5
++ N=1.7
++ BV=5.1      ; Tensão Zener
++ IBV=20m     ; Corrente de teste
++ VJ=0.7
++ )
+
+* Modelo simplificado do LM7805
+.subckt LM7805_MODEL IN GND OUT
+* Regulador linear série - modelo comportamental
+
+* Tensão de referência interna (5V)
+Vref ref GND 5.0
+
+* Amplificador de erro (ganho alto)
+* Compara Vout com Vref e controla elemento série
+Eerror error GND OUT ref 1000
+
+* Elemento série (transistor de passagem) - modelado como fonte controlada
+* Limita corrente e garante dropout
+Gpass IN OUT VALUE={LIMIT((V(error)*0.1), 0, 1.5)}
+Rpass IN OUT 1Meg
+
+* Resistência de saída (baixa)
+Rout OUT GND 0.01
+
+* Capacitor interno para estabilidade
+Ccomp error GND 100p
+
+.ends LM7805_MODEL
+
+* Modelo simplificado do LM317
+.subckt LM317_MODEL IN OUT ADJ
+* Regulador ajustável
+
+* Tensão de referência entre OUT e ADJ (1.25V)
+Vref OUT ADJ 1.25
+
+* Corrente de ajuste (50µA típico)
+Iadj OUT ADJ 50u
+
+* Elemento série - fonte controlada por tensão
+* Regula para manter 1.25V entre OUT e ADJ
+Gseries IN OUT VALUE={LIMIT((V(IN,OUT)-V(OUT,ADJ)-1.25)*0.1, 0, 1.5)}
+Rseries IN OUT 1Meg
+
+* Resistência de saída
+Rout OUT ADJ 0.01
+
+.ends LM317_MODEL
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.1m 50m
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+
+* Tensões médias de saída
+.measure tran Vout_zener AVG v(n_zener) FROM=20m TO=50m
+.measure tran Vout_7805 AVG v(out_7805) FROM=20m TO=50m
+.measure tran Vout_317 AVG v(out_317) FROM=20m TO=50m
+
+* Ripple de saída (pico a pico)
+.measure tran Ripple_zener PP v(n_zener) FROM=20m TO=50m
+.measure tran Ripple_7805 PP v(out_7805) FROM=20m TO=50m
+.measure tran Ripple_317 PP v(out_317) FROM=20m TO=50m
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Entrada vs Saída - Zener
+plot v(vin_zener) v(n_zener)
++ title "Regulador Zener 5.1V - Entrada vs Saida" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 2: Entrada vs Saída - LM7805
+plot v(vin_7805) v(out_7805)
++ title "Regulador LM7805 - Entrada vs Saida" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 3: Entrada vs Saída - LM317
+plot v(vin_317) v(out_317)
++ title "Regulador LM317 (12V) - Entrada vs Saida" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 4: Comparação das saídas
+plot v(n_zener) v(out_7805) v(out_317)
++ title "Comparacao: Zener vs LM7805 vs LM317" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 5: Zoom no ripple
+plot v(n_zener) v(out_7805) v(out_317) xlimit 20m 30m
++ title "Ripple de Saida - Zoom" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/09_fontes_alimentacao/reguladores_saidas.csv v(n_zener) v(out_7805) v(out_317)
+wrdata circuits/09_fontes_alimentacao/reguladores_entradas.csv v(vin_zener) v(vin_7805) v(vin_317)
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DOS REGULADORES"
+echo "============================================================================"
+echo ""
+echo "REGULADOR ZENER 5.1V:"
+echo "  Vout media:" Vout_zener "V"
+echo "  Ripple:" Ripple_zener "V"
+echo ""
+echo "REGULADOR LM7805 (5V fixo):"
+echo "  Vout media:" Vout_7805 "V"
+echo "  Ripple:" Ripple_7805 "V"
+echo ""
+echo "REGULADOR LM317 (12V ajustavel):"
+echo "  Vout media:" Vout_317 "V"
+echo "  Ripple:" Ripple_317 "V"
+echo ""
+echo "COMPARACAO:"
+echo "  - Zener: simples, ripple alto, regulacao ruim"
+echo "  - LM7805: excelente regulacao, 5V fixo"
+echo "  - LM317: excelente regulacao, tensao ajustavel"
+echo "============================================================================"
+echo ""
+
+print Vout_zener Vout_7805 Vout_317 Ripple_zener Ripple_7805 Ripple_317
+
+quit
+.endc
+
+.end
