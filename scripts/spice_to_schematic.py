@@ -284,19 +284,16 @@ def _safe_id(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', str(text))
 
 
-def _component_label(comp):
-    if comp.value:
-        return comp.value
-    if comp.model:
-        return comp.model
-    return comp.name
-
-
-def _label_attr(text):
-    if not text:
-        return ""
-    safe = str(text).replace('_', '\\_')
-    return f",l=${safe}$"
+def _label_attr_for(comp):
+    name = comp.name or ""
+    value = comp.value or comp.model or ""
+    name_safe = str(name).replace('_', '\\_')
+    value_safe = str(value).replace('_', '\\_')
+    if name and value:
+        return f",l=${name_safe}$,l_=${value_safe}$"
+    if name:
+        return f",l=${name_safe}$"
+    return ""
 
 
 def create_netlist(components, title):
@@ -618,13 +615,15 @@ def _extract_fan_branches(components):
 def _circuitikz_simple_fan(components, title):
     """Gera codigo circuitikz para um fan simples."""
     hub, gnd, vval, branches = _extract_fan_branches(components)
+    v = next(c for c in components if c.comp_type == 'V')
 
     lines = []
     lines.append("\\begin{circuitikz}[american voltages]")
     # Coordenadas
     lines.append("\\coordinate (hub) at (0,0);")
     lines.append("\\coordinate (gnd) at (0,-3);")
-    lines.append(f"\\draw (hub) to[V,l=${vval}$, invert] (gnd);")
+    v_label = _label_attr_for(v)
+    lines.append(f"\\draw (hub) to[V{v_label}, invert] (gnd);")
 
     # Posicoes fixas para ramos: direita, cima, esquerda, baixo
     dir_vectors = [(3, 0), (0, 3), (-3, 0), (0, -3)]
@@ -637,7 +636,7 @@ def _circuitikz_simple_fan(components, title):
         for j, r in enumerate(chain):
             is_last = (j == len(chain) - 1)
             end_norm = normalize_node(end_node)
-            val = r.value or r.name
+            label_attr = _label_attr_for(r)
 
             if dx != 0:
                 step_x, step_y = (2 if dx > 0 else -2), 0
@@ -645,10 +644,10 @@ def _circuitikz_simple_fan(components, title):
                 step_x, step_y = 0, (2 if dy > 0 else -2)
 
             if is_last and end_norm == '0':
-                lines.append(f"\\draw ({current}) to[R,l=${val}$] ++({step_x},{step_y}) to[short] ++(0,-2) node[ground]{{}};")
+                lines.append(f"\\draw ({current}) to[R{label_attr}] ++({step_x},{step_y}) to[short] ++(0,-2) node[ground]{{}};")
             else:
                 nxt = f"b{idx}_{j+1}"
-                lines.append(f"\\draw ({current}) to[R,l=${val}$] ++({step_x},{step_y}) coordinate ({nxt});")
+                lines.append(f"\\draw ({current}) to[R{label_attr}] ++({step_x},{step_y}) coordinate ({nxt});")
                 current = nxt
 
     lines.append("\\end{circuitikz}")
@@ -658,6 +657,7 @@ def _circuitikz_simple_fan(components, title):
 def _circuitikz_generic(components, title):
     """Gera circuito circuitikz com layout simples em grade."""
     bipoles = {'R', 'C', 'L', 'V', 'I', 'D'}
+    dx, dy = 8, 5
     nodes = set()
     for comp in components:
         for node in comp.nodes[:4]:
@@ -719,8 +719,9 @@ def _circuitikz_generic(components, title):
         degrees = {n: len(adj[n]) for n in group}
         return max(group, key=lambda n: (degrees.get(n, 0), n))
 
-    def layout_group(group):
-        ref = choose_ref(group)
+    def layout_group(group, fixed=None):
+        fixed = fixed or {}
+        ref = next(iter(fixed.keys()), None) or choose_ref(group)
         level = {ref: 0}
         queue = [ref]
         while queue:
@@ -767,7 +768,6 @@ def _circuitikz_generic(components, title):
                 order[lvl].sort(key=key_next)
 
         coords_local = {}
-        dx, dy = 6, 4
         for lvl in sorted(order.keys()):
             group_nodes = order[lvl]
             total = len(group_nodes)
@@ -775,6 +775,18 @@ def _circuitikz_generic(components, title):
                 y = (i - (total - 1) / 2) * dy
                 x = lvl * dx
                 coords_local[n] = (x, y)
+
+        if fixed:
+            ref_node = next(iter(fixed.keys()), None)
+            if ref_node in coords_local:
+                dx_shift = fixed[ref_node][0] - coords_local[ref_node][0]
+                dy_shift = fixed[ref_node][1] - coords_local[ref_node][1]
+                for n in coords_local:
+                    x, y = coords_local[n]
+                    coords_local[n] = (x + dx_shift, y + dy_shift)
+            for n, (fx, fy) in fixed.items():
+                if n in coords_local:
+                    coords_local[n] = (fx, fy)
         return coords_local
 
     # Posicionar grupos em grade
@@ -782,33 +794,195 @@ def _circuitikz_generic(components, title):
     cursor_x = 0
     cursor_y = 0
     row_height = 0
-    max_row_width = 36
+    max_row_width = 60
     margin = 6
+    group_padding_x = 8
+    group_padding_y = 4
+    group_frame_x = 6
+    group_frame_y = 4
 
+    def fixed_for_group(group):
+        transistors = []
+        for comp in components:
+            if comp.comp_type not in ('Q', 'M', 'J'):
+                continue
+            nodes_list = [normalize_node(n) for n in comp.nodes[:3]]
+            if any(n in group for n in nodes_list):
+                transistors.append(comp)
+        if len(transistors) != 1:
+            return {}
+        t = transistors[0]
+        pin_dx = 8
+        pin_dy = 6
+        if t.comp_type == 'Q':
+            c, b, e = [normalize_node(n) for n in t.nodes[:3]]
+            return {b: (-pin_dx, 0), c: (0, pin_dy), e: (0, -pin_dy)}
+        d, g, s = [normalize_node(n) for n in t.nodes[:3]]
+        return {g: (-pin_dx, 0), d: (0, pin_dy), s: (0, -pin_dy)}
+
+    group_infos = []
     for group in components_nodes:
-        local = layout_group(group)
+        fixed = fixed_for_group(group)
+        local = layout_group(group, fixed)
         xs = [v[0] for v in local.values()]
         ys = [v[1] for v in local.values()]
+        if not xs or not ys:
+            continue
         minx, maxx = min(xs), max(xs)
         miny, maxy = min(ys), max(ys)
-        width = maxx - minx if xs else 0
-        height = maxy - miny if ys else 0
+        width = (maxx - minx) + 2 * (group_padding_x + group_frame_x)
+        height = (maxy - miny) + 2 * (group_padding_y + group_frame_y)
+        group_infos.append((group, local, minx, miny, width, height))
 
-        if cursor_x + width > max_row_width and cursor_x > 0:
-            cursor_x = 0
-            cursor_y -= (row_height + margin)
-            row_height = 0
+    n_groups = len(group_infos)
+    use_columns = n_groups >= 3
+    if use_columns:
+        columns = 2 if n_groups <= 4 else 3
+        columns = min(columns, n_groups)
+        col_heights = [0] * columns
+        col_groups = [[] for _ in range(columns)]
 
-        for n, (x, y) in local.items():
-            coords[n] = (x - minx + cursor_x, y - miny + cursor_y)
+        for info in sorted(group_infos, key=lambda g: g[5], reverse=True):
+            idx = min(range(columns), key=lambda i: col_heights[i])
+            col_groups[idx].append(info)
+            col_heights[idx] += info[5] + margin
 
-        cursor_x += width + margin
-        row_height = max(row_height, height)
+        col_widths = [max((g[4] for g in col), default=0) for col in col_groups]
+        col_x = []
+        current_x = 0
+        for w in col_widths:
+            col_x.append(current_x)
+            current_x += w + margin
+
+        for idx, col in enumerate(col_groups):
+            y_cursor = 0
+            for group, local, minx, miny, width, height in col:
+                for n, (x, y) in local.items():
+                    coords[n] = (x - minx + col_x[idx] + group_padding_x + group_frame_x,
+                                 y - miny + y_cursor + group_padding_y + group_frame_y)
+                y_cursor -= (height + margin)
+    else:
+        for group, local, minx, miny, width, height in group_infos:
+            if cursor_x + width > max_row_width and cursor_x > 0:
+                cursor_x = 0
+                cursor_y -= (row_height + margin)
+                row_height = 0
+
+            for n, (x, y) in local.items():
+                coords[n] = (x - minx + cursor_x + group_padding_x + group_frame_x,
+                             y - miny + cursor_y + group_padding_y + group_frame_y)
+
+            cursor_x += width + margin
+            row_height = max(row_height, height)
+
+    # Garantir coordenadas positivas para evitar cortes
+    if coords:
+        min_x = min(x for x, _ in coords.values())
+        min_y = min(y for _, y in coords.values())
+        shift_x = -min_x + 2 if min_x < 0 else 0
+        shift_y = -min_y + 2 if min_y < 0 else 0
+        if shift_x or shift_y:
+            for n in coords:
+                x, y = coords[n]
+                coords[n] = (x + shift_x, y + shift_y)
+
+    # Mapear grupos para rails locais
+    group_of = {}
+    for idx, group in enumerate(components_nodes):
+        for n in group:
+            group_of[n] = idx
+
+    group_bounds = {}
+    for idx, group in enumerate(components_nodes):
+        xs = [coords[n][0] for n in group if n in coords]
+        ys = [coords[n][1] for n in group if n in coords]
+        if xs and ys:
+            group_bounds[idx] = (min(xs), max(xs), min(ys), max(ys))
+
+    supply_nodes_by_group = defaultdict(list)
+    for comp in components:
+        if comp.comp_type != 'V' or len(comp.nodes) < 2:
+            continue
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        if n1 == '0' and n2 in coords:
+            supply_nodes_by_group[group_of[n2]].append(n2)
+        elif n2 == '0' and n1 in coords:
+            supply_nodes_by_group[group_of[n1]].append(n1)
+
+    has_ground_by_group = defaultdict(bool)
+    for comp in components:
+        if comp.comp_type in bipoles and len(comp.nodes) >= 2:
+            n1 = normalize_node(comp.nodes[0])
+            n2 = normalize_node(comp.nodes[1])
+            if (n1 == '0') ^ (n2 == '0'):
+                other = n2 if n1 == '0' else n1
+                if other in coords:
+                    has_ground_by_group[group_of[other]] = True
+        if comp.comp_type in ('Q', 'M', 'J') and len(comp.nodes) >= 3:
+            if normalize_node(comp.nodes[2]) == '0':
+                for n in comp.nodes[:3]:
+                    nn = normalize_node(n)
+                    if nn in coords:
+                        has_ground_by_group[group_of[nn]] = True
+                        break
 
     lines = []
     lines.append("\\begin{circuitikz}[american voltages]")
     for n, (x, y) in coords.items():
         lines.append(f"\\coordinate ({node_ids[n]}) at ({x},{y});")
+
+    # Barramentos locais de VCC e GND
+    gnd_bus_name = {}
+    gnd_y_by_group = {}
+    for idx, bounds in group_bounds.items():
+        min_x, max_x, min_y, max_y = bounds
+        if supply_nodes_by_group.get(idx):
+            top_y = max_y + 6
+            rail_left = min_x - 4
+            rail_right = max_x + 4
+            lines.append(f"\\coordinate (vccbusL_g{idx}) at ({rail_left},{top_y});")
+            lines.append(f"\\coordinate (vccbusR_g{idx}) at ({rail_right},{top_y});")
+            lines.append(f"\\draw (vccbusL_g{idx}) -- (vccbusR_g{idx});")
+            for node in sorted(set(supply_nodes_by_group[idx])):
+                nid = node_ids.get(node)
+                if nid:
+                    lines.append(f"\\draw ({nid}) -- ({nid} |- vccbusL_g{idx});")
+
+        if has_ground_by_group.get(idx):
+            ground_y = min_y - 6
+            gnd_left = min_x - 4
+            gnd_right = max_x + 4
+            lines.append(f"\\coordinate (gndbusL_g{idx}) at ({gnd_left},{ground_y});")
+            lines.append(f"\\coordinate (gndbusR_g{idx}) at ({gnd_right},{ground_y});")
+            lines.append(f"\\draw (gndbusL_g{idx}) -- (gndbusR_g{idx});")
+            lines.append(f"\\node[ground] at (gndbusL_g{idx}) {{}};")
+            gnd_bus_name[idx] = f"gndbusL_g{idx}"
+            gnd_y_by_group[idx] = ground_y
+
+    degrees = {n: len(adj[n]) for n in nodes}
+
+    # Offsets para componentes paralelos entre dois nos
+    edge_groups = defaultdict(list)
+    for comp in components:
+        if comp.comp_type not in bipoles or len(comp.nodes) < 2:
+            continue
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        if n1 == '0' or n2 == '0':
+            continue
+        key = tuple(sorted([n1, n2]))
+        edge_groups[key].append(comp)
+
+    edge_offsets = {}
+    parallel_spacing = 2.0
+    for key, comps in edge_groups.items():
+        total = len(comps)
+        if total <= 1:
+            continue
+        start = -(total - 1) / 2
+        for idx, comp in enumerate(comps):
+            edge_offsets[comp.name] = (start + idx) * parallel_spacing
 
     # Offsets para componentes em ground
     ground_groups = defaultdict(list)
@@ -821,28 +995,102 @@ def _circuitikz_generic(components, title):
                 if other in node_ids:
                     ground_groups[other].append(comp)
 
+    # Barramento para muitos shunts no mesmo no
+    bus_nodes = {node: comps for node, comps in ground_groups.items() if len(comps) >= 2}
+    bus_positions = {}
+    bus_gap = 3
+    bus_spacing = 4
+    bus_lines = []
+
+    for node, comps in bus_nodes.items():
+        node_x, node_y = coords[node]
+        group_id = group_of.get(node)
+        group_ground = gnd_y_by_group.get(group_id, node_y - 6)
+        bus_y = max(node_y - bus_gap, group_ground + 2)
+        total = len(comps)
+        start = -(total - 1) / 2
+        xs = []
+        for idx, comp in enumerate(sorted(comps, key=lambda c: c.name)):
+            x = node_x + (start + idx) * bus_spacing
+            xs.append(x)
+            bus_positions[comp.name] = (x, bus_y)
+        if xs:
+            x_min, x_max = min(xs), max(xs)
+            bus_lines.append((x_min, bus_y, x_max, bus_y))
+            mid = (x_min + x_max) / 2
+            drop_x = x_min if node_x <= mid else x_max
+            if drop_x != node_x:
+                bus_lines.append((node_x, node_y, drop_x, node_y))
+            bus_lines.append((drop_x, node_y, drop_x, bus_y))
+
     ground_offsets = {}
     ground_spacing = 2.5
     for node, comps in ground_groups.items():
+        if node in bus_nodes:
+            continue
         total = len(comps)
         start = -(total - 1) / 2
         for idx, comp in enumerate(comps):
             ground_offsets[comp.name] = (start + idx) * ground_spacing
 
-    def draw_ground_bipole(comp, node):
+    # Desenhar barramentos de shunt
+    for x1, y1, x2, y2 in bus_lines:
+        lines.append(f"\\draw ({x1},{y1}) -- ({x2},{y2});")
+
+    node_positions = {n: coords[n] for n in coords}
+
+    def segment_hits_nodes(x1, y1, x2, y2, ignore):
+        hits = 0
+        if x1 == x2:
+            ymin, ymax = sorted([y1, y2])
+            for node, (nx, ny) in node_positions.items():
+                if node in ignore:
+                    continue
+                if abs(nx - x1) < 0.01 and ymin < ny < ymax:
+                    hits += 1
+        elif y1 == y2:
+            xmin, xmax = sorted([x1, x2])
+            for node, (nx, ny) in node_positions.items():
+                if node in ignore:
+                    continue
+                if abs(ny - y1) < 0.01 and xmin < nx < xmax:
+                    hits += 1
+        return hits
+
+    def bend_score(bx, by, x1, y1, x2, y2, ignore):
+        hits = segment_hits_nodes(x1, y1, bx, by, ignore)
+        hits += segment_hits_nodes(bx, by, x2, y2, ignore)
+        length = abs(x1 - bx) + abs(y1 - by) + abs(x2 - bx) + abs(y2 - by)
+        return hits, length
+
+    def draw_ground_bipole(comp, node, group_id):
         comp_id = _safe_id(comp.name)
         offset = ground_offsets.get(comp.name, 0)
         base = node_ids[node]
-        label = _component_label(comp)
-        label_attr = _label_attr(label)
+        label_attr = _label_attr_for(comp)
         kind = comp.comp_type
-        if offset:
+        if comp.name in bus_positions:
+            bx, by = bus_positions[comp.name]
+            node_x, node_y = coords[node]
+            start = node_ids[node]
+            if bx != node_x:
+                anchor = f"{comp_id}_top"
+                lines.append(f"\\draw ({start}) to[short] ++({bx - node_x},0) coordinate ({anchor});")
+                start = anchor
+            lines.append(f"\\draw ({start}) to[{kind}{label_attr}] ({bx},{by});")
+            return
+        elif offset:
             anchor = f"{comp_id}_gnd"
             lines.append(f"\\draw ({base}) to[short] ++({offset},0) coordinate ({anchor});")
             start = anchor
         else:
             start = base
-        lines.append(f"\\draw ({start}) to[{kind}{label_attr}] ++(0,-2.5) node[ground]{{}};")
+
+        gnd_anchor = gnd_bus_name.get(group_id)
+        if gnd_anchor:
+            lines.append(f"\\draw ({start}) to[{kind}{label_attr}] ({start} |- {gnd_anchor});")
+        else:
+            lines.append(f"\\draw ({start}) to[{kind}{label_attr}] ++(0,-2.5) node[ground]{{}};")
 
     # Desenhar bipolos
     for comp in components:
@@ -854,7 +1102,8 @@ def _circuitikz_generic(components, title):
         if (n1 == '0') ^ (n2 == '0'):
             other = n2 if n1 == '0' else n1
             if other in node_ids:
-                draw_ground_bipole(comp, other)
+                group_id = group_of.get(other)
+                draw_ground_bipole(comp, other, group_id)
             continue
 
         if n1 not in node_ids or n2 not in node_ids:
@@ -862,23 +1111,43 @@ def _circuitikz_generic(components, title):
 
         id1 = node_ids[n1]
         id2 = node_ids[n2]
-        label = _component_label(comp)
-        label_attr = _label_attr(label)
+        label_attr = _label_attr_for(comp)
         kind = comp.comp_type
 
         x1, y1 = coords.get(n1, (0, 0))
         x2, y2 = coords.get(n2, (0, 0))
         aligned = (x1 == x2) or (y1 == y2)
+        offset = edge_offsets.get(comp.name, 0)
         if aligned:
-            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({id2});")
+            if offset == 0:
+                lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({id2});")
+            else:
+                if x1 == x2:
+                    p1 = f"{id1}_{_safe_id(comp.name)}_p1"
+                    p2 = f"{id2}_{_safe_id(comp.name)}_p2"
+                    lines.append(f"\\draw ({id1}) to[short] ++({offset},0) coordinate ({p1});")
+                    lines.append(f"\\draw ({id2}) to[short] ++({offset},0) coordinate ({p2});")
+                    lines.append(f"\\draw ({p1}) to[{kind}{label_attr}] ({p2});")
+                else:
+                    p1 = f"{id1}_{_safe_id(comp.name)}_p1"
+                    p2 = f"{id2}_{_safe_id(comp.name)}_p2"
+                    lines.append(f"\\draw ({id1}) to[short] ++(0,{offset}) coordinate ({p1});")
+                    lines.append(f"\\draw ({id2}) to[short] ++(0,{offset}) coordinate ({p2});")
+                    lines.append(f"\\draw ({p1}) to[{kind}{label_attr}] ({p2});")
             continue
 
-        if abs(x2 - x1) >= abs(y2 - y1):
-            bend = (x2, y1)
-            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bend[0]},{bend[1]}) to[short] ({id2});")
+        deg1 = degrees.get(n1, 0)
+        deg2 = degrees.get(n2, 0)
+        cand1 = (x1, y2)
+        cand2 = (x2, y1)
+        ignore_nodes = {n1, n2}
+        score1 = bend_score(cand1[0], cand1[1], x1, y1, x2, y2, ignore_nodes)
+        score2 = bend_score(cand2[0], cand2[1], x1, y1, x2, y2, ignore_nodes)
+        if score1 == score2:
+            bend = cand1 if deg1 >= deg2 else cand2
         else:
-            bend = (x1, y2)
-            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bend[0]},{bend[1]}) to[short] ({id2});")
+            bend = cand1 if score1 < score2 else cand2
+        lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bend[0]},{bend[1]}) to[short] ({id2});")
 
     # BJTs
     for comp in components:
@@ -893,6 +1162,7 @@ def _circuitikz_generic(components, title):
         pins = [n for n in (c, b, e) if n in coords]
         if not pins:
             continue
+        group_id = group_of.get(pins[0])
         cx = sum(coords[n][0] for n in pins) / len(pins)
         cy = sum(coords[n][1] for n in pins) / len(pins)
 
@@ -904,7 +1174,11 @@ def _circuitikz_generic(components, title):
         if e in node_ids:
             lines.append(f"\\draw ({comp_id}.E) -- ({node_ids[e]});")
         elif e == '0':
-            lines.append(f"\\draw ({comp_id}.E) -- ++(0,-2) node[ground]{{}};")
+            gnd_anchor = gnd_bus_name.get(group_id)
+            if gnd_anchor:
+                lines.append(f"\\draw ({comp_id}.E) -- ({comp_id}.E |- {gnd_anchor});")
+            else:
+                lines.append(f"\\draw ({comp_id}.E) -- ++(0,-2) node[ground]{{}};")
 
     # MOSFETs
     for comp in components:
@@ -920,6 +1194,7 @@ def _circuitikz_generic(components, title):
         pins = [n for n in (d, g, s) if n in coords]
         if not pins:
             continue
+        group_id = group_of.get(pins[0])
         cx = sum(coords[n][0] for n in pins) / len(pins)
         cy = sum(coords[n][1] for n in pins) / len(pins)
 
@@ -931,7 +1206,11 @@ def _circuitikz_generic(components, title):
         if s in node_ids:
             lines.append(f"\\draw ({comp_id}.S) -- ({node_ids[s]});")
         elif s == '0':
-            lines.append(f"\\draw ({comp_id}.S) -- ++(0,-2) node[ground]{{}};")
+            gnd_anchor = gnd_bus_name.get(group_id)
+            if gnd_anchor:
+                lines.append(f"\\draw ({comp_id}.S) -- ({comp_id}.S |- {gnd_anchor});")
+            else:
+                lines.append(f"\\draw ({comp_id}.S) -- ++(0,-2) node[ground]{{}};")
 
     # JFETs
     for comp in components:
@@ -947,6 +1226,7 @@ def _circuitikz_generic(components, title):
         pins = [n for n in (d, g, s) if n in coords]
         if not pins:
             continue
+        group_id = group_of.get(pins[0])
         cx = sum(coords[n][0] for n in pins) / len(pins)
         cy = sum(coords[n][1] for n in pins) / len(pins)
 
@@ -958,7 +1238,11 @@ def _circuitikz_generic(components, title):
         if s in node_ids:
             lines.append(f"\\draw ({comp_id}.S) -- ({node_ids[s]});")
         elif s == '0':
-            lines.append(f"\\draw ({comp_id}.S) -- ++(0,-2) node[ground]{{}};")
+            gnd_anchor = gnd_bus_name.get(group_id)
+            if gnd_anchor:
+                lines.append(f"\\draw ({comp_id}.S) -- ({comp_id}.S |- {gnd_anchor});")
+            else:
+                lines.append(f"\\draw ({comp_id}.S) -- ++(0,-2) node[ground]{{}};")
 
     lines.append("\\end{circuitikz}")
     return "\n".join(lines)
@@ -1047,6 +1331,8 @@ def create_schematic_circuitikz(components, title, output_path):
 
     tex_content = r"""\documentclass[tikz,border=2pt]{standalone}
 \usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
 \begin{document}
 %s
 \end{document}
