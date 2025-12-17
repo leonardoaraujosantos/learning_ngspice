@@ -1,0 +1,225 @@
+* =========================================================
+* MODELOS BJT PADRAO PARA NGSPICE
+* =========================================================
+* Baseados em parametros de datasheet dos componentes reais
+* Fonte: NGSPICE examples e literatura tecnica
+
+* ---------------------------------------------------------
+* BC548 - NPN General Purpose (Low Power, Audio)
+* ---------------------------------------------------------
+* Parametros tipicos:
+*   hFE = 110-800 (tipico: 200)
+*   Vceo = 30V
+*   Ic max = 100mA
+*   Ft = 300MHz
+*
+.model QBC548 NPN (
++ IS=1e-14
++ BF=200
++ NF=1.0
++ VAF=100
++ IKF=0.1
++ ISE=1e-13
++ NE=1.5
++ BR=5
++ NR=1.0
++ VAR=20
++ IKR=0.1
++ ISC=1e-13
++ NC=1.5
++ RB=100
++ RE=0.5
++ RC=10
++ CJE=25p
++ VJE=0.7
++ MJE=0.33
++ CJC=10p
++ VJC=0.5
++ MJC=0.33
++ TF=500p
++ TR=100n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
+
+* ---------------------------------------------------------
+* BC558 - PNP General Purpose (Complementar ao BC548)
+* ---------------------------------------------------------
+.model QBC558 PNP (
++ IS=1e-14
++ BF=200
++ NF=1.0
++ VAF=100
++ IKF=0.1
++ ISE=1e-13
++ NE=1.5
++ BR=5
++ NR=1.0
++ VAR=20
++ IKR=0.1
++ ISC=1e-13
++ NC=1.5
++ RB=100
++ RE=0.5
++ RC=10
++ CJE=25p
++ VJE=0.7
++ MJE=0.33
++ CJC=10p
++ VJC=0.5
++ MJC=0.33
++ TF=500p
++ TR=100n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
+
+* ---------------------------------------------------------
+* 2N3904 - NPN General Purpose
+* ---------------------------------------------------------
+.model Q2N3904 NPN (
++ IS=1e-14
++ BF=300
++ NF=1.0
++ VAF=100
++ IKF=0.3
++ ISE=1e-13
++ NE=2.0
++ BR=4
++ NR=1.0
++ VAR=20
++ IKR=0.3
++ ISC=1e-13
++ NC=2.0
++ RB=10
++ RE=0.5
++ RC=1
++ CJE=4p
++ VJE=0.75
++ MJE=0.33
++ CJC=3.5p
++ VJC=0.75
++ MJC=0.33
++ TF=300p
++ TR=35n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
+
+* ---------------------------------------------------------
+* 2N3906 - PNP General Purpose (Complementar ao 2N3904)
+* ---------------------------------------------------------
+.model Q2N3906 PNP (
++ IS=1e-14
++ BF=300
++ NF=1.0
++ VAF=100
++ IKF=0.3
++ ISE=1e-13
++ NE=2.0
++ BR=4
++ NR=1.0
++ VAR=20
++ IKR=0.3
++ ISC=1e-13
++ NC=2.0
++ RB=10
++ RE=0.5
++ RC=1
++ CJE=4p
++ VJE=0.75
++ MJE=0.33
++ CJC=3.5p
++ VJC=0.75
++ MJC=0.33
++ TF=300p
++ TR=35n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
+
+* ---------------------------------------------------------
+* TIP41C - NPN Power Transistor
+* ---------------------------------------------------------
+.model QTIP41C NPN (
++ IS=1e-12
++ BF=100
++ NF=1.0
++ VAF=50
++ IKF=3
++ ISE=1e-11
++ NE=2.0
++ BR=3
++ NR=1.0
++ VAR=20
++ IKR=1
++ ISC=1e-11
++ NC=2.0
++ RB=1
++ RE=0.1
++ RC=0.5
++ CJE=200p
++ VJE=0.75
++ MJE=0.33
++ CJC=100p
++ VJC=0.75
++ MJC=0.5
++ TF=1n
++ TR=500n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
+
+* ---------------------------------------------------------
+* TIP42C - PNP Power Transistor (Complementar ao TIP41C)
+* ---------------------------------------------------------
+.model QTIP42C PNP (
++ IS=1e-12
++ BF=100
++ NF=1.0
++ VAF=50
++ IKF=3
++ ISE=1e-11
++ NE=2.0
++ BR=3
++ NR=1.0
++ VAR=20
++ IKR=1
++ ISC=1e-11
++ NC=2.0
++ RB=1
++ RE=0.1
++ RC=0.5
++ CJE=200p
++ VJE=0.75
++ MJE=0.33
++ CJC=100p
++ VJC=0.75
++ MJC=0.5
++ TF=1n
++ TR=500n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
+
+* ---------------------------------------------------------
+* NOTAS DE USO:
+* ---------------------------------------------------------
+* Sintaxe NGSPICE para BJT:
+*   Q<name> <collector> <base> <emitter> <model>
+*
+* Exemplo NPN:
+*   Q1 coletor base emissor QBC548
+*
+* Exemplo PNP:
+*   Q2 coletor base emissor QBC558
+*
+* Parametros principais:
+*   IS  = Corrente de saturacao
+*   BF  = Ganho direto beta (hFE)
+*   BR  = Ganho reverso
+*   VAF = Early voltage (forward)
+*   RB/RE/RC = Resistencias parasitas
+*   CJE/CJC = Capacitancias de juncao
+*   TF/TR = Tempos de transito
+*

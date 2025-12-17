@@ -1,0 +1,87 @@
+* =========================================================
+* MODELOS JFET PADRAO PARA NGSPICE
+* =========================================================
+* Baseados em parametros de datasheet dos componentes reais
+* Fonte: NGSPICE examples e literatura tecnica
+
+* ---------------------------------------------------------
+* 2N5457 - N-Channel JFET (Low Noise, Audio)
+* ---------------------------------------------------------
+* Parametros tipicos:
+*   Idss = 1-5mA (tipico: 3mA)
+*   Vp = -0.5 a -6V (tipico: -2V)
+*   gm ~ 2000 uS
+*
+.model J2N5457 NJF (
++ VTO=-2.0
++ BETA=0.75m
++ LAMBDA=0.01
++ IS=100f
++ RD=10
++ RS=10
++ CGS=4p
++ CGD=2p
++ PB=0.7
++ FC=0.5 )
+
+* ---------------------------------------------------------
+* 2N5458 - N-Channel JFET (Low Noise)
+* ---------------------------------------------------------
+.model J2N5458 NJF (
++ VTO=-2.5
++ BETA=1.0m
++ LAMBDA=0.01
++ IS=100f
++ RD=10
++ RS=10
++ CGS=4.5p
++ CGD=2.5p
++ PB=0.7
++ FC=0.5 )
+
+* ---------------------------------------------------------
+* 2N3819 - N-Channel JFET (General Purpose)
+* ---------------------------------------------------------
+.model J2N3819 NJF (
++ VTO=-3.0
++ BETA=1.5m
++ LAMBDA=0.0025
++ IS=100f
++ RD=10
++ RS=10
++ CGS=5p
++ CGD=3p
++ PB=0.8
++ FC=0.5 )
+
+* ---------------------------------------------------------
+* J310 - N-Channel JFET (Low Noise, VHF/UHF)
+* ---------------------------------------------------------
+.model J310 NJF (
++ VTO=-2.0
++ BETA=2.0m
++ LAMBDA=0.01
++ IS=100f
++ RD=5
++ RS=5
++ CGS=3p
++ CGD=1.5p
++ PB=0.7
++ FC=0.5 )
+
+* ---------------------------------------------------------
+* NOTAS DE USO:
+* ---------------------------------------------------------
+* Sintaxe NGSPICE para JFET:
+*   J<name> <drain> <gate> <source> <model>
+*
+* Exemplo:
+*   J1 drain gate source J2N5457
+*
+* Parametros do modelo NJF:
+*   VTO   = Tensao de pinch-off (Vp)
+*   BETA  = Parametro de transcondutancia
+*   LAMBDA= Modulacao de canal
+*   RD/RS = Resistencias parasitas
+*   CGS/CGD = Capacitancias
+*

@@ -1,0 +1,111 @@
+* LM741 Operational Amplifier - Standard Model
+* Baseado em modelos comuns de bibliotecas SPICE
+* Modelo macro simplificado mas representativo do comportamento real
+
+.subckt LM741 IN+ IN- VCC VEE OUT
+*              |  |   |   |   |
+*              |  |   |   |   Saida
+*              |  |   |   Alimentacao negativa
+*              |  |   Alimentacao positiva
+*              |  Entrada inversora (-)
+*              Entrada nao-inversora (+)
+
+* PARAMETROS PRINCIPAIS DO LM741:
+* Ganho DC: 200,000 (106dB)
+* GBW: 1MHz
+* Slew Rate: 0.5V/us
+* Input Offset Voltage: 1-5mV
+* Input Bias Current: 80nA
+* Input Impedance: 2MOhm
+* Output Impedance: 75ohm
+* Supply Voltage: ±15V (max ±18V)
+* Output Swing: VCC-2V to VEE+2V
+
+* ---------------------------------------------------------
+* ESTAGIO DE ENTRADA (Differential Input Stage)
+* ---------------------------------------------------------
+* Impedancia de entrada
+RIN IN+ IN- 2MEG
+
+* Capacitancia de entrada (comum + diferencial)
+CIN IN+ IN- 1.4pF
+
+* Corrente de polarizacao (Input Bias Current)
+* LM741: ~80nA tipico
+IB+ IN+ 0 DC 80nA
+IB- IN- 0 DC 80nA
+
+* Tensao de offset de entrada (Input Offset Voltage)
+* LM741: 1-5mV tipico
+VOS IN+_int IN+ DC 2mV
+
+* ---------------------------------------------------------
+* ESTAGIO DE GANHO (Gain Stage)
+* ---------------------------------------------------------
+* Ganho diferencial de tensao: Av = 200,000 (106dB)
+* Ganho em malha aberta muito alto
+EGAIN N1 0 IN+_int IN- 200k
+
+* ---------------------------------------------------------
+* COMPENSACAO DE FREQUENCIA (Frequency Compensation)
+* ---------------------------------------------------------
+* Polo dominante interno para estabilidade
+* fp = 1/(2*pi*R*C) = 1/(2*pi*1k*15.9u) ≈ 10Hz
+* Isso da GBW = Av * fp = 200k * 10Hz ≈ 2MHz (simplificado)
+* (Real LM741: ~1MHz)
+RPOLE N1 N2 1k
+CPOLE N2 0 15.9uF
+
+* ---------------------------------------------------------
+* LIMITACAO DE SLEW RATE
+* ---------------------------------------------------------
+* LM741: ~0.5V/us
+* Limitador de corrente de carga do capacitor
+GSLEW 0 N2 VALUE={LIMIT(V(N2)*1e-6, -0.5e-6, 0.5e-6)}
+
+* ---------------------------------------------------------
+* ESTAGIO DE SAIDA (Output Stage)
+* ---------------------------------------------------------
+* Buffer de saida com impedancia baixa
+EOUT OUT_INT 0 N2 0 1
+
+* Impedancia de saida: ~75 ohm
+ROUT OUT_INT OUT 75
+
+* ---------------------------------------------------------
+* LIMITACAO DE TENSAO DE SAIDA (Output Clipping)
+* ---------------------------------------------------------
+* LM741 nao e rail-to-rail
+* Saida maxima: VCC - 2V
+* Saida minima: VEE + 2V
+
+* Diodos de limitacao
+DCLIP_POS OUT_INT VCC_INT DCLAMP
+DCLIP_NEG VEE_INT OUT_INT DCLAMP
+
+* Deslocamento de 2V dos rails
+VCC_DROP VCC_INT VCC DC 2
+VEE_DROP VEE VEE_INT DC 2
+
+* Modelo do diodo limitador
+.model DCLAMP D (IS=1e-15 N=0.1 RS=10)
+
+.ends LM741
+
+* ---------------------------------------------------------
+* NOTAS DE USO:
+* ---------------------------------------------------------
+* Conexao tipica:
+* X1 input_pos input_neg VCC VEE output LM741
+*
+* Exemplo inversor (ganho -10):
+* VCC vcc 0 DC 15
+* VEE vee 0 DC -15
+* R1 input inv 1k
+* R2 inv output 10k
+* X1 0 inv vcc vee output LM741
+*
+* Exemplo nao-inversor (ganho +11):
+* R1 inv 0 1k
+* R2 inv output 10k
+* X1 input inv vcc vee output LM741
