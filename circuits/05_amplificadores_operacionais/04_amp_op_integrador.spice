@@ -1,0 +1,404 @@
+* =========================================================
+* AMPLIFICADOR OPERACIONAL INTEGRADOR - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O integrador e um circuito que calcula a INTEGRAL do sinal
+* de entrada ao longo do tempo. E fundamental em:
+* - Controle PID (parte I = integral)
+* - Geracao de formas de onda
+* - Filtros passa-baixa ativos
+* - Conversores ADC (dual-slope)
+* - Computadores analogicos
+*
+* DIAGRAMA:
+*
+*        Rin             Cf
+*   IN --[===]----+    [====]----+
+*                 |              |
+*                ---    +--------+
+*                | -\   |
+*                |   >--+--- OUT
+*                | +/
+*                ---
+*                 |
+*                GND
+*
+* DIFERENCA: Amplificador vs Integrador
+* --------------------------------------
+*   AMPLIFICADOR: usa Rf (resistor)
+*   INTEGRADOR: usa Cf (capacitor)
+*
+* PRINCIPIO:
+* ----------
+* 1. Corrente Iin = Vin/Rin entra no no V-
+* 2. Mesma corrente carrega o capacitor Cf
+* 3. Q = Cf * Vout = integral(Iin * dt)
+* 4. Vout = -(1/RinCf) * integral(Vin * dt)
+*
+* FORMULAS:
+* ---------
+*   Vout(t) = -(1/RC) * integral[Vin(t) dt]
+*
+*   Onde:
+*   R = Rin
+*   C = Cf
+*   RC = constante de tempo
+*
+* COMPORTAMENTO PARA SINAIS TIPICOS:
+*
+* 1. Entrada DEGRAU (step):
+*    Vin = V0 (constante)
+*    Vout = -(V0/RC) * t  (rampa linear!)
+*
+* 2. Entrada RAMPA:
+*    Vin = k*t
+*    Vout = -(k/RC) * t^2/2  (parabola!)
+*
+* 3. Entrada SENOIDE:
+*    Vin = A*sin(wt)
+*    Vout = (A/wRC) * cos(wt)  (cosseno, -90deg)
+*
+* 4. Entrada ONDA QUADRADA:
+*    Vout = ONDA TRIANGULAR
+*
+* CONSTANTE DE TEMPO:
+* -------------------
+*   tau = R * C
+*
+*   tau pequeno: integracao rapida (sensivel)
+*   tau grande: integracao lenta (suave)
+*
+* EXEMPLOS NUMERICOS:
+*
+* 1. R=100k, C=1uF, tau=100ms
+*    Vin=1V (DC) -> Vout sobe 10V/s
+*
+* 2. R=10k, C=100nF, tau=1ms
+*    Vin=1V (DC) -> Vout sobe 1000V/s (rapido!)
+*
+* PROBLEMA: DERIVA (DRIFT)
+* -------------------------
+* Offset e corrente de bias causam saida crescer ate
+* saturar! Solucao: resistor Rf em paralelo com Cf
+* (vira filtro passa-baixa)
+*
+* APLICACOES:
+* -----------
+* - Controle PID (termo integral)
+* - Gerador de rampa/triangular
+* - Conversor frequencia-tensao
+* - ADC dual-slope
+* - Filtro passa-baixa de 1a ordem
+* - Computador analogico (resolver EDO)
+* - Detector de area sob curva
+*
+* VANTAGENS:
+* ----------
+* + Realiza operacao matematica (integral)
+* + Gera rampas lineares perfeitas
+* + Filtro passa-baixa ideal
+* + Usado em controle/automacao
+*
+* DESVANTAGENS:
+* -------------
+* - Sensivel a offset e drift
+* - Pode saturar facilmente
+* - Precisa reset periodico
+* - Sensivel a temperatura
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO
+* ---------------------------------------------------------
+VCC vcc 0 DC 15
+VEE vee 0 DC -15
+
+* ---------------------------------------------------------
+* EXEMPLO 1: Integrador Ideal (sem resistor de reset)
+* ---------------------------------------------------------
+* Rin = 100k, Cf = 1uF
+* tau = RC = 100ms
+* Entrada: onda quadrada -> Saida: triangular
+
+.subckt integrador_ideal vin vout vcc vee
+  Rin vin v_minus 100k
+  Cf v_minus vout 1u IC=0
+  XOP1 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: Integrador Pratico (com resistor de reset)
+* ---------------------------------------------------------
+* Adiciona Rf=1M em paralelo com Cf para evitar deriva
+* Vira filtro passa-baixa com fc = 1/(2*pi*Rf*Cf)
+*
+* Rin = 10k, Cf = 100nF, Rf = 1M
+* tau_int = Rin*Cf = 1ms
+* fc = 1/(2*pi*1M*100nF) = 1.59 Hz
+
+.subckt integrador_pratico vin vout vcc vee
+  Rin vin v_minus 10k
+  Cf v_minus vout 100n IC=0
+  Rf v_minus vout 1MEG
+  XOP2 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: Integrador com Reset (para ADC)
+* ---------------------------------------------------------
+* Switch para resetar o capacitor (zerar integracao)
+* Usado em ADC dual-slope
+*
+* Rin = 100k, Cf = 1uF
+* Switch controlado por tensao (Vreset)
+
+.subckt integrador_reset vin vreset vout vcc vee
+  Rin vin v_minus 100k
+  Cf v_minus vout 1u IC=0
+
+  * Switch MOSFET para reset (quando Vreset > 2.5V)
+  SW1 v_minus vout vreset 0 SWMOD
+
+  XOP3 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+.model SWMOD VSWITCH (RON=10 ROFF=10MEG VON=2.5 VOFF=0.5)
+
+* =========================================================
+* CIRCUITO DE TESTE
+* =========================================================
+
+* ---------------------------------------------------------
+* Teste 1: Onda quadrada -> Triangular
+* ---------------------------------------------------------
+* Frequencia: 10Hz (periodo 100ms)
+* Amplitude: ±1V
+VIN1 input1 0 PULSE(-1 1 0 1n 1n 50m 100m)
+
+* ---------------------------------------------------------
+* Teste 2: Sinal senoidal (1kHz)
+* ---------------------------------------------------------
+* Senoide -> Cosseno (fase -90deg)
+VIN2 input2 0 SIN(0 1 1k)
+
+* ---------------------------------------------------------
+* Teste 3: Integrador com reset
+* ---------------------------------------------------------
+* Degrau de entrada
+VIN3 input3 0 PULSE(0 1 10m 1n 1n 30m 100m)
+
+* Sinal de reset (pulso em 50ms)
+VRESET reset_sig 0 PULSE(0 5 50m 1n 1n 5m 200m)
+
+* ---------------------------------------------------------
+* Instanciando os integradores
+* ---------------------------------------------------------
+X1 input1 out1 vcc vee integrador_ideal
+X2 input2 out2 vcc vee integrador_pratico
+X3 input3 reset_sig out3 vcc vee integrador_reset
+
+* Cargas
+Rload1 out1 0 10k
+Rload2 out2 0 10k
+Rload3 out3 0 10k
+
+* ---------------------------------------------------------
+* MODELO LM741
+* ---------------------------------------------------------
+
+.subckt LM741 inp inn vcc vee out
+  Rin inp inn 2MEG
+  Cin inp inn 1.4p
+  E1 int 0 inp inn 200k
+  Rpole int int2 1k
+  Cpole int2 0 15.9u
+  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
+  Eout out 0 int2 1
+  Rout out out_int 75
+  Dclip_pos out_int vcc_int DCLAMP
+  Dclip_neg vee_int out_int DCLAMP
+  Vcc_int vcc_int vcc DC 2
+  Vee_int vee vee_int DC 2
+  Ibias_p inp 0 80n
+  Ibias_n inn 0 80n
+  Voffset inp inp_int DC 2m
+.ends
+
+.model DCLAMP D (IS=1e-14 N=0.01)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+.op
+.tran 100u 200m uic
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    AMPLIFICADOR INTEGRADOR"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 100u 200m uic
+
+  * ---------------------------------------------------------
+  * Teste 1: Quadrada -> Triangular
+  * ---------------------------------------------------------
+  echo "=== TESTE 1: Onda Quadrada -> Triangular ==="
+  echo "Entrada: onda quadrada ±1V, 10Hz"
+  echo "Esperado: onda triangular"
+  echo ""
+
+  meas tran OUT1_MAX MAX v(out1) FROM=100m TO=200m
+  meas tran OUT1_MIN MIN v(out1) FROM=100m TO=200m
+  meas tran OUT1_PP PARAM='OUT1_MAX-OUT1_MIN'
+
+  echo "Amplitude pico-a-pico da triangular:"
+  print OUT1_PP
+  echo ""
+
+  * Taxa de subida (slew da rampa)
+  * dV/dt = Vin/RC = 1V/(100k*1uF) = 10 V/s
+  echo "Taxa de subida esperada: 10 V/s"
+  echo "(Vin/(R*C) = 1V/(100k*1uF))"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Teste 2: Senoide -> Cosseno
+  * ---------------------------------------------------------
+  echo "=== TESTE 2: Senoide -> Cosseno (defasagem -90deg) ==="
+  echo "Entrada: senoide 1kHz"
+  echo "Saida: cosseno (integrada)"
+  echo ""
+
+  * Comparar fase
+  meas tran T_IN2 WHEN v(input2)=0 RISE=1 FROM=50m
+  meas tran T_OUT2 WHEN v(out2)=0 FALL=1 FROM=50m
+  meas tran PHASE_DIFF PARAM='(T_OUT2-T_IN2)*1000*360'
+
+  echo "Defasagem medida (esperado: ~-90 graus):"
+  print PHASE_DIFF
+  echo ""
+
+  * ---------------------------------------------------------
+  * Teste 3: Integrador com Reset
+  * ---------------------------------------------------------
+  echo "=== TESTE 3: Integrador com Reset ==="
+  echo "Rampa sobe, reset em 50ms, recomeça"
+  echo ""
+
+  meas tran VOUT3_BEFORE FIND v(out3) AT=49m
+  meas tran VOUT3_AFTER FIND v(out3) AT=56m
+
+  echo "Tensao antes do reset (49ms):"
+  print VOUT3_BEFORE
+  echo "Tensao depois do reset (56ms):"
+  print VOUT3_AFTER
+  echo "(Deve cair proximo a zero!)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+
+  * Teste 1: Quadrada -> Triangular
+  plot v(input1) v(out1) xlimit 0 200m title 'Integrador: Quadrada -> Triangular' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom em 2 ciclos
+  plot v(input1) v(out1) xlimit 100m 300m title 'Detalhe: 2 Ciclos' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Teste 2: Senoide -> Cosseno
+  plot v(input2) v(out2) xlimit 50m 52m title 'Integrador: Senoide -> Cosseno' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Teste 3: Reset
+  plot v(input3) v(out3) v(reset_sig) title 'Integrador com Reset' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy integrador_triangular.png v(input1) v(out1) xlimit 0 200m
+  hardcopy integrador_senoide.png v(input2) v(out2) xlimit 50m 52m
+  hardcopy integrador_reset.png v(input3) v(out3) v(reset_sig)
+
+  wrdata integrador_time.csv time v(input1) v(out1) v(input2) v(out2) v(input3) v(out3)
+
+  echo "Arquivos gerados:"
+  echo "  - integrador_triangular.png"
+  echo "  - integrador_senoide.png"
+  echo "  - integrador_reset.png"
+  echo "  - integrador_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. CONSTANTE DE TEMPO (tau = R*C):"
+  echo "   - Define velocidade de integracao"
+  echo "   - tau grande: integracao lenta, suave"
+  echo "   - tau pequeno: integracao rapida, sensivel"
+  echo "   - Tipico: 1ms a 1s"
+  echo ""
+  echo "2. ESCOLHA DE R e C:"
+  echo "   - R: 10k a 1M (tipico: 100k)"
+  echo "   - C: 10nF a 10uF (tipico: 100nF a 1uF)"
+  echo "   - Use C de baixo leakage (polipropileno, teflon)"
+  echo "   - Evite ceramico (nao-linear)"
+  echo ""
+  echo "3. PROBLEMA DE DERIVA (DRIFT):"
+  echo "   - Offset de entrada causa saturacao!"
+  echo "   - Solucao 1: Rf em paralelo com C (1-10M)"
+  echo "   - Solucao 2: Reset periodico (switch)"
+  echo "   - Solucao 3: Amp-op low-offset (OP07, LT1013)"
+  echo ""
+  echo "4. INTEGRADOR vs FILTRO PASSA-BAIXA:"
+  echo "   - Integrador ideal: infinito ganho DC"
+  echo "   - Com Rf: vira filtro passa-baixa"
+  echo "   - fc = 1/(2*pi*Rf*Cf)"
+  echo "   - Atenuacao: 20dB/decada"
+  echo ""
+  echo "5. RESET:"
+  echo "   - ADC dual-slope: precisa reset"
+  echo "   - Use MOSFET ou switch analogico"
+  echo "   - CMOS 4066, ADG419, etc"
+  echo "   - Ou use amp-op com reset interno"
+  echo ""
+  echo "6. APLICACOES PRATICAS:"
+  echo "   - PID controller: Ki*integral(erro)"
+  echo "   - Gerador triangular: integrar quadrada"
+  echo "   - F/V converter: integrar pulsos"
+  echo "   - ADC: rampa para comparacao"
+  echo "   - Computador analogico: resolver dy/dx"
+  echo ""
+  echo "7. DERIVADOR (OPOSTO):"
+  echo "   - Troca: R e C"
+  echo "   - C na entrada, R na realimentacao"
+  echo "   - Vout = -RC * d(Vin)/dt"
+  echo "   - CUIDADO: amplifica ruido!"
+  echo ""
+
+.endc
+
+.end

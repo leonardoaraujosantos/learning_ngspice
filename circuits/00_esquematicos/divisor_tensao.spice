@@ -1,0 +1,8 @@
+* Divisor de Tensao - Esquematico Simples
+* Vin -> R1 -> Vout -> R2 -> GND
+
+Vin in 0 DC 12
+R1 in out 10k
+R2 out 0 10k
+
+.end

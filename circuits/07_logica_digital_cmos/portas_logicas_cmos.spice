@@ -1,0 +1,691 @@
+* =========================================================
+* PORTAS LOGICAS CMOS COM MOSFET - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* CMOS (Complementary Metal-Oxide-Semiconductor) e a tecnologia
+* dominante em circuitos digitais modernos. TODO processador,
+* memoria, FPGA, microcontrolador usa CMOS!
+*
+* POR QUE CMOS?
+* -------------
+* 1. Consumo MUITO baixo (apenas durante chaveamento)
+* 2. Margem de ruido excelente (rail-to-rail)
+* 3. Fan-out alto (pode acionar muitas portas)
+* 4. Densidade alta (transistores pequenos)
+* 5. Velocidade alta (MHz a GHz)
+*
+* PRINCIPIO CMOS:
+* ----------------
+* Usa PARES COMPLEMENTARES de transistores:
+* - PMOS (P-channel): conduz quando gate = 0 (LOW)
+* - NMOS (N-channel): conduz quando gate = 1 (HIGH)
+*
+* ESTRUTURA BASICA:
+*
+*        VDD (pull-up network)
+*         |
+*      [PMOS] --- condutor quando input = 0
+*         |
+*    IN --+-- OUT
+*         |
+*      [NMOS] --- condutor quando input = 1
+*         |
+*        GND (pull-down network)
+*
+* PRINCIPIO DE FUNCIONAMENTO:
+* ----------------------------
+* - Se IN = 0: PMOS ON, NMOS OFF -> OUT = VDD (HIGH)
+* - Se IN = 1: PMOS OFF, NMOS ON -> OUT = GND (LOW)
+* - NUNCA: ambos ON (caminho direto VDD-GND)
+* - NUNCA: ambos OFF (saida flutuante)
+*
+* Resultado: INVERSOR (NOT gate)!
+*
+* CONSUMO DE POTENCIA:
+* ---------------------
+* CMOS consome potencia apenas durante TRANSICOES!
+*
+*   P_static ~ 0 (leakage muito baixo)
+*   P_dynamic = C * VDD^2 * f
+*
+* Onde:
+*   C = capacitancia de carga
+*   f = frequencia de chaveamento
+*
+* Por isso CPUs consomem mais em alta freq!
+*
+* REGRAS DE PROJETO CMOS:
+* ------------------------
+* 1. Pull-up network (PMOS):
+*    - Complemento logico do pull-down
+*    - Serie vira paralelo, vice-versa
+*
+* 2. Pull-down network (NMOS):
+*    - Implementa funcao desejada
+*    - Serie = AND, Paralelo = OR
+*
+* 3. Dimensionamento:
+*    - PMOS: W ~ 2-3x NMOS (mobilidade menor)
+*    - Simetria: trise = tfall
+*
+* EXEMPLO - NAND:
+*   Pull-down: A AND B (serie)
+*   Pull-up: !A OR !B (paralelo)
+*
+* NIVEIS LOGICOS:
+* ---------------
+*   VDD = 5V (classico TTL)
+*   VDD = 3.3V (moderno)
+*   VDD = 1.8V, 1.2V, 0.8V (nanotecnologia)
+*
+*   VOH (output high) ~ VDD
+*   VOL (output low) ~ 0V
+*   VIH (input high) > 0.7*VDD
+*   VIL (input low) < 0.3*VDD
+*
+* FAMILIAS LOGICAS:
+* ------------------
+* - 4000 series: CMOS classica (CD4011, etc)
+* - 74HC: High-speed CMOS (compativel TTL)
+* - 74AC: Advanced CMOS (muito rapido)
+* - 74LVC: Low-voltage CMOS (3.3V, 2.5V)
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* ALIMENTACAO
+* ---------------------------------------------------------
+VDD vdd 0 DC 5
+
+* ---------------------------------------------------------
+* SINAIS DE TESTE
+* ---------------------------------------------------------
+* Entradas digitais (0V = LOW, 5V = HIGH)
+
+* Sinal A: onda quadrada lenta (periodo 40us)
+VA ina 0 PULSE(0 5 0 1n 1n 20u 40u)
+
+* Sinal B: onda quadrada media (periodo 20us)
+VB inb 0 PULSE(0 5 0 1n 1n 10u 20u)
+
+* Sinal C: onda quadrada rapida (periodo 10us)
+VC inc 0 PULSE(0 5 0 1n 1n 5u 10u)
+
+* ---------------------------------------------------------
+* PORTA 1: NOT (INVERSOR)
+* ---------------------------------------------------------
+* A porta mais basica do CMOS
+* OUT = !IN
+*
+*        VDD
+*         |
+*      [PMOS] --- conduz quando IN=0
+*         |
+*    IN --+-- OUT
+*         |
+*      [NMOS] --- conduz quando IN=1
+*         |
+*        GND
+*
+* TABELA VERDADE:
+*   IN | OUT
+*   0  |  1
+*   1  |  0
+
+.subckt inversor in out vdd gnd
+  * PMOS pull-up (conduz quando in=LOW)
+  MP1 out in vdd vdd PMOS_5V W=2u L=1u
+
+  * NMOS pull-down (conduz quando in=HIGH)
+  MN1 out in gnd gnd NMOS_5V W=1u L=1u
+
+  * Capacitancia de carga (simula fan-out)
+  Cload out gnd 10f
+.ends
+
+* ---------------------------------------------------------
+* PORTA 2: NAND (NOT-AND)
+* ---------------------------------------------------------
+* Uma das portas universais (pode construir qualquer logica)
+* OUT = !(A AND B)
+*
+*        VDD
+*         |
+*      [PA]---[PB]  (paralelo - pull-up)
+*         |     |
+*         +-----+-- OUT
+*               |
+*         [NA]      (serie - pull-down)
+*               |
+*         [NB]
+*               |
+*              GND
+*
+* TABELA VERDADE:
+*   A  B | OUT
+*   0  0 |  1
+*   0  1 |  1
+*   1  0 |  1
+*   1  1 |  0   <- apenas quando AMBOS = 1
+
+.subckt nand a b out vdd gnd
+  * Pull-up: PMOS em paralelo (!A OR !B)
+  MP1 out a vdd vdd PMOS_5V W=2u L=1u
+  MP2 out b vdd vdd PMOS_5V W=2u L=1u
+
+  * Pull-down: NMOS em serie (A AND B)
+  MN1 out a n1 gnd NMOS_5V W=2u L=1u
+  MN2 n1 b gnd gnd NMOS_5V W=2u L=1u
+
+  * Carga
+  Cload out gnd 10f
+.ends
+
+* ---------------------------------------------------------
+* PORTA 3: NOR (NOT-OR)
+* ---------------------------------------------------------
+* Outra porta universal
+* OUT = !(A OR B)
+*
+*        VDD
+*         |
+*      [PA]      (serie - pull-up)
+*         |
+*      [PB]
+*         |
+*         +-- OUT
+*         |
+*      [NA]---[NB]  (paralelo - pull-down)
+*         |     |
+*        GND   GND
+*
+* TABELA VERDADE:
+*   A  B | OUT
+*   0  0 |  1   <- apenas quando AMBOS = 0
+*   0  1 |  0
+*   1  0 |  0
+*   1  1 |  0
+
+.subckt nor a b out vdd gnd
+  * Pull-up: PMOS em serie (!A AND !B)
+  MP1 vdd a n1 vdd PMOS_5V W=4u L=1u
+  MP2 n1 b out vdd PMOS_5V W=4u L=1u
+
+  * Pull-down: NMOS em paralelo (A OR B)
+  MN1 out a gnd gnd NMOS_5V W=1u L=1u
+  MN2 out b gnd gnd NMOS_5V W=1u L=1u
+
+  * Carga
+  Cload out gnd 10f
+.ends
+
+* ---------------------------------------------------------
+* PORTA 4: AND (buffer NAND + NOT)
+* ---------------------------------------------------------
+* AND nao e nativo em CMOS, e feito com NAND + inversor
+* OUT = A AND B
+
+.subckt and_gate a b out vdd gnd
+  * NAND interno
+  Xnand a b n_nand vdd gnd nand
+
+  * Inversor para converter NAND em AND
+  Xinv n_nand out vdd gnd inversor
+.ends
+
+* ---------------------------------------------------------
+* PORTA 5: OR (buffer NOR + NOT)
+* ---------------------------------------------------------
+* OR tambem e feito com NOR + inversor
+* OUT = A OR B
+
+.subckt or_gate a b out vdd gnd
+  * NOR interno
+  Xnor a b n_nor vdd gnd nor
+
+  * Inversor
+  Xinv n_nor out vdd gnd inversor
+.ends
+
+* ---------------------------------------------------------
+* PORTA 6: XOR (EXCLUSIVE-OR)
+* ---------------------------------------------------------
+* XOR e mais complexo, precisa 6 transistores (implementacao comum)
+* ou pode ser feito com NAND/NOR
+* OUT = A XOR B = (A AND !B) OR (!A AND B)
+*
+* Implementacao com portas:
+*   XOR = (A NAND B) NAND (!A NAND !B)
+*
+* TABELA VERDADE:
+*   A  B | OUT
+*   0  0 |  0
+*   0  1 |  1   <- diferentes
+*   1  0 |  1   <- diferentes
+*   1  1 |  0
+
+.subckt xor_gate a b out vdd gnd
+  * Inversores das entradas
+  Xinv_a a na vdd gnd inversor
+  Xinv_b b nb vdd gnd inversor
+
+  * NAND(A, B)
+  Xnand1 a b n1 vdd gnd nand
+
+  * NAND(!A, !B)
+  Xnand2 na nb n2 vdd gnd nand
+
+  * NAND final
+  Xnand3 n1 n2 out vdd gnd nand
+.ends
+
+* ---------------------------------------------------------
+* PORTA 7: XNOR (EXCLUSIVE-NOR)
+* ---------------------------------------------------------
+* XNOR = !(A XOR B) = (A AND B) OR (!A AND !B)
+* Saida HIGH quando entradas sao IGUAIS (comparador)
+*
+* TABELA VERDADE:
+*   A  B | OUT
+*   0  0 |  1   <- iguais
+*   0  1 |  0
+*   1  0 |  0
+*   1  1 |  1   <- iguais
+
+.subckt xnor_gate a b out vdd gnd
+  * XOR + inversor
+  Xxor a b n_xor vdd gnd xor_gate
+  Xinv n_xor out vdd gnd inversor
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE - INSTANCIANDO TODAS AS PORTAS
+* =========================================================
+
+* NOT (inversor)
+X_not ina out_not vdd 0 inversor
+
+* NAND
+X_nand ina inb out_nand vdd 0 nand
+
+* NOR
+X_nor ina inb out_nor vdd 0 nor
+
+* AND
+X_and ina inb out_and vdd 0 and_gate
+
+* OR
+X_or ina inb out_or vdd 0 or_gate
+
+* XOR
+X_xor ina inb out_xor vdd 0 xor_gate
+
+* XNOR
+X_xnor ina inb out_xnor vdd 0 xnor_gate
+
+* Cargas de saida (simulam probes)
+Rload_not out_not 0 100k
+Rload_nand out_nand 0 100k
+Rload_nor out_nor 0 100k
+Rload_and out_and 0 100k
+Rload_or out_or 0 100k
+Rload_xor out_xor 0 100k
+Rload_xnor out_xnor 0 100k
+
+* ---------------------------------------------------------
+* MODELOS MOSFET
+* ---------------------------------------------------------
+
+* NMOS (canal N)
+* VDD=5V, tecnologia antiga (similar 74HC)
+.model NMOS_5V NMOS (
++ LEVEL=1
++ VTO=0.7
++ KP=200u
++ GAMMA=0.4
++ PHI=0.7
++ LAMBDA=0.01
++ TOX=20n
++ CJ=0.5m
++ CJSW=0.3n
++ MJ=0.5
++ MJSW=0.3
++ PB=0.8
+)
+
+* PMOS (canal P)
+.model PMOS_5V PMOS (
++ LEVEL=1
++ VTO=-0.7
++ KP=80u
++ GAMMA=0.4
++ PHI=0.7
++ LAMBDA=0.02
++ TOX=20n
++ CJ=0.5m
++ CJSW=0.3n
++ MJ=0.5
++ MJSW=0.3
++ PB=0.8
+)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+* Transiente: periodo completo de A (40us)
+.tran 10n 80u
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    PORTAS LOGICAS CMOS COM MOSFET"
+  echo "=========================================================="
+  echo ""
+  echo "VDD = 5V (CMOS classica)"
+  echo "Tecnologia: similar 74HCxx"
+  echo ""
+  echo "Portas implementadas:"
+  echo "  1. NOT (inversor)"
+  echo "  2. NAND"
+  echo "  3. NOR"
+  echo "  4. AND (NAND + NOT)"
+  echo "  5. OR (NOR + NOT)"
+  echo "  6. XOR"
+  echo "  7. XNOR"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Tabelas Verdade (verificacao)
+  * ---------------------------------------------------------
+  echo "--- Verificacao das Tabelas Verdade ---"
+  echo ""
+
+  * Encontrar pontos onde A=0, B=0
+  meas tran V_NOT_00 FIND v(out_not) AT=1u
+  meas tran V_NAND_00 FIND v(out_nand) AT=1u
+  meas tran V_NOR_00 FIND v(out_nor) AT=1u
+  meas tran V_AND_00 FIND v(out_and) AT=1u
+  meas tran V_OR_00 FIND v(out_or) AT=1u
+  meas tran V_XOR_00 FIND v(out_xor) AT=1u
+  meas tran V_XNOR_00 FIND v(out_xnor) AT=1u
+
+  echo "=== Tabela Verdade (A=0, B=0) ==="
+  echo "NOT(0):"
+  print V_NOT_00
+  echo "NAND(0,0):"
+  print V_NAND_00
+  echo "NOR(0,0):"
+  print V_NOR_00
+  echo "AND(0,0):"
+  print V_AND_00
+  echo "OR(0,0):"
+  print V_OR_00
+  echo "XOR(0,0):"
+  print V_XOR_00
+  echo "XNOR(0,0):"
+  print V_XNOR_00
+  echo ""
+
+  * A=1, B=1 (em 25us)
+  meas tran V_NOT_11 FIND v(out_not) AT=25u
+  meas tran V_NAND_11 FIND v(out_nand) AT=25u
+  meas tran V_NOR_11 FIND v(out_nor) AT=25u
+  meas tran V_AND_11 FIND v(out_and) AT=25u
+  meas tran V_OR_11 FIND v(out_or) AT=25u
+  meas tran V_XOR_11 FIND v(out_xor) AT=25u
+  meas tran V_XNOR_11 FIND v(out_xnor) AT=25u
+
+  echo "=== Tabela Verdade (A=1, B=1) ==="
+  echo "NOT(1):"
+  print V_NOT_11
+  echo "NAND(1,1):"
+  print V_NAND_11
+  echo "NOR(1,1):"
+  print V_NOR_11
+  echo "AND(1,1):"
+  print V_AND_11
+  echo "OR(1,1):"
+  print V_OR_11
+  echo "XOR(1,1):"
+  print V_XOR_11
+  echo "XNOR(1,1):"
+  print V_XNOR_11
+  echo ""
+
+  * ---------------------------------------------------------
+  * Medidas de Timing (atrasos de propagacao)
+  * ---------------------------------------------------------
+  echo "--- Atrasos de Propagacao (tpd) ---"
+  echo ""
+
+  * NOT: tempo de subida e descida
+  meas tran TPD_NOT_LH TRIG v(ina) VAL=2.5 RISE=1 TARG v(out_not) VAL=2.5 FALL=1
+  meas tran TPD_NOT_HL TRIG v(ina) VAL=2.5 FALL=1 TARG v(out_not) VAL=2.5 RISE=1
+
+  echo "NOT gate:"
+  echo "  tpd (L->H):"
+  print TPD_NOT_LH
+  echo "  tpd (H->L):"
+  print TPD_NOT_HL
+  echo ""
+
+  * NAND
+  meas tran TPD_NAND_LH TRIG v(inb) VAL=2.5 RISE=1 TARG v(out_nand) VAL=2.5 FALL=1 FROM=20u
+  meas tran TPD_NAND_HL TRIG v(inb) VAL=2.5 FALL=1 TARG v(out_nand) VAL=2.5 RISE=1 FROM=20u
+
+  echo "NAND gate:"
+  echo "  tpd (L->H):"
+  print TPD_NAND_LH
+  echo "  tpd (H->L):"
+  print TPD_NAND_HL
+  echo ""
+
+  * ---------------------------------------------------------
+  * Consumo de Potencia
+  * ---------------------------------------------------------
+  echo "--- Consumo de Potencia ---"
+  echo ""
+
+  * Corrente da fonte VDD
+  let i_vdd = -i(vdd)
+
+  * Potencia instantanea
+  let p_inst = v(vdd) * i_vdd
+
+  * Potencia media
+  meas tran P_AVG AVG p_inst FROM=0 TO=80u
+
+  echo "Potencia media total (todas portas):"
+  print P_AVG
+  echo ""
+  echo "CMOS consome apenas durante transicoes!"
+  echo "Estatica (sem chavear) ~ 0W"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots - Formas de Onda
+  * ---------------------------------------------------------
+
+  * Entradas
+  plot v(ina) v(inb) title 'Sinais de Entrada A e B' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Inversor (NOT)
+  plot v(ina) v(out_not) title 'NOT: Entrada vs Saida' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * NAND e NOR
+  plot v(ina) v(inb) v(out_nand) v(out_nor) title 'NAND e NOR' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * AND e OR
+  plot v(ina) v(inb) v(out_and) v(out_or) title 'AND e OR' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * XOR e XNOR
+  plot v(ina) v(inb) v(out_xor) v(out_xnor) title 'XOR e XNOR' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Todas as portas juntas
+  plot v(out_not)+14 v(out_nand)+12 v(out_nor)+10 v(out_and)+8 v(out_or)+6 v(out_xor)+4 v(out_xnor)+2 v(ina) title 'Todas Portas (offset vertical)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom em transicao (detalhes do chaveamento)
+  plot v(ina) v(out_not) xlimit 20u 20.1u title 'NOT: Detalhe Transicao' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * Consumo instantaneo de corrente
+  * ---------------------------------------------------------
+  plot i_vdd*1000 title 'Corrente de Alimentacao (mA)' xlabel 'Tempo (s)' ylabel 'Corrente (mA)'
+
+  * Potencia instantanea
+  plot p_inst*1000 title 'Potencia Instantanea (mW)' xlabel 'Tempo (s)' ylabel 'Potencia (mW)'
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy cmos_inputs.png v(ina) v(inb)
+  hardcopy cmos_not.png v(ina) v(out_not)
+  hardcopy cmos_nand_nor.png v(ina) v(inb) v(out_nand) v(out_nor)
+  hardcopy cmos_and_or.png v(ina) v(inb) v(out_and) v(out_or)
+  hardcopy cmos_xor_xnor.png v(ina) v(inb) v(out_xor) v(out_xnor)
+  hardcopy cmos_all_gates.png v(out_not)+14 v(out_nand)+12 v(out_nor)+10 v(out_and)+8 v(out_or)+6 v(out_xor)+4 v(out_xnor)+2 v(ina)
+  hardcopy cmos_power.png p_inst*1000
+
+  wrdata cmos_time.csv time v(ina) v(inb) v(out_not) v(out_nand) v(out_nor) v(out_and) v(out_or) v(out_xor) v(out_xnor)
+  wrdata cmos_power.csv time i_vdd p_inst
+
+  echo "Arquivos gerados:"
+  echo "  - cmos_inputs.png"
+  echo "  - cmos_not.png"
+  echo "  - cmos_nand_nor.png"
+  echo "  - cmos_and_or.png"
+  echo "  - cmos_xor_xnor.png"
+  echo "  - cmos_all_gates.png"
+  echo "  - cmos_power.png"
+  echo "  - cmos_time.csv"
+  echo "  - cmos_power.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO CMOS"
+  echo "=========================================================="
+  echo ""
+  echo "1. DIMENSIONAMENTO (W/L):"
+  echo "   - NMOS: W/L ~ 1 (rapido, pull-down forte)"
+  echo "   - PMOS: W/L ~ 2-3 (compensa mobilidade baixa)"
+  echo "   - Simetria: trise = tfall"
+  echo "   - Menor L: mais rapido, mais leakage"
+  echo "   - Maior L: mais lento, menos leakage"
+  echo ""
+  echo "2. PORTAS UNIVERSAIS:"
+  echo "   - NAND e NOR sao UNIVERSAIS"
+  echo "   - Qualquer logica pode ser feita com NAND"
+  echo "   - Ou com NOR"
+  echo "   - Exemplo: AND = NAND + NOT"
+  echo ""
+  echo "3. REGRA PULL-UP / PULL-DOWN:"
+  echo "   - Pull-down (NMOS): logica desejada"
+  echo "   - Pull-up (PMOS): COMPLEMENTO (De Morgan)"
+  echo "   - Serie <-> Paralelo"
+  echo "   - AND <-> OR"
+  echo ""
+  echo "4. CONSUMO DE POTENCIA:"
+  echo "   - Estatico: ~0 (apenas leakage)"
+  echo "   - Dinamico: P = C*V^2*f"
+  echo "   - Reduce:"
+  echo "     * Menor VDD (quadratico!)"
+  echo "     * Menor freq (clock gating)"
+  echo "     * Menor capacitancia (layout)"
+  echo ""
+  echo "5. VELOCIDADE (atraso):"
+  echo "   - tpd ~ (Ron * CL)"
+  echo "   - Ron = resistencia ON do MOSFET"
+  echo "   - CL = capacitancia de carga"
+  echo "   - Melhorar:"
+  echo "     * W maior (Ron menor, mas CL maior!)"
+  echo "     * VDD maior (drive maior)"
+  echo "     * Tecnologia menor (L menor)"
+  echo ""
+  echo "6. FAN-OUT:"
+  echo "   - Quantas portas pode acionar"
+  echo "   - CMOS: fan-out alto (10-50+)"
+  echo "   - Limitado por:"
+  echo "     * Capacitancia de entrada"
+  echo "     * Tempo de propagacao"
+  echo "   - Calculo: FO = CL_max / CL_input"
+  echo ""
+  echo "7. MARGEM DE RUIDO:"
+  echo "   - NM = min(NMH, NML)"
+  echo "   - NMH = VOH - VIH"
+  echo "   - NML = VIL - VOL"
+  echo "   - CMOS: ~40% VDD (excelente!)"
+  echo "   - TTL: ~400mV (pior)"
+  echo ""
+  echo "8. TECNOLOGIAS:"
+  echo "   - 5V: 74HC, CD4000 (classica)"
+  echo "   - 3.3V: 74LVC (moderno)"
+  echo "   - 1.8V: CPUs, FPGAs"
+  echo "   - <1V: nanotecnologia (7nm, 5nm)"
+  echo ""
+  echo "9. PROBLEMAS COMUNS:"
+  echo "   - Latch-up: caminho SCR VDD-GND"
+  echo "     Solucao: guard rings, ESD"
+  echo "   - Hot carriers: degradacao"
+  echo "     Solucao: LDD (lightly doped drain)"
+  echo "   - Short channel effects:"
+  echo "     Solucao: tecnologia avancada"
+  echo ""
+  echo "10. LAYOUT PCB:"
+  echo "    - Desacoplamento: 100nF perto de VDD"
+  echo "    - Ground plane: reduz ruido"
+  echo "    - Traces curtos: reduz C parasita"
+  echo "    - VDD e GND grossos: baixa R"
+  echo ""
+  echo "11. FAMILIAS LOGICAS (comparacao):"
+  echo "    - TTL (7400): rapido, muito consumo"
+  echo "    - CMOS (74HC): baixo consumo, lento"
+  echo "    - 74AC: CMOS rapido"
+  echo "    - 74LVC: low voltage (3.3V, 2.5V)"
+  echo "    - 74AUP: ultra-baixo consumo"
+  echo ""
+  echo "12. APLICACOES:"
+  echo "    - Processadores: bilhoes de portas"
+  echo "    - Memorias: SRAM, DRAM, Flash"
+  echo "    - FPGAs: logica programavel"
+  echo "    - ASICs: circuitos customizados"
+  echo "    - Microcontroladores: logica + analogico"
+  echo ""
+  echo "13. EVOLUCAO (Lei de Moore):"
+  echo "    - 1970s: 10um (10000nm)"
+  echo "    - 1990s: 0.5um (500nm)"
+  echo "    - 2000s: 90nm"
+  echo "    - 2010s: 14nm"
+  echo "    - 2020s: 5nm, 3nm"
+  echo "    - Futuro: 2nm, 1nm, GAA FETs"
+  echo ""
+  echo "14. DESIGN DIGITAL:"
+  echo "    - RTL: Register Transfer Level (Verilog, VHDL)"
+  echo "    - Sintese: RTL -> portas logicas"
+  echo "    - Place & Route: portas -> layout"
+  echo "    - Verificacao: simulacao, formal"
+  echo "    - Fabricacao: mask, litografia, dopagem"
+  echo ""
+  echo "15. SIMULACAO:"
+  echo "    - SPICE: nivel transistor (lento, preciso)"
+  echo "    - Gate-level: nivel porta (medio)"
+  echo "    - RTL: nivel comportamental (rapido)"
+  echo "    - Escolha: depende do objetivo"
+  echo ""
+
+.endc
+
+.end

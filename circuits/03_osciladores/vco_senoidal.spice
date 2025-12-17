@@ -1,0 +1,459 @@
+* =========================================================
+* VCO SENOIDAL (Voltage-Controlled Oscillator) - Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* VCO (Voltage-Controlled Oscillator) e um oscilador cuja
+* FREQUENCIA e controlada por uma TENSAO de entrada.
+* E o componente central de:
+* - PLL (Phase-Locked Loop)
+* - Sintetizadores de frequencia
+* - Modulacao FM
+* - Demodulacao FM
+* - Geracao de clock variavel
+*
+* PRINCIPIO:
+* ----------
+* Freq = f(Vtune)
+*
+* Onde Vtune = tensao de controle (tuning voltage)
+*
+* CARACTERISTICA IDEAL:
+*   f = f0 + Kv * Vtune
+*
+* Onde:
+*   f0 = frequencia central (Vtune = 0)
+*   Kv = ganho do VCO (Hz/V ou MHz/V)
+*
+* EXEMPLO NUMERICO:
+*   f0 = 10 MHz
+*   Kv = 1 MHz/V
+*   Vtune = 0V -> f = 10 MHz
+*   Vtune = 2V -> f = 12 MHz
+*   Vtune = -1V -> f = 9 MHz
+*
+* TIPOS DE VCO:
+* -------------
+* 1. LC VCO: usa varactor (capacitor variavel)
+* 2. RC VCO: usa corrente controlada
+* 3. Ring VCO: inversores com atraso variavel
+* 4. Crystal VCO (VCXO): pequeno pull de cristal
+*
+* VCO LC COM VARACTOR:
+* --------------------
+* E o tipo mais comum para RF/microondas.
+* Usa VARACTOR (diodo de capacitancia variavel).
+*
+* VARACTOR:
+* ---------
+* Diodo reversamente polarizado, cuja capacitancia
+* varia com a tensao reversa:
+*
+*   C(V) = C0 / (1 + V/Vj)^m
+*
+* Onde:
+*   C0 = capacitancia com V=0
+*   Vj = tensao de juncao (~0.7V)
+*   m = coeficiente (0.3-0.5)
+*
+* Exemplo: BB109, BB405 (varactores comuns)
+*
+* DIAGRAMA - VCO COLPITTS COM VARACTOR:
+*
+*        VDD
+*         |
+*      [RFC]
+*         |
+*         C
+*         |
+*    B ---| BJT
+*         |
+*         E --- [L] --- [Cvar] --- Vtune
+*         |       |        |
+*        [C1]    [C2]     [Rf]
+*         |       |        |
+*        GND     GND      GND
+*
+* FORMULA DA FREQ:
+*   f = 1 / (2*pi*sqrt(L * Ceq))
+*
+*   Ceq = C1 || C2 || Cvar
+*
+* Como Cvar varia com Vtune, freq tambem varia!
+*
+* GANHO VCO (Kv):
+* ---------------
+*   Kv = df/dV (derivada)
+*
+* Para varactor:
+*   Kv ~ f0 * m / (2*Vtune)
+*
+* Tipico: 1-10 MHz/V para VCO RF
+*
+* FAIXA DE SINTONIA (TUNING RANGE):
+* ----------------------------------
+*   Range = (fmax - fmin) / f0 * 100%
+*
+* Exemplo:
+*   fmin = 90 MHz, fmax = 110 MHz, f0 = 100 MHz
+*   Range = 20/100 = 20%
+*
+* Varactores tipicos: 3:1 a 10:1 (Cmax/Cmin)
+*
+* APLICACOES:
+* -----------
+* - PLL (sintetizador de freq)
+* - Modulacao FM (freq varia com audio)
+* - Demodulacao FM (discriminador)
+* - Frequency shift keying (FSK)
+* - Clock recovery (CDR)
+* - Radar FM-CW
+*
+* VANTAGENS:
+* ----------
+* + Frequencia facilmente controlavel
+* + Rapido (us de response time)
+* + Integravel em PLL
+* + Range largo (10:1 com varactor)
+*
+* DESVANTAGENS:
+* -------------
+* - Freq varia com temperatura
+* - Ruido de fase (FM noise)
+* - Linearidade limitada (Kv nao constante)
+* - Pulling (carga afeta freq)
+* - Pushing (VDD afeta freq)
+*
+* =========================================================
+
+.options plotwinsize=0 reltol=1e-4
+
+* ---------------------------------------------------------
+* ALIMENTACAO
+* ---------------------------------------------------------
+VDD vdd 0 DC 12
+
+* ---------------------------------------------------------
+* TENSAO DE CONTROLE (TUNING VOLTAGE)
+* ---------------------------------------------------------
+* Varia de 0V a 5V durante simulacao
+* para demonstrar mudanca de frequencia
+
+VTUNE vtune 0 PWL(
++ 0m 0  10m 0  20m 5  30m 5  40m 2.5  50m 2.5)
+
+* ---------------------------------------------------------
+* VCO COLPITTS COM VARACTOR
+* ---------------------------------------------------------
+
+* Polarizacao da base
+RB1 vdd base 47k
+RB2 base 0 10k
+CB base 0 100n
+
+* Transistor amplificador
+Q1 collector base emitter BC548
+
+* Carga do coletor
+RC vdd collector 2.2k
+
+* Emissor (self-bias)
+RE emitter 0 680
+CE emitter 0 100u
+
+* ---------------------------------------------------------
+* TANQUE LC COM VARACTOR
+* ---------------------------------------------------------
+* Frequencia central ~1 MHz
+* Varia com Vtune
+
+* Indutor do tanque
+LTANK collector n_tank 470u
+
+* Capacitores fixos (divisor Colpitts)
+C1 n_tank emitter 100p
+C2 emitter 0 100p
+
+* VARACTOR (diodo com capacitancia variavel)
+* Polarizado reversamente via Vtune
+* Capacitancia varia ~50pF (0V) a ~10pF (5V)
+
+* Resistor de isolacao (RF choke para DC bias)
+Rbias vtune n_var 100k
+
+* Varactor (modelo BB109)
+Dvar n_tank n_var VARACTOR_BB109
+
+* Capacitor de desacoplamento (bloqueia DC do tanque)
+Cdc n_var 0 10n
+
+* ---------------------------------------------------------
+* SAIDA
+* ---------------------------------------------------------
+Cout collector output 10p
+Rload output 0 10k
+
+* ---------------------------------------------------------
+* MODELO TRANSISTOR BC548
+* ---------------------------------------------------------
+.model BC548 NPN (
++ IS=1e-14 BF=200 VAF=100
++ CJE=8p CJC=3p
++ TF=0.3n TR=50n
+)
+
+* ---------------------------------------------------------
+* MODELO VARACTOR BB109
+* ---------------------------------------------------------
+* Capacitancia varia com tensao reversa
+* C(0V) ~ 50pF
+* C(5V) ~ 10pF
+* Razao: 5:1
+
+.model VARACTOR_BB109 D (
++ IS=1e-14
++ RS=5
++ CJO=50p
++ VJ=0.7
++ M=0.4
++ BV=30
+)
+
+* ---------------------------------------------------------
+* CONDICAO INICIAL
+* ---------------------------------------------------------
+.ic v(collector)=6.1
+
+* ---------------------------------------------------------
+* ANALISE TRANSIENTE
+* ---------------------------------------------------------
+* Simular 50ms para ver mudanca de freq
+.tran 1u 50m uic
+
+* =========================================================
+* CONTROLE E ANALISE
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    VCO SENOIDAL (Voltage-Controlled Oscillator)"
+  echo "=========================================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  Topologia: Colpitts com varactor"
+  echo "  Freq central: ~1 MHz"
+  echo "  Vtune: 0V -> 5V -> 2.5V"
+  echo "  Varactor: BB109 (C varia 50pF a 10pF)"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Medir Frequencia em Diferentes Vtune
+  * ---------------------------------------------------------
+  echo "--- Caracteristica f vs Vtune ---"
+  echo ""
+
+  * Freq em Vtune = 0V (5ms)
+  meas tran T0 TRIG v(output) VAL=0 RISE=1 TARG v(output) VAL=0 RISE=2 FROM=5m TO=10m
+  meas tran F0 PARAM='1/T0'
+
+  * Freq em Vtune = 5V (25ms)
+  meas tran T5 TRIG v(output) VAL=0 RISE=1 TARG v(output) VAL=0 RISE=2 FROM=25m TO=30m
+  meas tran F5 PARAM='1/T5'
+
+  * Freq em Vtune = 2.5V (45ms)
+  meas tran T25 TRIG v(output) VAL=0 RISE=1 TARG v(output) VAL=0 RISE=2 FROM=45m TO=50m
+  meas tran F25 PARAM='1/T25'
+
+  echo "Frequencia com Vtune = 0V:"
+  print F0
+  echo "Frequencia com Vtune = 5V:"
+  print F5
+  echo "Frequencia com Vtune = 2.5V:"
+  print F25
+  echo ""
+
+  * Ganho VCO (Kv)
+  meas tran KV PARAM='(F5-F0)/5'
+
+  echo "Ganho VCO (Kv = df/dV):"
+  print KV
+  echo "Hz/V"
+  echo ""
+
+  * Tuning range
+  meas tran RANGE PARAM='(F5-F0)/F25*100'
+
+  echo "Tuning range:"
+  print RANGE
+  echo "%"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+
+  * Tensao de controle
+  plot v(vtune) title 'Tensao de Controle (Vtune)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Saida VCO completa (mostra mudanca de freq)
+  plot v(output) title 'Saida VCO (freq varia)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom em cada regiao
+  plot v(output) xlimit 5m 7m title 'VCO com Vtune=0V' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+  plot v(output) xlimit 25m 27m title 'VCO com Vtune=5V (freq maior)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+  plot v(output) xlimit 45m 47m title 'VCO com Vtune=2.5V (freq media)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * Medida de Capacitancia do Varactor
+  * ---------------------------------------------------------
+  echo "--- Capacitancia do Varactor ---"
+  echo ""
+
+  * Capacitancia em diferentes pontos
+  let cvar_0 = -@dvar[cj]
+  meas tran CVAR_0V FIND cvar_0 AT=5m
+
+  let cvar_5 = -@dvar[cj]
+  meas tran CVAR_5V FIND cvar_5 AT=25m
+
+  echo "Capacitancia varactor com Vtune=0V:"
+  print CVAR_0V
+  echo "Capacitancia varactor com Vtune=5V:"
+  print CVAR_5V
+  echo ""
+  echo "Razao Cmax/Cmin (tuning ratio):"
+  let ratio = CVAR_0V / CVAR_5V
+  print ratio
+  echo ""
+
+  * ---------------------------------------------------------
+  * Linearidade (Kv vs Vtune)
+  * ---------------------------------------------------------
+  echo "--- Linearidade do VCO ---"
+  echo ""
+  echo "VCO com varactor e NAO perfeitamente linear!"
+  echo "Kv varia com Vtune (devido a curva C-V do varactor)"
+  echo ""
+  echo "Para melhorar linearidade:"
+  echo "  - Use varactor hyperabrupto"
+  echo "  - Pre-distorcao da curva Vtune"
+  echo "  - PLL compensa nao-linearidade"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy vco_control.png v(vtune)
+  hardcopy vco_output.png v(output)
+  hardcopy vco_zoom_low.png v(output) xlimit 5m 7m
+  hardcopy vco_zoom_high.png v(output) xlimit 25m 27m
+
+  wrdata vco_time.csv time v(vtune) v(output)
+
+  echo "Arquivos gerados:"
+  echo "  - vco_control.png"
+  echo "  - vco_output.png"
+  echo "  - vco_zoom_low.png"
+  echo "  - vco_zoom_high.png"
+  echo "  - vco_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. ESCOLHA DO VARACTOR:"
+  echo "   - BB109, BB405: uso geral (AM/FM)"
+  echo "   - MV209, 1SV280: alta Q (VHF/UHF)"
+  echo "   - Hyperabrupto: Kv mais linear"
+  echo "   - Parametros:"
+  echo "     * C(0V): capacitancia inicial"
+  echo "     * Razao C: tipico 3:1 a 10:1"
+  echo "     * Q: quanto maior, melhor (>100)"
+  echo ""
+  echo "2. TUNING RANGE (faixa):"
+  echo "   - Range = sqrt(Cmax/Cmin)"
+  echo "   - Varactor 10:1 -> freq 3.16:1"
+  echo "   - Exemplo: 90-300 MHz (3.3:1)"
+  echo "   - Muito range: pode usar switch de bandas"
+  echo ""
+  echo "3. GANHO VCO (Kv):"
+  echo "   - Kv tipico: 1-10 MHz/V"
+  echo "   - Maior L -> menor Kv (mais estavel)"
+  echo "   - Menor L -> maior Kv (mais range)"
+  echo "   - Compromisso: range vs linearidade"
+  echo ""
+  echo "4. TENSAO DE TUNING:"
+  echo "   - Range tipico: 0-5V ou 0-10V"
+  echo "   - Nunca polarizar varactor direto!"
+  echo "   - Sempre reverso (diodo desligado)"
+  echo "   - Rbias isola RF de fonte DC"
+  echo ""
+  echo "5. RUIDO DE FASE:"
+  echo "   - VCO tem ruido FM (phase noise)"
+  echo "   - Pior que cristal!"
+  echo "   - Reduzir:"
+  echo "     * Q alto (indutor e varactor)"
+  echo "     * Vtune limpo (sem ruido/ripple)"
+  echo "     * Buffer na saida"
+  echo "     * PLL com cristal como ref"
+  echo ""
+  echo "6. PULLING E PUSHING:"
+  echo "   - Pulling: carga afeta freq"
+  echo "     Solucao: buffer isolador"
+  echo "   - Pushing: VDD afeta freq"
+  echo "     Solucao: regulador low-noise"
+  echo ""
+  echo "7. TEMPERATURA:"
+  echo "   - Freq deriva com T"
+  echo "   - Indutor e varactor mudam com T"
+  echo "   - Solucao:"
+  echo "     * Componentes NPO/C0G"
+  echo "     * Compensacao termica"
+  echo "     * PLL trava freq"
+  echo ""
+  echo "8. MODULACAO FM:"
+  echo "   - VCO e usado para modular FM!"
+  echo "   - Audio -> Vtune -> freq varia"
+  echo "   - Desvio freq (dev): ±75kHz (FM broadcast)"
+  echo "   - dev = Kv * Vaudio"
+  echo "   - Exemplo: Kv=25kHz/V, Vaudio=3V -> 75kHz dev"
+  echo ""
+  echo "9. APLICACAO EM PLL:"
+  echo "   - VCO e controlado por loop filter"
+  echo "   - PLL trava VCO em multiplo de ref"
+  echo "   - Exemplo: ref=10MHz, N=100 -> VCO=1GHz"
+  echo "   - VCO deve ter range > erro inicial"
+  echo ""
+  echo "10. TOPOLOGIAS ALTERNATIVAS:"
+  echo "    - Colpitts: mais comum, bom Q"
+  echo "    - Hartley: funciona, menos comum"
+  echo "    - Clapp: melhor estabilidade"
+  echo "    - Ring: CMOS, digital, ruim phase noise"
+  echo "    - LC tank: classe C, alta potencia"
+  echo ""
+  echo "11. MELHORIAS:"
+  echo "    - Buffer isolador (evita pulling)"
+  echo "    - Regulador de tensao low-noise"
+  echo "    - Varactor com diodo back-to-back"
+  echo "      (lineariza curva C-V)"
+  echo "    - AGC na amplitude (estabiliza)"
+  echo ""
+  echo "12. MEDICAO E TESTE:"
+  echo "    - Medir Kv: sweep Vtune, medir freq"
+  echo "    - Medir range: Vtune min/max -> fmin/fmax"
+  echo "    - Phase noise: spectrum analyzer"
+  echo "    - Linearidade: plot f vs Vtune"
+  echo "    - Pulling: variar carga, medir freq"
+  echo ""
+
+.endc
+
+.end

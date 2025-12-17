@@ -1,0 +1,402 @@
+* =========================================================
+* OSCILADOR PIERCE COM JFET - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O oscilador Pierce e o circuito mais comum para cristais
+* de quartzo. E usado em praticamente TODOS os relogios,
+* microcontroladores, computadores, e sistemas digitais.
+*
+* POR QUE CRISTAL DE QUARTZO?
+* ----------------------------
+* - Estabilidade EXTREMA (10ppm a 0.1ppm!)
+* - Fator Q altissimo (10,000 a 100,000)
+* - Deriva termica baixa
+* - Envelhecimento minimo
+* - Custo muito baixo (producao em massa)
+*
+* COMPARACAO DE OSCILADORES:
+* ---------------------------
+*              Freq        Estabilidade   Q      Custo
+* RC:          <1MHz       1000ppm        10     $
+* LC:          1k-100MHz   100ppm         100    $$
+* Cristal:     32k-200MHz  1ppm           100k   $
+* SAW:         100M-2GHz   10ppm          1k     $$$
+* Atomico:     10MHz       0.0001ppm      10^10  $$$$$
+*
+* TIPOS DE OSCILADORES A CRISTAL:
+* --------------------------------
+* 1. PIERCE: mais comum, 1 transistor, simples
+* 2. COLPITTS: 2 capacitores, mais estavel
+* 3. BUTLER: 2 transistores, baixo ruido de fase
+* 4. MILLER: capacitor variavel, VCO
+*
+* DIAGRAMA PIERCE COM JFET:
+*
+*        VDD
+*         |
+*      [RFC/RD]
+*         |
+*         D
+*         |
+*    G ---| JFET --- [Xtal] --- C1 --- GND
+*         |                |
+*         S                +---- C2 --- GND
+*         |                          |
+*        [RS]                      Saida
+*         |
+*        GND
+*
+* PRINCIPIO DE FUNCIONAMENTO:
+* ----------------------------
+* 1. JFET amplifica (common-source)
+* 2. Cristal + C1/C2 formam rede de realimentacao
+* 3. Cristal apresenta BAIXA impedancia em freq ressonante
+* 4. Realimentacao positiva -> oscilacao
+* 5. Cristal determina freq com alta precisao
+*
+* MODELO ELETRICO DO CRISTAL:
+* ----------------------------
+* Cristal de quartzo se comporta como circuito RLC serie
+* em PARALELO com capacitor parasita Cp:
+*
+*     Rs --- Ls --- Cs  (serie - ressonancia serie)
+*           |
+*          Cp           (paralelo - capacitancia holder)
+*
+* FREQUENCIAS:
+*   fs = 1/(2*pi*sqrt(Ls*Cs))  (serie - baixa Z)
+*   fp = fs * sqrt(1 + Cs/Cp)  (paralelo - alta Z)
+*
+* EXEMPLO NUMERICO (cristal 10MHz):
+*   Ls = 10mH, Cs = 25fF, Rs = 50ohm, Cp = 5pF
+*   fs = 1/(2*pi*sqrt(10mH*25fF)) = 10.066 MHz
+*   Q = 2*pi*fs*Ls/Rs = 126,000 (altissimo!)
+*
+* LOAD CAPACITANCE:
+* -----------------
+* CL = (C1*C2)/(C1+C2) + Cstray
+*
+* Fabricante especifica: "10MHz, 20pF load"
+* Significa: cristal oscila em 10MHz se CL=20pF
+* Se usar CL diferente, freq muda levemente!
+*
+* APLICACOES:
+* -----------
+* - Relogio de tempo real (RTC): 32.768 kHz
+* - Microcontroladores: 4-32 MHz
+* - Computadores: 100-200 MHz (com PLL)
+* - Radios: referencia de frequencia
+* - GPS: 10 MHz TCXO (compensado temp)
+* - Instrumentacao: base de tempo precisa
+*
+* VANTAGENS DO PIERCE:
+* --------------------
+* + Muito simples (poucos componentes)
+* + Alta estabilidade
+* + Startup confiavel
+* + Baixo consumo
+* + Funciona com varios tipos de ativo
+*
+* DESVANTAGENS:
+* -------------
+* - Frequencia fixa (definida pelo cristal)
+* - Harmonicas fracas (dificil varrer freq)
+* - Sensivel a capacitancias parasitas
+* - Startup pode ser lento (ms)
+*
+* CRISTAIS COMUNS:
+* ----------------
+* - 32.768 kHz: relogios (RTC)
+* - 3.579545 MHz: NTSC color subcarrier
+* - 4.433619 MHz: PAL color subcarrier
+* - 8 MHz, 12 MHz, 16 MHz: microcontroladores
+* - 10 MHz: referencia de laboratorio
+* - 20 MHz, 25 MHz: ethernet, USB
+*
+* =========================================================
+
+.options plotwinsize=0 reltol=1e-4
+
+* ---------------------------------------------------------
+* ALIMENTACAO
+* ---------------------------------------------------------
+VDD vdd 0 DC 10
+
+* ---------------------------------------------------------
+* CIRCUITO PIERCE COM JFET
+* ---------------------------------------------------------
+
+* JFET em configuracao common-source
+* Gate = entrada
+* Drain = saida
+* Source = aterrado (via Rs para bias)
+
+* Resistor de gate (define Vg=0 DC, alta Z AC)
+Rg gate 0 1MEG
+
+* JFET canal N (2N5457)
+J1 drain gate source JFET_2N5457
+
+* Resistor de drain (carga DC)
+Rd vdd drain 2.2k
+
+* Resistor de source (self-bias)
+Rs source 0 680
+
+* Bypass do source (importante para ganho AC!)
+Cs source 0 100u
+
+* ---------------------------------------------------------
+* CRISTAL DE QUARTZO (10 MHz)
+* ---------------------------------------------------------
+* Modelado como RLC serie + capacitor paralelo
+*
+* Parametros tipicos de cristal 10MHz:
+*   Ls = 10mH   (indutancia motional)
+*   Cs = 25fF   (capacitancia motional)
+*   Rs = 50     (resistencia serie)
+*   Cp = 5pF    (capacitancia holder/parasita)
+
+* Rede serie (ressonancia)
+Lxtal drain n_xtal 10m
+Cxtal n_xtal gate 25f
+Rxtal n_xtal gate 50
+
+* Capacitor parasita (holder)
+Cp_xtal drain gate 5p
+
+* ---------------------------------------------------------
+* CAPACITORES DE CARGA (load capacitors)
+* ---------------------------------------------------------
+* Definem a freq exata de oscilacao
+* CL = (C1*C2)/(C1+C2) + Cstray
+*
+* Para cristal "10MHz, 20pF load":
+*   Usar C1=C2=40pF -> CL = 20pF (+ alguns pF stray)
+
+C1 gate 0 40p
+C2 drain 0 40p
+
+* ---------------------------------------------------------
+* SAIDA (acoplada)
+* ---------------------------------------------------------
+Cout drain output 10p
+Rload output 0 1k
+
+* ---------------------------------------------------------
+* CONDICAO INICIAL (kick para startup)
+* ---------------------------------------------------------
+* Cristais precisam de perturbacao inicial
+.ic v(drain)=5.1
+
+* ---------------------------------------------------------
+* MODELO JFET 2N5457
+* ---------------------------------------------------------
+.model JFET_2N5457 NJF (
++ VTO=-2.0
++ BETA=0.75m
++ LAMBDA=0.01
++ IS=100f
++ RD=10
++ RS=10
++ CGS=4p
++ CGD=2p
+)
+
+* ---------------------------------------------------------
+* ANALISE TRANSIENTE
+* ---------------------------------------------------------
+* Startup pode levar varios ciclos (cristal tem Q alto)
+* Simular tempo suficiente: ~100 ciclos
+* 100 ciclos @ 10MHz = 10us
+
+.tran 1n 20u uic
+
+* =========================================================
+* CONTROLE E ANALISE
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    OSCILADOR PIERCE COM JFET E CRISTAL"
+  echo "=========================================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  Cristal: 10 MHz (fundamental)"
+  echo "  Ls = 10mH, Cs = 25fF, Rs = 50ohm, Cp = 5pF"
+  echo "  Load capacitors: C1 = C2 = 40pF"
+  echo "  CL = 20pF (+ parasitas)"
+  echo "  JFET: 2N5457 (low noise)"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Verificar Startup (envelope crescendo)
+  * ---------------------------------------------------------
+  echo "--- Startup do Oscilador ---"
+  echo ""
+  echo "Cristal tem Q altissimo (~100k),"
+  echo "entao startup e LENTO (varios ciclos)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Medir Frequencia de Oscilacao
+  * ---------------------------------------------------------
+  * Medir periodo apos estabilizacao (depois de 10us)
+
+  meas tran TPER TRIG v(output) VAL=0 RISE=1 TARG v(output) VAL=0 RISE=2 FROM=10u
+  meas tran FOSC PARAM='1/TPER'
+
+  * Medir amplitude
+  meas tran VMAX MAX v(output) FROM=10u TO=20u
+  meas tran VMIN MIN v(output) FROM=10u TO=20u
+  meas tran VPP PARAM='VMAX-VMIN'
+
+  echo "Periodo medido:"
+  print TPER
+  echo "Frequencia medida:"
+  print FOSC
+  echo "Amplitude pico-a-pico:"
+  print VPP
+  echo ""
+
+  * Comparar com freq esperada
+  let fs_teorico = 1/(2*3.14159*sqrt(10m*25f))
+  echo "Freq serie teorica (Ls*Cs):"
+  print fs_teorico
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+
+  * Startup completo
+  plot v(output) title 'Pierce: Startup Completo' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom no inicio (ver envelope crescendo)
+  plot v(output) xlimit 0 5u title 'Pierce: Startup (envelope)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom apos estabilizacao (forma de onda)
+  plot v(output) xlimit 18u 20u title 'Pierce: Forma de Onda Estavel' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Gate e Drain (mostra realimentacao)
+  plot v(gate) v(drain) xlimit 18u 20u title 'Gate vs Drain (realimentacao)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT - Pureza Espectral
+  * ---------------------------------------------------------
+  echo "--- Analise Espectral (FFT) ---"
+  echo ""
+
+  fft v(output)
+  let output_db = db(v(output))
+
+  plot output_db xlimit 1MEG 20MEG title 'Espectro do Pierce' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  echo "Cristal suprime harmonicas (alta seletividade)"
+  echo "Saida e quase senoidal pura"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy pierce_startup.png v(output)
+  hardcopy pierce_waveform.png v(output) xlimit 18u 20u
+
+  wrdata pierce_time.csv time v(gate) v(drain) v(output)
+
+  echo "Arquivos gerados:"
+  echo "  - pierce_startup.png"
+  echo "  - pierce_waveform.png"
+  echo "  - pierce_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. ESCOLHA DO CRISTAL:"
+  echo "   - Fundamental: ate ~30MHz (mais estavel)"
+  echo "   - Overtone: 30-200MHz (3rd, 5th harmonica)"
+  echo "   - Especificacao: freq + load cap"
+  echo "   - Exemplo: '10.000 MHz, 20pF load'"
+  echo ""
+  echo "2. LOAD CAPACITORS (C1, C2):"
+  echo "   - CL = (C1*C2)/(C1+C2) + Cstray"
+  echo "   - Cstray tipico: 2-5pF (PCB + pins)"
+  echo "   - Para CL=20pF: use C1=C2=33-40pF"
+  echo "   - Errar CL: freq desvia dezenas de ppm!"
+  echo ""
+  echo "3. STARTUP:"
+  echo "   - Precisa ganho > 1 na freq do cristal"
+  echo "   - Pode demorar ms (Q muito alto)"
+  echo "   - Se nao oscilar:"
+  echo "     * Aumente ganho (menor Rs, maior Rd)"
+  echo "     * Verifique C1/C2 (CL correto?)"
+  echo "     * Cristal pode estar danificado"
+  echo ""
+  echo "4. DRIVE LEVEL:"
+  echo "   - Potencia dissipada no cristal"
+  echo "   - Tipico: 10-100uW"
+  echo "   - Excesso: envelhecimento prematuro!"
+  echo "   - Medir: P = Vrms^2 / Rs"
+  echo "   - Limite: veja datasheet (100uW tipico)"
+  echo ""
+  echo "5. ESTABILIDADE:"
+  echo "   - Temperatura: use TCXO (compensado)"
+  echo "   - Envelhecimento: <1ppm/ano (tipico)"
+  echo "   - Vibracao: pode modular freq (problema!)"
+  echo "   - Umidade: encapsular cristal"
+  echo ""
+  echo "6. LAYOUT PCB:"
+  echo "   - Cristal PERTO do ativo (curto!)"
+  echo "   - Guard ring ao redor (isola)"
+  echo "   - C1/C2 com ground plane solido"
+  echo "   - Evite traces longos (parasitas)"
+  echo ""
+  echo "7. ALTERNATIVAS AO JFET:"
+  echo "   - Inversor CMOS (mais comum hoje)"
+  echo "   - BJT (funciona, mas mais corrente)"
+  echo "   - Gate CMOS (74HC04, CD4069UB)"
+  echo "   - Chip dedicado (MC12061, etc)"
+  echo ""
+  echo "8. TROUBLESHOOTING:"
+  echo "   - Nao oscila:"
+  echo "     * Gain muito baixo (Rs alto?)"
+  echo "     * CL muito errado"
+  echo "     * Cristal quebrado (medir Rs)"
+  echo "   - Freq errada:"
+  echo "     * CL diferente do especificado"
+  echo "     * Calculo: CL = (C1*C2)/(C1+C2)"
+  echo "   - Startup lento:"
+  echo "     * Normal! Cristal tem Q~100k"
+  echo "     * Pode levar 10-100ms"
+  echo "   - Instavel:"
+  echo "     * Vibração mecanica"
+  echo "     * Temperatura variando"
+  echo "     * Overdrive (P > 100uW)"
+  echo ""
+  echo "9. FREQUENCIAS ESPECIAIS:"
+  echo "   - 32.768 kHz = 2^15 Hz"
+  echo "     (divisor binario -> 1 Hz para RTC)"
+  echo "   - 3.579545 MHz: NTSC TV"
+  echo "   - 4.433619 MHz: PAL TV"
+  echo "   - 10.000 MHz: referencia lab"
+  echo ""
+  echo "10. MEDICAO DE QUALIDADE:"
+  echo "    - ESR (Rs): quanto menor, melhor"
+  echo "    - Tipico: 50-100 ohm"
+  echo "    - Cristal ruim: >200 ohm"
+  echo "    - Medir com impedance analyzer"
+  echo ""
+
+.endc
+
+.end

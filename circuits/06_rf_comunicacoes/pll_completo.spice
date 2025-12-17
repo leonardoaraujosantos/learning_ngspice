@@ -1,0 +1,447 @@
+* =========================================================
+* PLL (PHASE-LOCKED LOOP) COMPLETO - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* PLL (Phase-Locked Loop) e um dos circuitos mais importantes
+* em eletronica moderna. Esta presente em TODOS:
+* - Microprocessadores (clock generation)
+* - Radios (sintetizador de frequencia)
+* - TVs (sincronismo horizontal/vertical)
+* - Modems (clock recovery)
+* - Hard disks (data recovery)
+* - GPS (carrier tracking)
+*
+* PRINCIPIO BASICO:
+* -----------------
+* PLL e um SISTEMA DE CONTROLE em malha fechada que:
+* 1. Compara FASE de dois sinais (ref e VCO)
+* 2. Gera sinal de ERRO proporcional a diferenca
+* 3. FILTRA o erro (loop filter)
+* 4. CONTROLA frequencia do VCO
+* 5. VCO ajusta ate TRAVAR (lock) com referencia
+*
+* DIAGRAMA DE BLOCOS:
+*
+*   Ref ---> [PFD] ---> [LPF] ---> [VCO] ---> Out
+*             ^                       |
+*             |                       |
+*             +------[/N]<------------+
+*                   (divisor)
+*
+* BLOCOS:
+* -------
+* 1. PFD (Phase-Frequency Detector): compara fase
+* 2. LPF (Loop Filter): filtra passa-baixa
+* 3. VCO (Voltage-Controlled Oscillator): oscilador
+* 4. Divisor /N: divide freq (opcional)
+*
+* FUNCIONAMENTO:
+* --------------
+* Quando travado (locked):
+*   f_vco = N * f_ref
+*   fase_vco = fase_ref (sincronizados!)
+*
+* EXEMPLO NUMERICO:
+*   f_ref = 10 MHz (cristal)
+*   N = 100
+*   f_vco = 1000 MHz = 1 GHz
+*
+* Ou seja: PLL e um MULTIPLICADOR DE FREQUENCIA!
+*
+* TIPOS DE DETECTOR DE FASE:
+* ---------------------------
+* 1. XOR (Exclusive-OR): digital simples
+* 2. MIXER (multiplicador): analogico
+* 3. PFD (Phase-Frequency Detector): melhor!
+* 4. Sample-and-hold: para sinais analogicos
+*
+* LOOP FILTER:
+* ------------
+* Filtro passa-baixa que define:
+* - Bandwidth do loop
+* - Tempo de lock
+* - Estabilidade
+* - Ruido de fase
+*
+* Topologias:
+* - Passivo: R-C simples
+* - Ativo: op-amp com lead-lag
+* - Ordem 2: mais comum (estavel)
+* - Ordem 3: melhor rejeicao ruido
+*
+* PARAMETROS DO PLL:
+* -------------------
+* 1. Lock range: faixa de freq que trava
+* 2. Capture range: faixa de freq que captura
+* 3. Lock time: tempo ate travar
+* 4. Loop bandwidth: banda do filtro
+* 5. Phase margin: margem de estabilidade
+*
+* FORMULA DO LOOP FILTER (ordem 2):
+*   Vc(s) = Kd * Ve(s) * (1 + s*T2) / (s*T1)
+*
+* Onde:
+*   Kd = ganho detector fase
+*   T1 = R1*C1 (polo)
+*   T2 = R2*C2 (zero)
+*
+* APLICACOES:
+* -----------
+* - Sintetizador de freq (radios, celulares)
+* - Clock generation (CPUs, FPGAs)
+* - FM demodulation (discriminador)
+* - Clock recovery (comunicacao digital)
+* - Motor speed control (servo)
+* - Sincronismo de video
+* - Frequency synthesizer (instrumentos)
+*
+* VANTAGENS:
+* ----------
+* + Gera frequencias precisas
+* + Multiplica freq do cristal
+* + Baixo ruido de fase (filtrado)
+* + Sincronizacao automatica
+* + Tracking de freq
+*
+* DESVANTAGENS:
+* -------------
+* - Complexo de projetar
+* - Pode ser instavel
+* - Lock time nao-zero
+* - Espurios (reference spurs)
+* - Pull-in pode falhar
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* REFERENCIA (CRISTAL)
+* ---------------------------------------------------------
+* Frequencia precisa e estavel
+* 10 MHz (tipico para instrumentacao)
+
+VREF ref 0 PULSE(0 5 0 1n 1n 50n 100n)
+
+* ---------------------------------------------------------
+* BLOCO 1: DETECTOR DE FASE (XOR DIGITAL)
+* ---------------------------------------------------------
+* Compara fase de ref e feedback
+* Saida: duty cycle proporcional a erro de fase
+*
+* XOR implementado com portas logicas (aproximacao)
+* Se fase igual: duty = 50%
+* Se fase diferente: duty diferente
+
+* XOR: A XOR B = (A AND !B) OR (!A AND B)
+* Simplificacao: usar multiplicador
+
+Bxor phase_err 0 V={abs(v(ref) - v(feedback))}
+
+* ---------------------------------------------------------
+* BLOCO 2: LOOP FILTER (FILTRO PASSA-BAIXA)
+* ---------------------------------------------------------
+* Filtro ativo ordem 2 (lead-lag)
+* Remove componentes AC, deixa apenas DC (erro medio)
+*
+* Topologia: R-C passivo simples (para simplicidade)
+* Em PLL real: usar op-amp ativo
+
+* Resistor serie
+R1 phase_err n_filt1 10k
+
+* Capacitor integrador (polo)
+C1 n_filt1 0 1u
+
+* Resistor-capacitor lead (zero)
+R2 n_filt1 vtune 10k
+C2 vtune 0 100n
+
+* ---------------------------------------------------------
+* BLOCO 3: VCO (VOLTAGE-CONTROLLED OSCILLATOR)
+* ---------------------------------------------------------
+* Oscilador cuja freq varia com Vtune
+*
+* Modelo simplificado: fonte de tensao comportamental
+* f_vco = f_center + Kv * Vtune
+*
+* Parametros:
+*   f_center = 10 MHz (match com ref quando travado)
+*   Kv = 1 MHz/V (ganho VCO)
+
+* Gerador de onda quadrada controlado por tensao
+* Freq = 10MHz + 1MHz/V * Vtune
+* Periodo = 1 / freq
+
+Bvco vco_out 0 V={5*sin(2*3.14159*(10MEG + 1MEG*v(vtune))*time)}
+
+* Converter senoide em quadrada (comparador)
+Bcomp feedback 0 V={v(vco_out) > 0 ? 5 : 0}
+
+* ---------------------------------------------------------
+* BLOCO 4: DIVISOR DE FREQUENCIA (opcional)
+* ---------------------------------------------------------
+* Divide freq do VCO por N
+* Para sintetizador: f_vco = N * f_ref
+*
+* Neste exemplo: N = 1 (sem divisor)
+* Para N > 1: implementar contador digital
+*
+* (Divisor digital e complexo para SPICE analogico,
+*  aqui usamos feedback direto do VCO)
+
+* ---------------------------------------------------------
+* SAIDA
+* ---------------------------------------------------------
+Rload_out vco_out 0 10k
+Rload_fb feedback 0 10k
+
+* ---------------------------------------------------------
+* MONITORAMENTO
+* ---------------------------------------------------------
+* Resistor de monitoramento do erro
+Rmon phase_err 0 100k
+Rmon2 vtune 0 100k
+
+* ---------------------------------------------------------
+* ANALISE TRANSIENTE
+* ---------------------------------------------------------
+* PLL precisa tempo para travar (lock)
+* Simular tempo suficiente: ~10-100ms
+
+.tran 1u 50m
+
+* =========================================================
+* CONTROLE E ANALISE
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    PLL (PHASE-LOCKED LOOP) COMPLETO"
+  echo "=========================================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  Referencia: 10 MHz (onda quadrada)"
+  echo "  VCO: f_center = 10 MHz, Kv = 1 MHz/V"
+  echo "  Loop filter: R-C ordem 2"
+  echo "  Divisor: N = 1 (sem divisao)"
+  echo ""
+  echo "Quando travado: f_vco = f_ref = 10 MHz"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Analise do Lock (travamento)
+  * ---------------------------------------------------------
+  echo "--- Processo de Lock ---"
+  echo ""
+
+  * Medir tensao de controle final (Vtune)
+  meas tran VTUNE_FINAL FIND v(vtune) AT=50m
+
+  echo "Tensao de controle final (Vtune):"
+  print VTUNE_FINAL
+  echo ""
+  echo "Se PLL travou, Vtune estabiliza em ~0V"
+  echo "(pois f_center = f_ref = 10MHz)"
+  echo ""
+
+  * Medir erro de fase final
+  meas tran ERROR_FINAL AVG v(phase_err) FROM=40m TO=50m
+
+  echo "Erro de fase medio final:"
+  print ERROR_FINAL
+  echo "(Deve ser proximo de zero quando travado)"
+  echo ""
+
+  * Tempo de lock (quando Vtune para de mudar)
+  * Criterio: quando Vtune atinge 90% do valor final
+  * (Metodo simplificado)
+
+  echo "Lock time (tempo de travamento):"
+  echo "Observar nos graficos quando Vtune estabiliza"
+  echo "Tipico: 1-10ms para este filtro"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+
+  * Sinais de entrada
+  plot v(ref) v(feedback) xlimit 0 1m title 'Referencia vs Feedback (inicio)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+  plot v(ref) v(feedback) xlimit 45m 50m title 'Referencia vs Feedback (travado)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Processo de lock (tensao de controle)
+  plot v(vtune) title 'Tensao de Controle VCO (Vtune)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Erro de fase
+  plot v(phase_err) title 'Erro de Fase (detector)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * VCO output
+  plot v(vco_out) xlimit 45m 45.001m title 'Saida VCO (travado)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Comparacao de fase (zoom)
+  plot v(ref) v(feedback) xlimit 45m 45.001m title 'Comparacao de Fase (zoom)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT da Saida VCO
+  * ---------------------------------------------------------
+  echo "--- Analise Espectral ---"
+  echo ""
+
+  fft v(vco_out)
+  let vco_db = db(v(vco_out))
+
+  plot vco_db xlimit 0 50MEG title 'Espectro VCO' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  echo "Pico em ~10 MHz (travado com referencia)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy pll_vtune.png v(vtune)
+  hardcopy pll_phase_error.png v(phase_err)
+  hardcopy pll_signals.png v(ref) v(feedback) xlimit 45m 50m
+  hardcopy pll_vco_output.png v(vco_out) xlimit 45m 45.001m
+
+  wrdata pll_time.csv time v(ref) v(feedback) v(phase_err) v(vtune) v(vco_out)
+
+  echo "Arquivos gerados:"
+  echo "  - pll_vtune.png"
+  echo "  - pll_phase_error.png"
+  echo "  - pll_signals.png"
+  echo "  - pll_vco_output.png"
+  echo "  - pll_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. ESCOLHA DO VCO:"
+  echo "   - Range: deve cobrir f_ref * N +/- margem"
+  echo "   - Kv (ganho): compromisso"
+  echo "     * Alto Kv: rapido, mas ruidoso"
+  echo "     * Baixo Kv: lento, mas estavel"
+  echo "   - Linearidade: Kv constante ajuda"
+  echo ""
+  echo "2. DETECTOR DE FASE:"
+  echo "   - XOR: simples, mas limitado"
+  echo "   - PFD (Phase-Freq Detector): melhor!"
+  echo "     * Detecta freq E fase"
+  echo "     * Auto-capture (pega sozinho)"
+  echo "     * Dead zone menor"
+  echo "   - Exemplo IC: 74HC4046 (PLL completo)"
+  echo ""
+  echo "3. LOOP FILTER:"
+  echo "   - Ordem 2: minimo para estabilidade"
+  echo "   - Ordem 3: melhor ruido, mais complexo"
+  echo "   - Bandwidth (BW):"
+  echo "     * Estreito: ruido baixo, lock lento"
+  echo "     * Largo: ruido alto, lock rapido"
+  echo "     * Tipico: BW = f_ref / 10 a f_ref / 100"
+  echo ""
+  echo "4. DIMENSIONAMENTO DO FILTRO:"
+  echo "   - Natural freq (wn):"
+  echo "     wn = sqrt(Kd * Kv / (N*T1))"
+  echo "   - Damping (zeta):"
+  echo "     zeta = 0.707 (critically damped)"
+  echo "   - T2/T1 ~ 10 (zero para estabilidade)"
+  echo ""
+  echo "5. DIVISOR DE FREQUENCIA:"
+  echo "   - N programavel: sintetizador"
+  echo "   - Exemplo: N=100, f_ref=10MHz -> 1GHz"
+  echo "   - ICs: 74HC4040, 74HC161, CD4059"
+  echo "   - Fracionario: N.F (ex: 100.5)"
+  echo ""
+  echo "6. LOCK RANGE vs CAPTURE RANGE:"
+  echo "   - Lock range: faixa que mantem lock"
+  echo "   - Capture range: faixa que captura"
+  echo "   - Sempre: Capture < Lock"
+  echo "   - Se freq inicial fora de capture:"
+  echo "     * VCO nao trava!"
+  echo "     * Solucao: sweep inicial"
+  echo ""
+  echo "7. LOCK TIME:"
+  echo "   - Depende de BW do filtro"
+  echo "   - Tipico: 10-100ms"
+  echo "   - Reduzir: aumentar BW (mas +ruido)"
+  echo "   - Medir: quando erro < threshold"
+  echo ""
+  echo "8. RUIDO DE FASE:"
+  echo "   - PLL filtra ruido do VCO!"
+  echo "   - Dentro do BW: dominado por ref"
+  echo "   - Fora do BW: dominado por VCO"
+  echo "   - Otimo: cristal ref + VCO com Q alto"
+  echo ""
+  echo "9. REFERENCE SPURS:"
+  echo "   - Raias espurias em f_ref"
+  echo "   - Causas:"
+  echo "     * Charge pump leakage"
+  echo "     * Filtro insuficiente"
+  echo "   - Reducao:"
+  echo "     * Maior ordem filtro"
+  echo "     * Maior f_ref (f_ref >> BW)"
+  echo ""
+  echo "10. CHIPS INTEGRADOS:"
+  echo "    - 74HC4046: PLL completo (ate 10MHz)"
+  echo "    - CD4046: CMOS, classico"
+  echo "    - ADF4xxx: sintetizador ate 6GHz"
+  echo "    - Si5351: I2C programmable, ate 200MHz"
+  echo "    - LMX25xx: fracionario, baixo ruido"
+  echo ""
+  echo "11. APLICACAO PRATICA:"
+  echo "    - Sintetizador FM radio:"
+  echo "      f_ref = 100 kHz"
+  echo "      N = 880 a 1080"
+  echo "      f_vco = 88-108 MHz"
+  echo "    - CPU clock:"
+  echo "      f_ref = 24 MHz (cristal)"
+  echo "      N = 100"
+  echo "      f_cpu = 2.4 GHz"
+  echo ""
+  echo "12. TROUBLESHOOTING:"
+  echo "    - Nao trava:"
+  echo "      * VCO range insuficiente"
+  echo "      * Loop aberto (conexao ruim)"
+  echo "      * Polaridade invertida"
+  echo "      * BW muito estreito"
+  echo "    - Instavel (oscila):"
+  echo "      * BW muito largo"
+  echo "      * Fase margin < 45 deg"
+  echo "      * Kv muito alto"
+  echo "    - Lock lento:"
+  echo "      * BW muito estreito"
+  echo "      * Kv muito baixo"
+  echo "    - Ruido alto:"
+  echo "      * BW muito largo"
+  echo "      * VCO ruidoso"
+  echo "      * Reference spurs"
+  echo ""
+  echo "13. MATEMATICA DO PLL:"
+  echo "    - Funcao transferencia (malha fechada):"
+  echo "      H(s) = Kd*F(s)*Kv / (s + Kd*F(s)*Kv)"
+  echo "    - Open loop gain:"
+  echo "      G(s) = Kd * F(s) * Kv / s"
+  echo "    - Estabilidade: Bode plot"
+  echo "      Phase margin > 45 deg"
+  echo "      Gain margin > 10 dB"
+  echo ""
+  echo "14. FERRAMENTAS DE PROJETO:"
+  echo "    - ADIsimPLL (Analog Devices)"
+  echo "    - PLL design assistant (TI)"
+  echo "    - Matlab/Python (scipy.signal)"
+  echo "    - Simulacao: SPICE, Verilog-A"
+  echo ""
+
+.endc
+
+.end

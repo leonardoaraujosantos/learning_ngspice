@@ -1,0 +1,18 @@
+* Amplificador Emissor Comum - Esquematico Simples
+
+Vcc vcc 0 DC 12
+Vin in 0 DC 0 AC 1
+
+R1 vcc base 47k
+R2 base 0 10k
+RC vcc col 4.7k
+RE emi 0 1k
+
+Q1 col base emi BC548
+
+Cin in base 10u
+Cout col out 10u
+RL out 0 10k
+
+.model BC548 NPN(IS=1e-14 BF=200)
+.end

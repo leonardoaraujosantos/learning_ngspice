@@ -1,0 +1,8 @@
+* Divisor de Corrente - Esquematico Simples
+* Fonte de corrente com dois resistores em paralelo
+
+I1 0 node1 DC 10m
+R1 node1 0 1k
+R2 node1 0 2k
+
+.end

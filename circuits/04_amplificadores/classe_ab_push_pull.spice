@@ -1,0 +1,352 @@
+* =========================================================
+* AMPLIFICADOR CLASSE A/B PUSH-PULL - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O amplificador classe A/B e um compromisso entre classe A
+* e classe B, combinando eficiencia com baixa distorcao.
+*
+* CLASSES DE AMPLIFICADORES:
+* ---------------------------
+*
+* CLASSE A:
+*   - Transistor conduz 100% do tempo (360 graus)
+*   - Baixissima distorcao
+*   - Eficiencia: ~25-50% (desperdicando muita energia!)
+*   - Usado em audio high-end
+*
+* CLASSE B:
+*   - Cada transistor conduz 50% do tempo (180 graus)
+*   - Eficiencia: ~78%
+*   - PROBLEMA: Distorcao de crossover (dead zone)
+*   - Raramente usado puro
+*
+* CLASSE A/B:
+*   - Cada transistor conduz >50% do tempo (>180 graus)
+*   - Pequena polarizacao (bias) elimina crossover
+*   - Eficiencia: ~50-70%
+*   - IDEAL para audio!
+*
+* CLASSE C:
+*   - Conduz <50% do tempo (<180 graus)
+*   - Alta eficiencia >78%
+*   - Muita distorcao - usado em RF com filtros
+*
+* DIAGRAMA PUSH-PULL CLASSE A/B:
+*
+*        +VCC (+15V)
+*         |
+*        [RL/2]
+*         |
+*      |\|  Q1 (NPN) - conduz semiciclo positivo
+*    --|  |
+*      |/|
+*   IN   |--- OUT
+*      |\|
+*    --|  |
+*      |/|  Q2 (PNP) - conduz semiciclo negativo
+*         |
+*        [RL/2]
+*         |
+*        -VCC (-15V)
+*
+* POLARIZACAO (BIAS):
+* -------------------
+* Dois diodos em serie entre bases de Q1 e Q2 criam
+* uma pequena tensao (~1.2V) que mantem ambos transistores
+* levemente conduzindo, eliminando distorcao de crossover.
+*
+* FORMULA DE POTENCIA:
+* --------------------
+*   Potencia saida (max) = (Vcc^2) / (2 * RL)
+*   Eficiencia = Pi / (Vcc * Iavg)
+*
+* EXEMPLO NUMERICO:
+*   VCC = 15V, RL = 8 ohms
+*   Pout_max = 225/(2*8) = 14W
+*   Eficiencia tipica: 60-65%
+*
+* APLICACOES:
+* -----------
+* - Amplificadores de audio (receiver, home theater)
+* - Amplificadores de potencia para caixas de som
+* - Headphone amplifiers
+* - Servos e drivers de motor DC
+* - Amplificadores de RF (com filtro)
+*
+* VANTAGENS:
+* ----------
+* + Boa eficiencia (~60%)
+* + Baixa distorcao (com bias correto)
+* + Potencia de saida alta
+* + Custo razoavel
+*
+* DESVANTAGENS:
+* -------------
+* - Necessita bias cuidadoso (thermal runaway!)
+* - Dissipacao termica significativa
+* - Mais complexo que classe A
+* - Precisa fonte simetrica (+/- VCC)
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO SIMETRICAS
+* ---------------------------------------------------------
+VCC vcc 0 DC 15
+VEE vee 0 DC -15
+
+* ---------------------------------------------------------
+* SINAL DE ENTRADA (senoide 1kHz, 1Vpp)
+* ---------------------------------------------------------
+VIN input 0 SIN(0 0.5 1k)
+
+* ---------------------------------------------------------
+* ESTAGIO DE ENTRADA (driver)
+* ---------------------------------------------------------
+* Acoplamento AC
+CIN input base_driver 10u
+
+* Polarizacao do driver
+RB1 vcc base_driver 47k
+RB2 base_driver vee 47k
+
+* Transistor driver (buffer)
+Q_driver collector_driver base_driver emitter_driver BC548
+
+* Carga ativa do driver
+RC collector_driver vcc 2.2k
+RE emitter_driver vee 1k
+CE emitter_driver vee 100u
+
+* ---------------------------------------------------------
+* REDE DE POLARIZACAO (BIAS) - CRUCIAL!
+* ---------------------------------------------------------
+* Dois diodos em serie criam ~1.2V para eliminar
+* distorcao de crossover
+*
+* R_bias controla a corrente de quiescencia (Iq)
+* Iq tipico: 10-50mA para classe AB
+
+R_bias collector_driver bias_mid 1k
+
+* Diodos de bias (podem ser 1N4148 ou usar juncao BE de transistor)
+D1 bias_mid base_npn DIODE_BIAS
+D2 base_pnp bias_mid DIODE_BIAS
+
+* Resistores de base (protecao e estabilidade)
+RB_npn base_npn base_npn_int 100
+RB_pnp base_pnp base_pnp_int 100
+
+* ---------------------------------------------------------
+* ESTAGIO DE SAIDA PUSH-PULL
+* ---------------------------------------------------------
+* Q1 (NPN): conduz semiciclo positivo
+* Q2 (PNP): conduz semiciclo negativo
+
+Q1 vcc base_npn_int emit_out BC548
+Q2 vee base_pnp_int emit_out BC558
+
+* ---------------------------------------------------------
+* RESISTORES DE EMISSOR (ESTABILIZACAO)
+* ---------------------------------------------------------
+* Pequenos resistores (0.1-1 ohm) para:
+* 1. Estabilizacao termica
+* 2. Protecao contra thermal runaway
+* 3. Balanceamento de corrente
+
+RE1 emit_out out_mid 0.47
+RE2 out_mid output 0.47
+
+* ---------------------------------------------------------
+* CARGA (alto-falante ou resistiva)
+* ---------------------------------------------------------
+* Acoplamento AC (elimina DC offset)
+COUT output load 470u
+
+* Carga de 8 ohms (alto-falante tipico)
+RLOAD load 0 8
+
+* ---------------------------------------------------------
+* CAPACITOR DE DESACOPLAMENTO
+* ---------------------------------------------------------
+CDEC1 vcc 0 100u
+CDEC2 vee 0 100u
+
+* ---------------------------------------------------------
+* MODELOS DE COMPONENTES
+* ---------------------------------------------------------
+
+.model BC548 NPN (
++ IS=1e-14 BF=200 VAF=100
++ CJE=8p CJC=3p
++ TF=0.3n TR=50n
++ RB=100 RE=1 RC=10
+)
+
+.model BC558 PNP (
++ IS=1e-14 BF=150 VAF=80
++ CJE=8p CJC=3p
++ TF=0.5n TR=80n
++ RB=100 RE=1 RC=10
+)
+
+.model DIODE_BIAS D (
++ IS=1e-14
++ N=1.0
++ RS=10
+)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+* Analise DC (ponto de operacao)
+.op
+
+* Analise transiente (10 ciclos de 1kHz = 10ms)
+.tran 10u 10m
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    AMPLIFICADOR CLASSE A/B PUSH-PULL"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise DC - Ponto de Operacao
+  * ---------------------------------------------------------
+  echo "--- Analise DC: Ponto de Operacao ---"
+  echo ""
+
+  op
+
+  echo "Tensoes DC:"
+  print v(output)
+  print v(base_npn)
+  print v(base_pnp)
+  echo ""
+
+  * Corrente de quiescencia (importante!)
+  echo "Corrente de quiescencia estimada:"
+  print @Q1[ic]
+  print @Q2[ic]
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 10u 10m
+
+  * Medidas de amplitude
+  meas tran VIN_MAX MAX v(input)
+  meas tran VIN_MIN MIN v(input)
+  meas tran VIN_PP PARAM='VIN_MAX-VIN_MIN'
+
+  meas tran VOUT_MAX MAX v(load) FROM=2m TO=10m
+  meas tran VOUT_MIN MIN v(load) FROM=2m TO=10m
+  meas tran VOUT_PP PARAM='VOUT_MAX-VOUT_MIN'
+
+  * Ganho de tensao
+  meas tran GANHO PARAM='VOUT_PP/VIN_PP'
+  meas tran GANHO_DB PARAM='20*log10(GANHO)'
+
+  echo "Entrada: "
+  print VIN_PP
+  echo "Saida: "
+  print VOUT_PP
+  echo "Ganho: "
+  print GANHO GANHO_DB
+  echo ""
+
+  * Potencia na carga
+  let P_load = v(load)^2 / 8
+  meas tran P_AVG AVG P_load FROM=2m TO=10m
+  meas tran P_MAX MAX P_load FROM=2m TO=10m
+
+  echo "Potencia na carga (8 ohms):"
+  print P_AVG P_MAX
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+  plot v(input) v(load) title 'Entrada vs Saida' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom em um ciclo para ver forma de onda
+  plot v(input) v(load) xlimit 2m 3m title 'Detalhe: 1 Ciclo' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Correntes nos transistores
+  plot @Q1[ic] @Q2[ic] title 'Correntes de Coletor' xlabel 'Tempo (s)' ylabel 'Corrente (A)'
+
+  * ---------------------------------------------------------
+  * FFT - Analise de Distorcao
+  * ---------------------------------------------------------
+  echo "--- Analise de Distorcao Harmonica (THD) ---"
+  echo ""
+
+  fft v(load)
+  let load_mag = mag(v(load))
+
+  * Magnitude em dB
+  let load_db = db(v(load))
+
+  plot load_db xlimit 0 20k title 'Espectro - Distorcao Harmonica' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  * ---------------------------------------------------------
+  * Salvando resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy classe_ab_waveform.png v(input) v(load)
+
+  wrdata classe_ab_time.csv time v(input) v(load) @Q1[ic] @Q2[ic]
+
+  echo "Arquivos gerados:"
+  echo "  - classe_ab_waveform.png"
+  echo "  - classe_ab_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS PRATICAS"
+  echo "=========================================================="
+  echo ""
+  echo "1. AJUSTE DE BIAS (corrente de quiescencia):"
+  echo "   - Muito baixo: distorcao de crossover"
+  echo "   - Muito alto: aquecimento excessivo (classe A)"
+  echo "   - Ideal: 10-50mA (Iq) para classe AB"
+  echo "   - Ajuste via R_bias"
+  echo ""
+  echo "2. THERMAL RUNAWAY (fuga termica):"
+  echo "   - Temperatura sobe -> Ic aumenta -> temperatura sobe..."
+  echo "   - Solucao: RE1, RE2 (degeneracao emissor)"
+  echo "   - Solucao: bias com coeficiente termico negativo"
+  echo "   - Solucao: dissipador termico adequado"
+  echo ""
+  echo "3. DISTORCAO:"
+  echo "   - Crossover: aumente bias"
+  echo "   - Clip (saturacao): reduza amplitude entrada"
+  echo "   - Assimetria: verifique se Q1/Q2 sao complementares"
+  echo ""
+  echo "4. MELHORIAS POSSIVEIS:"
+  echo "   - Darlington para mais corrente"
+  echo "   - MOSFET para menos distorcao"
+  echo "   - Realimentacao negativa (NFB) para linearidade"
+  echo "   - Zobel network na saida (estabilidade)"
+  echo ""
+
+.endc
+
+.end

@@ -1,0 +1,267 @@
+* =========================================================
+* OSCILADOR HARTLEY - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O oscilador Hartley e um oscilador LC que usa dois indutores
+* (ou um indutor com tap central) e um capacitor no tanque
+* ressonante. E similar ao Colpitts, mas usa divisor INDUTIVO
+* em vez de divisor capacitivo.
+*
+* COMPARACAO COLPITTS vs HARTLEY:
+* --------------------------------
+*   COLPITTS: L1, C1, C2 (divisor capacitivo)
+*   HARTLEY:  L1, L2, C1 (divisor indutivo)
+*
+* DIAGRAMA BASICO:
+*
+*        VCC
+*         |
+*      [RFC]--- VCC (choke)
+*         |
+*         C ---- [L1]----+
+*         |              |
+*         B              +---- saida
+*         |              |
+*         E ---- [L2]----+
+*         |              |
+*        [RE]           [C1]
+*         |              |
+*        GND            GND
+*
+* FORMULA DA FREQUENCIA:
+* ----------------------
+*   f0 = 1 / (2 * pi * sqrt(Leq * C))
+*
+*   Onde:
+*   Leq = L1 + L2 + 2*M   (M = mutua indutancia)
+*
+*   Se L1 e L2 nao tem acoplamento mutuo:
+*   Leq = L1 + L2
+*
+* EXEMPLO NUMERICO:
+*   L1 = 100uH, L2 = 100uH, C = 100pF
+*   Leq = 200uH
+*   f0 = 1/(2*pi*sqrt(200uH * 100pF))
+*   f0 = 1/(2*pi*sqrt(20e-15))
+*   f0 = 1/(2*pi*4.47e-8)
+*   f0 ~ 3.56 MHz
+*
+* APLICACOES:
+* -----------
+* - Transmissores RF (AM, FM)
+* - Osciladores locais em receptores
+* - Geradores de sinal de teste
+* - Inversores de frequencia
+* - Fontes de RF para aquecimento por inducao (baixa freq)
+*
+* VANTAGENS DO HARTLEY:
+* ---------------------
+* + Facil ajuste de frequencia (C variavel)
+* + Boa estabilidade de amplitude
+* + Harmônicas reduzidas (comparado a outros tipos)
+* + Ampla faixa de frequencias (kHz a MHz)
+* + Simples de construir
+*
+* DESVANTAGENS:
+* -------------
+* - Indutores sao volumosos e caros
+* - Acoplamento mutuo entre L1 e L2 pode causar problemas
+* - Dificil de integrar em chip (indutores grandes)
+* - Sensivel a variacao de carga
+*
+* DIFERENCA PRATICA vs COLPITTS:
+* -------------------------------
+* - Hartley: melhor para baixas frequencias (HF, VHF)
+* - Colpitts: melhor para altas frequencias (VHF, UHF)
+* - Hartley: capacitor variavel mais simples de usar
+* - Colpitts: mais comum em RF moderna
+*
+* =========================================================
+
+.options plotwinsize=0 reltol=1e-4
+
+* ---------------------------------------------------------
+* ALIMENTACAO
+* ---------------------------------------------------------
+VCC vcc 0 DC 12
+
+* ---------------------------------------------------------
+* POLARIZACAO DC DO TRANSISTOR
+* ---------------------------------------------------------
+* Divisor de tensao na base
+RB1 vcc base 47k
+RB2 base 0 10k
+
+* Capacitor de bypass da base (AC ground)
+CB base 0 100n
+
+* Resistor de emissor (estabilizacao termica)
+RE emitter 0 470
+
+* Capacitor de bypass do emissor (importante: nao queremos
+* degeneracao em AC para oscilacao)
+CE emitter 0 100u
+
+* ---------------------------------------------------------
+* TRANSISTOR BC548
+* ---------------------------------------------------------
+Q1 collector base emitter BC548
+
+* ---------------------------------------------------------
+* TANQUE HARTLEY (circuito ressonante)
+* ---------------------------------------------------------
+* Frequencia alvo: ~1 MHz
+* f = 1/(2*pi*sqrt((L1+L2)*C1))
+*
+* L1 + L2 = 250uH, C1 = 100pF
+* f ~ 1/(2*pi*sqrt(250uH*100pF)) = 1 MHz
+
+* Indutor superior (coletor ao tap)
+L1 collector tap 120u
+
+* Indutor inferior (tap ao terra AC)
+L2 tap 0 130u
+
+* Capacitor do tanque
+C1 collector 0 100p IC=100m
+
+* Acoplamento mutuo entre L1 e L2 (tipico 0.1 a 0.3)
+* Isso afeta a freq real!
+K1 L1 L2 0.2
+
+* ---------------------------------------------------------
+* ALIMENTACAO DC DO COLETOR
+* ---------------------------------------------------------
+* RFC (Radio Frequency Choke) - bloqueia AC, passa DC
+RFC vcc collector 1m
+
+* Desacoplamento da fonte
+CDEC1 vcc 0 10u
+CDEC2 vcc 0 100n
+
+* ---------------------------------------------------------
+* SAIDA (acoplada via capacitor)
+* ---------------------------------------------------------
+COUT collector output 10n
+RLOAD output 0 50k
+
+* ---------------------------------------------------------
+* MODELO BC548
+* ---------------------------------------------------------
+.model BC548 NPN (
++ IS=1e-14 BF=250 VAF=100
++ CJE=10p CJC=4p
++ TF=0.3n TR=50n
++ RB=100 RE=1 RC=10
+)
+
+* ---------------------------------------------------------
+* ANALISE TRANSIENTE
+* ---------------------------------------------------------
+* uic = use initial conditions (importante para osciladores)
+.tran 0.05u 50u uic
+
+* =========================================================
+* CONTROLE E ANALISE
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=============================================="
+  echo "    OSCILADOR HARTLEY - Analise"
+  echo "=============================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  VCC = 12V"
+  echo "  L1 = 120uH"
+  echo "  L2 = 130uH"
+  echo "  Leq ~ 250uH (com acoplamento K=0.2)"
+  echo "  C1 = 100pF"
+  echo "  Freq teorica ~ 1 MHz"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Medicao de periodo e frequencia
+  * ---------------------------------------------------------
+  * Espera 5us para estabilizar, depois mede periodo
+  meas tran TPER TRIG v(output) VAL=0 RISE=1 TARG v(output) VAL=0 RISE=2 FROM=5u
+  meas tran FOSC PARAM='1/TPER'
+
+  * Mede amplitude pico-a-pico apos estabilizacao
+  meas tran VMAX MAX v(output) FROM=10u TO=50u
+  meas tran VMIN MIN v(output) FROM=10u TO=50u
+  meas tran VPP PARAM='VMAX-VMIN'
+
+  echo ""
+  echo "--- Resultados ---"
+  echo "Periodo medido:"
+  print TPER
+  echo "Frequencia medida:"
+  print FOSC
+  echo "Amplitude pico-a-pico:"
+  print VPP
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+  plot v(output) v(collector) title 'Hartley: Saida e Coletor' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom no startup
+  plot v(output) xlimit 0 10u title 'Hartley: Startup' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT - Analise Espectral
+  * ---------------------------------------------------------
+  fft v(output)
+  let output_db = db(v(output))
+
+  plot output_db xlimit 0 10MEG title 'Espectro de Frequencia' xlabel 'Freq (Hz)' ylabel 'Magnitude (dB)'
+
+  * ---------------------------------------------------------
+  * Salvando resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy hartley_waveform.png v(output) v(collector)
+
+  wrdata hartley_time.csv time v(output) v(collector)
+
+  echo "Arquivos gerados:"
+  echo "  - hartley_waveform.png"
+  echo "  - hartley_time.csv"
+  echo ""
+
+  echo "=============================================="
+  echo "    DICAS DE USO"
+  echo "=============================================="
+  echo ""
+  echo "1. AJUSTE DE FREQUENCIA:"
+  echo "   - Varie C1 (100pF): mais C = freq menor"
+  echo "   - Ou varie L1/L2: mais L = freq menor"
+  echo ""
+  echo "2. ESTABILIDADE:"
+  echo "   - Se nao oscilar: reduza K (acoplamento)"
+  echo "   - Se distorcer: aumente RLOAD"
+  echo "   - Verifique polarizacao DC (Q1 em regiao ativa)"
+  echo ""
+  echo "3. HARTLEY vs COLPITTS:"
+  echo "   - Hartley: melhor < 30 MHz"
+  echo "   - Colpitts: melhor > 30 MHz"
+  echo "   - Hartley: C variavel mais pratico"
+  echo "   - Colpitts: menos componentes volumosos"
+  echo ""
+  echo "4. APLICACAO PRATICA:"
+  echo "   - Use capacitor variavel em C1 para VFO"
+  echo "   - Adicione buffer (seguidor emissor) na saida"
+  echo "   - AGC ajuda estabilizar amplitude"
+  echo ""
+
+.endc
+
+.end

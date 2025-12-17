@@ -1,0 +1,452 @@
+* =========================================================
+* MODULADOR AM (AMPLITUDE MODULATION) - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* Modulacao AM (Amplitude Modulation) e a tecnica mais antiga
+* e simples de transmitir informacao via radio. Usada em:
+* - Radio AM (broadcast): 530-1700 kHz
+* - Radio onda curta (SW): 3-30 MHz
+* - Aviacao: 118-137 MHz (AM)
+* - Radio amador: bandas HF
+*
+* PRINCIPIO:
+* ----------
+* A AMPLITUDE da portadora (carrier) varia de acordo
+* com o sinal de AUDIO (modulante).
+*
+*   v_AM(t) = Vc * [1 + m*cos(wm*t)] * cos(wc*t)
+*
+* Onde:
+*   Vc = amplitude da portadora
+*   m = indice de modulacao (0 a 1)
+*   wm = freq do audio (modulante)
+*   wc = freq da portadora (carrier)
+*
+* EXPANDINDO (trigonometria):
+*   v_AM(t) = Vc*cos(wc*t) + (m*Vc/2)*cos((wc-wm)*t)
+*                          + (m*Vc/2)*cos((wc+wm)*t)
+*
+* Ou seja, AM gera 3 componentes:
+*   1. CARRIER: fc (portadora - nao tem info!)
+*   2. LSB (Lower SideBand): fc - fm
+*   3. USB (Upper SideBand): fc + fm
+*
+* EXEMPLO NUMERICO:
+*   Carrier: 1000 kHz (AM broadcast)
+*   Audio: 1 kHz (tom puro)
+*   m = 0.5 (50% modulacao)
+*
+*   Espectro:
+*   - Carrier: 1000 kHz (100% potencia, sem info)
+*   - LSB: 999 kHz (6.25% potencia, info!)
+*   - USB: 1001 kHz (6.25% potencia, info!)
+*
+* INDICE DE MODULACAO (m):
+* -------------------------
+*   m = Vm / Vc
+*
+*   m = 0: sem modulacao (apenas carrier)
+*   m = 0.5: 50% modulacao (comum)
+*   m = 1.0: 100% modulacao (maximo sem distorcao)
+*   m > 1.0: OVERMODULATION (distorce!)
+*
+* EFICIENCIA DE POTENCIA:
+* ------------------------
+* AM e muito ineficiente!
+*
+*   Potencia total: Ptotal = Pc * (1 + m^2/2)
+*   Potencia carrier: Pc (desperdicada, sem info!)
+*   Potencia sidebands: Psb = Pc * m^2/2 (info util!)
+*
+*   Eficiencia = Psb / Ptotal = m^2 / (2 + m^2)
+*
+*   Para m=1: eficiencia = 33% (apenas 1/3 util!)
+*   Para m=0.5: eficiencia = 11% (desperdicando 89%!)
+*
+* Por isso, AM esta sendo substituida por FM e digital.
+*
+* TIPOS DE MODULADORES AM:
+* -------------------------
+* 1. COLLECTOR MODULATION: modula tensao de alimentacao
+* 2. BASE MODULATION: modula bias da base
+* 3. DIODE RING: usa mixer balanceado
+* 4. MULTIPLICADOR: IC (AD633, MC1496)
+* 5. DSB-SC: suprime carrier (mais eficiente)
+*
+* DIAGRAMA - COLLECTOR MODULATION:
+*
+*    Audio ----[Audio Amp]----+
+*                             |
+*        VCC ----[RFC]--------+
+*                             |
+*                             C
+*                             |
+*                        B ---| RF amp
+*                             |
+*                             E
+*                             |
+*    RF in ---[Drive amp]----+
+*
+* APLICACOES:
+* -----------
+* - Radio broadcast AM
+* - Comunicacao aviacao
+* - Radio amador (HF)
+* - Modulacao de luz (fibra optica analogica)
+* - Transmissao de video (VSB = AM variante)
+*
+* VANTAGENS AM:
+* -------------
+* + Simples de implementar
+* + Demodulacao facil (diodo + capacitor!)
+* + Receptores baratos
+* + Longo alcance (onda terrestre)
+*
+* DESVANTAGENS:
+* -------------
+* - Ineficiente (66% potencia desperdicada!)
+* - Sensivel a ruido (SNR ruim)
+* - Banda larga (2x freq audio)
+* - Interferencia atmosferica (trovoes)
+* - Fading (desvanecimento)
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* EXEMPLO 1: MODULADOR AM SIMPLES (multiplicador)
+* ---------------------------------------------------------
+* Usa fonte de tensao controlada (VCVS) para simular
+* multiplicador analogico (como AD633)
+
+* Portadora (carrier): 100 kHz, 1Vpp
+VRF carrier 0 SIN(0 0.5 100k)
+
+* Audio (modulante): 1 kHz, 0.25Vpp (m=0.5)
+VAUDIO audio 0 SIN(0 0.125 1k)
+
+* Adicionar offset DC ao audio (para criar [1+m*cos(wm*t)])
+* Vmod = 1V + 0.25*sin(wm*t)
+Raudio audio n_mod 1k
+Rbias vcc_mod n_mod 1k
+Vcc_mod vcc_mod 0 DC 1
+
+* Multiplicador (VCVS com ganho proporcional a Vmod)
+* Simula multiplicador analogico
+* Vout = (carrier * n_mod) / 1V
+Emult am_out 0 VALUE={v(carrier)*v(n_mod)}
+
+* Carga
+Rload1 am_out 0 1k
+
+* ---------------------------------------------------------
+* EXEMPLO 2: COLLECTOR MODULATION (transistor)
+* ---------------------------------------------------------
+* Modula a tensao de alimentacao do coletor
+* Metodo classico, usado em transmissores valvulados
+
+* Portadora RF (drive)
+VRF2 rf_drive 0 SIN(0 0.1 100k)
+
+* Audio (modulante)
+VAUDIO2 audio2 0 SIN(0 1 1k)
+
+* Audio amplificado (vira fonte de alimentacao modulada)
+* VCC_mod = 12V + 6V*sin(wm*t)
+* m = 6/12 = 0.5 (50%)
+Eaudio vcc_audio 0 VALUE={12 + 6*v(audio2)}
+
+* RFC (Radio Frequency Choke) - alimenta DC, bloqueia RF
+Lrfc vcc_audio collector2 1m
+
+* Transistor amplificador RF
+* Base recebe RF, coletor modulado
+Cin2 rf_drive base2 100n
+Rbias1 vcc_audio base2 47k
+Rbias2 base2 0 10k
+Cbias base2 0 100n
+
+Q1 collector2 base2 emitter2 BC548
+
+Re2 emitter2 0 100
+Ce2 emitter2 0 100u
+
+* Acoplamento de saida
+Cout2 collector2 am_out2 100n
+Rload2 am_out2 0 1k
+
+* ---------------------------------------------------------
+* EXEMPLO 3: DSB-SC (Double Sideband Suppressed Carrier)
+* ---------------------------------------------------------
+* Suprime a portadora (mais eficiente!)
+* Apenas sidebands carregam informacao
+* Usado em SSB (Single SideBand)
+
+* Sinais
+VRF3 rf3 0 SIN(0 0.5 100k)
+VAUDIO3 audio3 0 SIN(0 0.5 1k)
+
+* Multiplicador direto (sem offset DC)
+* Resultado: apenas sidebands, sem carrier
+Emult3 dsb_out 0 VALUE={v(rf3)*v(audio3)}
+
+Rload3 dsb_out 0 1k
+
+* ---------------------------------------------------------
+* MODELO BC548
+* ---------------------------------------------------------
+.model BC548 NPN (
++ IS=1e-14 BF=200 VAF=100
++ CJE=8p CJC=3p
++ TF=0.3n TR=50n
+)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+* Transiente: simular varios ciclos
+* Audio: 1 kHz = 1ms periodo
+* Simular 10ms = 10 ciclos de audio
+
+.tran 1u 10m
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    MODULADOR AM (AMPLITUDE MODULATION)"
+  echo "=========================================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  Carrier (portadora): 100 kHz"
+  echo "  Audio (modulante): 1 kHz"
+  echo "  Indice modulacao: m = 0.5 (50%)"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Analise Temporal
+  * ---------------------------------------------------------
+  echo "--- Analise no Tempo ---"
+  echo ""
+
+  * Medir envoltoria (envelope)
+  meas tran AM_MAX MAX v(am_out) FROM=5m TO=10m
+  meas tran AM_MIN MIN v(am_out) FROM=5m TO=10m
+
+  * Indice de modulacao medido
+  * m = (Vmax - Vmin) / (Vmax + Vmin)
+  meas tran M_INDEX PARAM='(AM_MAX-AM_MIN)/(AM_MAX+AM_MIN)'
+
+  echo "Amplitude maxima:"
+  print AM_MAX
+  echo "Amplitude minima:"
+  print AM_MIN
+  echo "Indice de modulacao medido:"
+  print M_INDEX
+  echo "(Esperado: 0.5)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots no Tempo
+  * ---------------------------------------------------------
+
+  * Sinais de entrada
+  plot v(carrier) v(audio) xlimit 0 5m title 'Entradas: Carrier e Audio' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Sinal AM (mostra envelope)
+  plot v(am_out) xlimit 0 10m title 'Sinal AM - Envelope' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom para ver portadora modulada
+  plot v(am_out) xlimit 5m 6m title 'Detalhe: Portadora Modulada' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Comparacao: AM vs DSB-SC
+  plot v(am_out) v(dsb_out) xlimit 5m 6m title 'AM vs DSB-SC' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Collector modulation
+  plot v(am_out2) xlimit 5m 6m title 'Collector Modulation' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT - Analise Espectral (MUITO IMPORTANTE!)
+  * ---------------------------------------------------------
+  echo "--- Analise Espectral ---"
+  echo ""
+
+  * FFT do sinal AM
+  fft v(am_out)
+  let am_db = db(v(am_out))
+
+  * FFT do DSB-SC
+  fft v(dsb_out)
+  let dsb_db = db(v(dsb_out))
+
+  * Plot espectro
+  plot am_db xlimit 90k 110k title 'Espectro AM' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+  plot dsb_db xlimit 90k 110k title 'Espectro DSB-SC (sem carrier)' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  echo "Componentes espectrais AM:"
+  echo "  Carrier: 100 kHz (maior pico)"
+  echo "  LSB: 99 kHz (fc - fm)"
+  echo "  USB: 101 kHz (fc + fm)"
+  echo ""
+  echo "DSB-SC: sem carrier!"
+  echo "  Apenas LSB (99 kHz) e USB (101 kHz)"
+  echo "  Mais eficiente (toda potencia em sidebands)"
+  echo ""
+
+  * Espectro completo (0-200kHz)
+  plot am_db xlimit 0 200k title 'Espectro AM Completo' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  * ---------------------------------------------------------
+  * Calculo de Potencia
+  * ---------------------------------------------------------
+  echo "--- Analise de Potencia ---"
+  echo ""
+
+  * Potencia RMS
+  let p_am = v(am_out)^2 / 1k
+  meas tran P_AM_AVG AVG p_am FROM=5m TO=10m
+
+  let p_carrier = v(carrier)^2 / 1k
+  meas tran P_CARRIER AVG p_carrier FROM=5m TO=10m
+
+  echo "Potencia media AM:"
+  print P_AM_AVG
+  echo "Potencia carrier sozinho:"
+  print P_CARRIER
+  echo ""
+
+  * Eficiencia teorica: m^2/(2+m^2)
+  * Para m=0.5: ef = 0.25/(2+0.25) = 11%
+  let efficiency = 0.25/(2+0.25) * 100
+  echo "Eficiencia teorica (m=0.5):"
+  print efficiency
+  echo "%"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy am_envelope.png v(am_out) xlimit 0 10m
+  hardcopy am_detail.png v(am_out) xlimit 5m 6m
+
+  setplot spec1
+  hardcopy am_spectrum.png am_db xlimit 90k 110k
+
+  setplot spec2
+  hardcopy dsb_spectrum.png dsb_db xlimit 90k 110k
+
+  setplot tran1
+  wrdata am_time.csv time v(carrier) v(audio) v(am_out) v(dsb_out)
+
+  echo "Arquivos gerados:"
+  echo "  - am_envelope.png"
+  echo "  - am_detail.png"
+  echo "  - am_spectrum.png"
+  echo "  - dsb_spectrum.png"
+  echo "  - am_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. INDICE DE MODULACAO (m):"
+  echo "   - m = Vm / Vc (audio / carrier)"
+  echo "   - Ideal: m = 0.7 a 1.0 (70-100%)"
+  echo "   - m > 1: OVERMODULATION (distorce!)"
+  echo "   - m < 0.3: sinal fraco, SNR ruim"
+  echo ""
+  echo "   Medir m no osciloscopio:"
+  echo "   m = (Vmax - Vmin) / (Vmax + Vmin)"
+  echo ""
+  echo "2. TIPOS DE MODULACAO AM:"
+  echo "   - AM convencional: carrier + sidebands"
+  echo "   - DSB-SC: sem carrier (mais eficiente)"
+  echo "   - SSB: apenas 1 sideband (mais eficiente!)"
+  echo "   - VSB: sideband vestigial (TV analogica)"
+  echo ""
+  echo "3. COLLECTOR MODULATION:"
+  echo "   - Modula alimentacao do amplificador RF"
+  echo "   - Alta eficiencia (classe C)"
+  echo "   - Precisa audio amplificado (potente!)"
+  echo "   - Usado em TX AM de alta potencia"
+  echo ""
+  echo "4. BASE MODULATION:"
+  echo "   - Modula bias da base"
+  echo "   - Audio de baixa potencia"
+  echo "   - Linearidade pior"
+  echo "   - Usado em TX pequenos"
+  echo ""
+  echo "5. MULTIPLICADOR ANALOGICO:"
+  echo "   - IC: AD633, MC1496, SA602"
+  echo "   - Precisao excelente"
+  echo "   - Facilita DSB-SC e SSB"
+  echo "   - Moderno: mixer digital (DSP)"
+  echo ""
+  echo "6. BANDWIDTH (BANDA):"
+  echo "   - BW_AM = 2 * f_audio_max"
+  echo "   - Audio ate 5kHz -> BW = 10kHz"
+  echo "   - Radio AM: 10kHz canal"
+  echo "   - Fidelidade limitada (nao HiFi)"
+  echo ""
+  echo "7. DEMODULACAO (DETECTOR):"
+  echo "   - Envelope detector: diodo + RC"
+  echo "   - Muito simples e barato!"
+  echo "   - Circuito:"
+  echo "     AM -> Diodo -> C -> Audio out"
+  echo "                    |"
+  echo "                    R -> GND"
+  echo ""
+  echo "8. POTENCIA E EFICIENCIA:"
+  echo "   - AM convencional: 33% max (m=1)"
+  echo "   - 2/3 da potencia desperdicada!"
+  echo "   - DSB-SC: 100% eficiente (sem carrier)"
+  echo "   - SSB: 100% + metade do BW"
+  echo ""
+  echo "9. APLICACAO PRATICA:"
+  echo "   - Radio AM broadcast:"
+  echo "     Carrier: 530-1700 kHz"
+  echo "     Audio: 50Hz - 5kHz"
+  echo "     Potencia: 1kW a 50kW"
+  echo "   - Aviacao:"
+  echo "     118-137 MHz AM"
+  echo "     Audio: 300Hz - 3kHz"
+  echo ""
+  echo "10. MELHORIAS MODERNAS:"
+  echo "    - HD Radio: AM digital"
+  echo "    - DRM: Digital Radio Mondiale"
+  echo "    - DAB: Digital Audio Broadcasting"
+  echo "    - Todas substituem AM analogico"
+  echo ""
+  echo "11. TROUBLESHOOTING:"
+  echo "    - Overmodulation (m>1):"
+  echo "      * Envelope toca zero (flat bottom)"
+  echo "      * Distorcao severa"
+  echo "      * Reducao: atenuar audio"
+  echo "    - Baixa modulacao (m<0.3):"
+  echo "      * Sinal fraco no receptor"
+  echo "      * Amplificar audio"
+  echo "    - Distorcao:"
+  echo "      * Verificar linearidade amp RF"
+  echo "      * Verificar bias transistor"
+  echo "    - Ruido:"
+  echo "      * AM e sensivel (SNR ruim)"
+  echo "      * Filtros audio ajudam"
+  echo "      * Considerar FM ou digital"
+  echo ""
+
+.endc
+
+.end

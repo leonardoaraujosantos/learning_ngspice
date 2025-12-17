@@ -1,0 +1,247 @@
+* =========================================================
+* OSCILADOR RING - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* Um oscilador ring e formado por um numero IMPAR de inversores
+* conectados em anel (realimentacao). A oscilacao ocorre porque:
+*
+* 1. O sinal da uma volta completa e chega invertido (n inversoes)
+* 2. O atraso de propagacao de cada estagio cria a oscilacao
+* 3. Frequencia depende do numero de estagios e do atraso
+*
+* DIAGRAMA (3 estagios):
+*
+*        +----[INV1]----[INV2]----[INV3]----+
+*        |                                   |
+*        +-----------------------------------+
+*
+* FORMULA DA FREQUENCIA:
+* ----------------------
+*   f = 1 / (2 * N * td)
+*
+*   Onde:
+*   - N = numero de estagios (inversores)
+*   - td = atraso de propagacao de cada inversor
+*
+* EXEMPLO NUMERICO:
+*   3 inversores, td = 10ns cada
+*   f = 1 / (2 * 3 * 10ns) = 16.67 MHz
+*
+* APLICACOES:
+* -----------
+* - Geradores de clock simples e baratos
+* - VCO (Voltage-Controlled Oscillator) em PLLs
+* - Geradores de numero aleatorio (ring oscillator PUF)
+* - Teste de processos de fabricacao
+* - Medidor de temperatura (freq varia com temp)
+*
+* VANTAGENS:
+* ----------
+* + Muito simples (apenas inversores)
+* + Nao precisa de componentes passivos (L, C)
+* + Facil de integrar em CMOS
+* + Area pequena em chip
+*
+* DESVANTAGENS:
+* -------------
+* - Jitter alto (ruido na frequencia)
+* - Frequencia sensivel a temperatura e tensao
+* - Consumo de potencia relativamente alto
+* - Nao e tao estavel quanto osciladores LC
+*
+* =========================================================
+
+* ---------------------------------------------------------
+* INVERSOR CMOS SIMPLES
+* ---------------------------------------------------------
+* Um inversor basico feito com transistores NMOS e PMOS
+*
+*        VDD
+*         |
+*      [PMOS] (conduz quando Vin=0)
+*         |
+*    IN --+-- OUT
+*         |
+*      [NMOS] (conduz quando Vin=1)
+*         |
+*        GND
+
+.subckt inversor in out vdd gnd
+MP1 out in vdd vdd PMOS_SIMPLE W=2u L=1u
+MN1 out in gnd gnd NMOS_SIMPLE W=1u L=1u
+* Capacitancia de carga (simula carga do proximo estagio)
+CLOAD out gnd 1p
+.ends
+
+* ---------------------------------------------------------
+* OSCILADOR RING DE 3 ESTAGIOS
+* ---------------------------------------------------------
+* Configuracao minima (N=3)
+* Freq teorica com td~1ns: f = 1/(2*3*1ns) ~ 166 MHz
+
+.subckt ring3 out vdd gnd
+X1 out n1 vdd gnd inversor
+X2 n1  n2 vdd gnd inversor
+X3 n2  out vdd gnd inversor
+.ends
+
+* ---------------------------------------------------------
+* OSCILADOR RING DE 5 ESTAGIOS
+* ---------------------------------------------------------
+* Mais estagios = frequencia menor, jitter teoricamente menor
+* Freq teorica com td~1ns: f = 1/(2*5*1ns) ~ 100 MHz
+
+.subckt ring5 out vdd gnd
+X1 out n1 vdd gnd inversor
+X2 n1  n2 vdd gnd inversor
+X3 n2  n3 vdd gnd inversor
+X4 n3  n4 vdd gnd inversor
+X5 n4  out vdd gnd inversor
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE PRINCIPAL
+* =========================================================
+
+* Fonte de alimentacao (tipico para CMOS: 3.3V ou 5V)
+VDD vdd 0 DC 3.3
+
+* Instanciando os osciladores
+Xring3 saida3 vdd 0 ring3
+Xring5 saida5 vdd 0 ring5
+
+* Resistores de carga para observar saida
+Rload3 saida3 0 10k
+Rload5 saida5 0 10k
+
+* ---------------------------------------------------------
+* MODELOS DE TRANSISTORES (simplificados)
+* ---------------------------------------------------------
+
+.model NMOS_SIMPLE NMOS (
++ LEVEL=1
++ VTO=0.7
++ KP=100u
++ GAMMA=0.5
++ PHI=0.7
++ LAMBDA=0.01
++ TOX=20n
++ CJ=0.5m
++ CJSW=0.3n
++ MJ=0.5
++ MJSW=0.3
+)
+
+.model PMOS_SIMPLE PMOS (
++ LEVEL=1
++ VTO=-0.7
++ KP=50u
++ GAMMA=0.5
++ PHI=0.7
++ LAMBDA=0.02
++ TOX=20n
++ CJ=0.5m
++ CJSW=0.3n
++ MJ=0.5
++ MJSW=0.3
+)
+
+* =========================================================
+* ANALISES
+* =========================================================
+
+* Condicao inicial: pequeno "kick" para iniciar
+.ic v(saida3)=0.1
+
+* Analise transiente: simular 100ns com passo de 10ps
+.tran 10p 100n uic
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=============================================="
+  echo "    OSCILADOR RING - Analise Transiente"
+  echo "=============================================="
+  echo ""
+
+  run
+
+  echo "Simulacao concluida!"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Medindo a frequencia de oscilacao
+  * ---------------------------------------------------------
+  * Mede o periodo entre dois cruzamentos ascendentes
+  * (apos 10ns para estabilizar)
+
+  meas tran T3 TRIG v(saida3) VAL=1.65 RISE=1 TARG v(saida3) VAL=1.65 RISE=2 FROM=10n
+  meas tran F3 PARAM='1/T3'
+
+  meas tran T5 TRIG v(saida5) VAL=1.65 RISE=1 TARG v(saida5) VAL=1.65 RISE=2 FROM=10n
+  meas tran F5 PARAM='1/T5'
+
+  echo "--- Ring de 3 estagios ---"
+  print T3 F3
+  echo ""
+  echo "--- Ring de 5 estagios ---"
+  print T5 F5
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plotando formas de onda
+  * ---------------------------------------------------------
+  plot v(saida3) v(saida5) title 'Osciladores Ring - Comparacao' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom no inicio para ver o startup
+  plot v(saida3) v(saida5) xlimit 0 20n title 'Startup dos Osciladores' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT para analise espectral
+  * ---------------------------------------------------------
+  fft v(saida3)
+  let mag3_db = db(v(saida3))
+
+  fft v(saida5)
+  let mag5_db = db(v(saida5))
+
+  plot mag3_db mag5_db xlimit 0 1G title 'Espectro de Frequencia' xlabel 'Frequencia (Hz)' ylabel 'Magnitude (dB)'
+
+  * ---------------------------------------------------------
+  * Salvando graficos
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+
+  hardcopy ring_time.png v(saida3) v(saida5)
+  echo "Grafico salvo: ring_time.png"
+
+  * ---------------------------------------------------------
+  * Exportando dados
+  * ---------------------------------------------------------
+  wrdata ring_transient.csv time v(saida3) v(saida5)
+  echo "Dados salvos: ring_transient.csv"
+  echo ""
+
+  echo "=============================================="
+  echo "    OBSERVACOES IMPORTANTES"
+  echo "=============================================="
+  echo ""
+  echo "1. Frequencia e inversamente proporcional ao"
+  echo "   numero de estagios (mais estagios = mais lento)"
+  echo ""
+  echo "2. A frequencia varia com VDD, temperatura"
+  echo "   e variacao de processo (PVT variations)"
+  echo ""
+  echo "3. Ring de 3 estagios: freq mais alta, mais jitter"
+  echo "   Ring de 5 estagios: freq mais baixa, menos jitter"
+  echo ""
+  echo "4. Para VCO: adicionar transistores de controle"
+  echo "   para variar a corrente e assim a frequencia"
+  echo ""
+
+.endc
+
+.end

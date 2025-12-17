@@ -1,0 +1,412 @@
+* =========================================================
+* AMPLIFICADOR OPERACIONAL SOMADOR - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O amplificador somador e uma extensao do amplificador inversor
+* que permite somar MULTIPLAS entradas com ganhos independentes.
+* E a base de mixers de audio, DACs, e circuitos aritmeticos.
+*
+* DIAGRAMA:
+*
+*        R1            Rf
+*   V1 --[===]---+   [====]----+
+*                |             |
+*        R2      |     +-------+
+*   V2 --[===]---+-----| -\    |
+*                |     |   >---+--- Vout
+*        R3      +-----| +/
+*   V3 --[===]---+     +-------+
+*                |
+*               GND
+*
+* PRINCIPIO:
+* ----------
+* 1. Terra virtual em V- (~0V)
+* 2. Correntes de cada entrada somam no no V-
+* 3. I_total = I1 + I2 + I3 + ...
+* 4. Vout = -I_total * Rf
+*
+* FORMULAS:
+* ---------
+*   Vout = -Rf * (V1/R1 + V2/R2 + V3/R3 + ...)
+*
+*   Forma expandida:
+*   Vout = -(Rf/R1)*V1 - (Rf/R2)*V2 - (Rf/R3)*V3
+*
+* CASO ESPECIAL - Resistores iguais (R1=R2=R3=Rf=R):
+*   Vout = -(V1 + V2 + V3)
+*   Somador inversor simples!
+*
+* EXEMPLOS NUMERICOS:
+*
+* 1. Somador simples (R1=R2=R3=Rf=10k):
+*    V1=1V, V2=2V, V3=3V
+*    Vout = -(1+2+3) = -6V
+*
+* 2. Mixer de audio ponderado:
+*    R1=10k, R2=20k, R3=30k, Rf=10k
+*    V1=1V, V2=1V, V3=1V
+*    Vout = -10k*(1/10k + 1/20k + 1/30k)
+*    Vout = -(1 + 0.5 + 0.33) = -1.83V
+*
+* 3. DAC de 3 bits (R-2R ladder simplificado):
+*    Bit pesos: 1, 1/2, 1/4
+*    R1=10k, R2=20k, R3=40k, Rf=10k
+*
+* APLICACOES:
+* -----------
+* - Mixer de audio (console de som)
+* - DAC (Digital-to-Analog Converter)
+* - Somador matematico (computador analogico)
+* - Filtros ativos complexos
+* - Processamento de sinais (DSP analogico)
+* - Controle PID (somando P+I+D)
+* - Gerador de forma de onda arbitraria
+*
+* VANTAGENS:
+* ----------
+* + Multiplas entradas independentes
+* + Ganho individual por entrada (pesos)
+* + Facil de escalar (adicionar mais entradas)
+* + Precisao depende apenas de resistores
+* + Isolacao entre entradas
+*
+* DESVANTAGENS:
+* -------------
+* - Inverte o sinal (negativo)
+* - Impedancia entrada moderada (= Ri)
+* - Ruido aumenta com numero de entradas
+* - Offset acumula de todas entradas
+*
+* VARIANTE: SOMADOR NAO-INVERSOR
+* -------------------------------
+* Existe tambem somador nao-inversor, mas e mais complexo
+* e tem menos flexibilidade de ganhos independentes.
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO
+* ---------------------------------------------------------
+VCC vcc 0 DC 15
+VEE vee 0 DC -15
+
+* ---------------------------------------------------------
+* EXEMPLO 1: SOMADOR SIMPLES (ganhos iguais)
+* ---------------------------------------------------------
+* R1 = R2 = R3 = Rf = 10k
+* Vout = -(V1 + V2 + V3)
+
+.subckt somador_simples v1 v2 v3 vout vcc vee
+  R1 v1 v_minus 10k
+  R2 v2 v_minus 10k
+  R3 v3 v_minus 10k
+  Rf v_minus vout 10k
+  XOP1 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: MIXER DE AUDIO (ganhos diferentes)
+* ---------------------------------------------------------
+* Canal 1 (voz): ganho -2 (R1=10k, Rf=20k)
+* Canal 2 (musica): ganho -1 (R2=20k, Rf=20k)
+* Canal 3 (efeito): ganho -0.5 (R3=40k, Rf=20k)
+*
+* Vout = -20k*(V1/10k + V2/20k + V3/40k)
+* Vout = -2*V1 - 1*V2 - 0.5*V3
+
+.subckt mixer_audio v1 v2 v3 vout vcc vee
+  R1 v1 v_minus 10k
+  R2 v2 v_minus 20k
+  R3 v3 v_minus 40k
+  Rf v_minus vout 20k
+  XOP2 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: DAC DE 3 BITS
+* ---------------------------------------------------------
+* Peso binario: 4, 2, 1
+* MSB (bit2): ganho -4 (R1=10k, Rf=40k)
+* bit1: ganho -2 (R2=20k, Rf=40k)
+* LSB (bit0): ganho -1 (R3=40k, Rf=40k)
+*
+* Vref = 1V (nivel logico alto)
+* Vout = -40k*(Bit2/10k + Bit1/20k + Bit0/40k)
+* Vout = -4*Bit2 - 2*Bit1 - 1*Bit0
+*
+* Exemplo: 101 binario = 5 decimal
+*   Vout = -4*1 - 2*0 - 1*1 = -5V
+
+.subckt dac_3bit bit2 bit1 bit0 vout vcc vee
+  R1 bit2 v_minus 10k
+  R2 bit1 v_minus 20k
+  R3 bit0 v_minus 40k
+  Rf v_minus vout 40k
+  XOP3 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE
+* =========================================================
+
+* ---------------------------------------------------------
+* Sinais de teste para somador simples
+* ---------------------------------------------------------
+* Tres senoides de frequencias diferentes
+V1 in1 0 SIN(0 0.5 1k)    ; 1kHz
+V2 in2 0 SIN(0 0.3 2k)    ; 2kHz
+V3 in3 0 SIN(0 0.2 3k)    ; 3kHz
+
+* ---------------------------------------------------------
+* Sinais para mixer de audio
+* ---------------------------------------------------------
+* Voz (1kHz), Musica (440Hz - La), Efeito (5kHz)
+Vvoz musica 0 SIN(0 0.4 1k)
+Vmusica audio 0 SIN(0 0.5 440)
+Vefeito efeito 0 SIN(0 0.2 5k)
+
+* ---------------------------------------------------------
+* Sinais digitais para DAC (PWL = Piecewise Linear)
+* ---------------------------------------------------------
+* Simula bits digitais mudando ao longo do tempo
+* Sequencia: 000, 001, 010, 011, 100, 101, 110, 111
+
+VBIT2 bit2 0 PWL(
++ 0m 0  1m 0  2m 0  3m 0  4m 1  5m 1  6m 1  7m 1  8m 0)
+
+VBIT1 bit1 0 PWL(
++ 0m 0  1m 0  2m 1  3m 1  4m 0  5m 0  6m 1  7m 1  8m 0)
+
+VBIT0 bit0 0 PWL(
++ 0m 0  1m 1  2m 0  3m 1  4m 0  5m 1  6m 0  7m 1  8m 0)
+
+* ---------------------------------------------------------
+* Instanciando os circuitos
+* ---------------------------------------------------------
+X1 in1 in2 in3 out_simples vcc vee somador_simples
+X2 musica audio efeito out_mixer vcc vee mixer_audio
+X3 bit2 bit1 bit0 out_dac vcc vee dac_3bit
+
+* Cargas
+Rload1 out_simples 0 10k
+Rload2 out_mixer 0 10k
+Rload3 out_dac 0 10k
+
+* ---------------------------------------------------------
+* MODELO LM741
+* ---------------------------------------------------------
+
+.subckt LM741 inp inn vcc vee out
+  Rin inp inn 2MEG
+  Cin inp inn 1.4p
+  E1 int 0 inp inn 200k
+  Rpole int int2 1k
+  Cpole int2 0 15.9u
+  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
+  Eout out 0 int2 1
+  Rout out out_int 75
+  Dclip_pos out_int vcc_int DCLAMP
+  Dclip_neg vee_int out_int DCLAMP
+  Vcc_int vcc_int vcc DC 2
+  Vee_int vee vee_int DC 2
+  Ibias_p inp 0 80n
+  Ibias_n inn 0 80n
+  Voffset inp inp_int DC 2m
+.ends
+
+.model DCLAMP D (IS=1e-14 N=0.01)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+.op
+.tran 10u 10m
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    AMPLIFICADOR SOMADOR"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise DC
+  * ---------------------------------------------------------
+  echo "--- Analise DC ---"
+  echo ""
+
+  op
+
+  echo "Offset DC nas saidas:"
+  print v(out_simples) v(out_mixer) v(out_dac)
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 10u 10m
+
+  * ---------------------------------------------------------
+  * Teste 1: Somador Simples
+  * ---------------------------------------------------------
+  echo "=== SOMADOR SIMPLES ==="
+  echo "Formula: Vout = -(V1 + V2 + V3)"
+  echo ""
+
+  * Medir amplitudes das entradas
+  meas tran V1_PP MAX v(in1) FROM=2m TO=10m
+  meas tran V2_PP MAX v(in2) FROM=2m TO=10m
+  meas tran V3_PP MAX v(in3) FROM=2m TO=10m
+
+  echo "Amplitudes pico das entradas:"
+  print V1_PP V2_PP V3_PP
+  echo ""
+
+  * ---------------------------------------------------------
+  * Teste 2: Mixer de Audio
+  * ---------------------------------------------------------
+  echo "=== MIXER DE AUDIO ==="
+  echo "Vout = -2*Vvoz - 1*Vmusica - 0.5*Vefeito"
+  echo ""
+
+  meas tran MIXER_MAX MAX v(out_mixer) FROM=2m TO=10m
+  meas tran MIXER_MIN MIN v(out_mixer) FROM=2m TO=10m
+  meas tran MIXER_PP PARAM='MIXER_MAX-MIXER_MIN'
+
+  echo "Amplitude mixada:"
+  print MIXER_PP
+  echo ""
+
+  * ---------------------------------------------------------
+  * Teste 3: DAC
+  * ---------------------------------------------------------
+  echo "=== DAC DE 3 BITS ==="
+  echo "Vout = -4*Bit2 - 2*Bit1 - 1*Bit0"
+  echo ""
+  echo "Sequencia esperada:"
+  echo "  000 -> 0V"
+  echo "  001 -> -1V"
+  echo "  010 -> -2V"
+  echo "  011 -> -3V"
+  echo "  100 -> -4V"
+  echo "  101 -> -5V"
+  echo "  110 -> -6V"
+  echo "  111 -> -7V"
+  echo ""
+
+  * Medir niveis do DAC em cada instante
+  meas tran DAC_0 FIND v(out_dac) AT=0.5m
+  meas tran DAC_1 FIND v(out_dac) AT=1.5m
+  meas tran DAC_2 FIND v(out_dac) AT=2.5m
+  meas tran DAC_3 FIND v(out_dac) AT=3.5m
+  meas tran DAC_4 FIND v(out_dac) AT=4.5m
+  meas tran DAC_5 FIND v(out_dac) AT=5.5m
+  meas tran DAC_6 FIND v(out_dac) AT=6.5m
+  meas tran DAC_7 FIND v(out_dac) AT=7.5m
+
+  echo "Niveis medidos do DAC:"
+  print DAC_0 DAC_1 DAC_2 DAC_3 DAC_4 DAC_5 DAC_6 DAC_7
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+
+  * Somador simples: entradas e saida
+  plot v(in1) v(in2) v(in3) v(out_simples) title 'Somador Simples' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Mixer de audio
+  plot v(musica) v(audio) v(efeito) title 'Mixer - Entradas' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+  plot v(out_mixer) title 'Mixer - Saida' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * DAC: bits e saida
+  plot v(bit2) v(bit1) v(bit0) v(out_dac) title 'DAC 3-bit' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT do mixer (analise espectral)
+  * ---------------------------------------------------------
+  fft v(out_mixer)
+  let mixer_db = db(v(out_mixer))
+
+  plot mixer_db xlimit 0 10k title 'Espectro do Mixer' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy somador_simples.png v(in1) v(in2) v(in3) v(out_simples)
+  hardcopy mixer_audio.png v(out_mixer)
+  hardcopy dac_3bit.png v(bit2) v(bit1) v(bit0) v(out_dac)
+
+  wrdata somador_time.csv time v(in1) v(in2) v(in3) v(out_simples)
+  wrdata mixer_time.csv time v(musica) v(audio) v(efeito) v(out_mixer)
+  wrdata dac_time.csv time v(bit2) v(bit1) v(bit0) v(out_dac)
+
+  echo "Arquivos gerados:"
+  echo "  - somador_simples.png"
+  echo "  - mixer_audio.png"
+  echo "  - dac_3bit.png"
+  echo "  - somador_time.csv"
+  echo "  - mixer_time.csv"
+  echo "  - dac_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. SOMADOR SIMPLES:"
+  echo "   - Use R1=R2=R3=...=Rf para soma unitaria"
+  echo "   - Vout = -(V1+V2+V3+...)"
+  echo "   - Maximo pratico: 8-10 entradas"
+  echo ""
+  echo "2. MIXER PONDERADO:"
+  echo "   - Rf/Ri = peso do canal i"
+  echo "   - Canal mais importante: Ri menor"
+  echo "   - Exemplo: voz (R=10k), musica (R=20k)"
+  echo ""
+  echo "3. DAC (Conversor Digital-Analogico):"
+  echo "   - Pesos binarios: 1, 2, 4, 8, 16..."
+  echo "   - Resistores: R, R/2, R/4, R/8..."
+  echo "   - Ou use rede R-2R (mais precisa!)"
+  echo ""
+  echo "4. NUMERO DE ENTRADAS:"
+  echo "   - Cada entrada adiciona ruido"
+  echo "   - Cada entrada carrega o amp-op"
+  echo "   - Pratico: ate 8 entradas"
+  echo "   - Mais que isso: use somador em cascata"
+  echo ""
+  echo "5. MELHORIAS:"
+  echo "   - Somador nao-inversor: usa 2 amp-ops"
+  echo "   - Buffer nas entradas: isola fontes"
+  echo "   - Resistores 1%: melhor precisao"
+  echo "   - Capacitores de bypass: menos ruido"
+  echo ""
+  echo "6. APLICACAO PRATICA:"
+  echo "   - Console de som: mixer multicanal"
+  echo "   - Controle PID: soma P + I + D"
+  echo "   - Gerador de onda: soma harmonicas"
+  echo "   - ADC/DAC: conversao digital"
+  echo ""
+
+.endc
+
+.end

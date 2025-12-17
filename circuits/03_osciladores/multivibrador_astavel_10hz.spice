@@ -1,0 +1,510 @@
+* =========================================================
+* MULTIVIBRADOR ASTAVEL 10 Hz - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O multivibrador astavel e um oscilador de ONDA QUADRADA
+* que nao precisa de sinal externo. Ele oscila continuamente
+* alternando entre dois estados. E um dos circuitos mais
+* classicos e uteis da eletronica!
+*
+* NOMES ALTERNATIVOS:
+* -------------------
+* - Free-running multivibrator
+* - Astable multivibrator
+* - Flip-flop astavel
+* - Oscilador RC de relaxacao
+*
+* TIPOS DE MULTIVIBRADORES:
+* --------------------------
+* 1. ASTAVEL: oscila continuamente (sem estado estavel)
+* 2. MONOESTAVEL: um pulso por trigger (555 modo mono)
+* 3. BIESTAVEL: dois estados estaveis (flip-flop, latch)
+*
+* PRINCIPIO DE FUNCIONAMENTO:
+* ----------------------------
+* Dois transistores em configuracao cruzada:
+* - Coletor de Q1 -> Base de Q2 (via R-C)
+* - Coletor de Q2 -> Base de Q1 (via R-C)
+*
+* Cada transistor:
+* - Liga -> desliga o outro
+* - Capacitor carrega/descarrega
+* - Determina tempo em cada estado
+*
+* DIAGRAMA SIMPLIFICADO:
+*
+*       VCC
+*        |
+*     [RC1]  [RC2]
+*        |     |
+*        C1    C2
+*        |     |
+*   +----+     +----+
+*   |    |     |    |
+*  [C]  [RB2] [RB1] [C]
+*   |    |     |    |
+*   +----B1    B2---+
+*        |     |
+*        E1    E2
+*        |     |
+*       GND   GND
+*
+* Q1 ligado: C2 carrega via RB1
+* Q1 desliga quando C2 carregar suficiente
+* Q2 liga, ciclo inverte
+*
+* FORMULA DA FREQUENCIA:
+* -----------------------
+* Para circuito simetrico (R1=R2, C1=C2):
+*
+*   T = 1.386 * R * C
+*   f = 1/T = 0.72 / (R * C)
+*
+* Onde:
+*   T = periodo total
+*   R = resistor de base (RB1, RB2)
+*   C = capacitor de acoplamento (C1, C2)
+*
+* EXEMPLO NUMERICO (10 Hz):
+*   f = 10 Hz
+*   T = 1/10 = 100 ms
+*
+*   Usando C = 10 uF:
+*   T = 1.386 * R * C
+*   100ms = 1.386 * R * 10uF
+*   R = 100ms / (1.386 * 10uF)
+*   R = 7.2k (usar 6.8k ou 10k)
+*
+* DUTY CYCLE:
+* -----------
+* Para simetrico: 50% (metade HIGH, metade LOW)
+* Para assimetrico: ajustar R1 != R2 ou C1 != C2
+*
+*   Duty = t_high / T * 100%
+*
+* APLICACOES:
+* -----------
+* - LED piscante (pisca-pisca)
+* - Alarmes sonoros (buzzer)
+* - Clock para circuitos digitais
+* - Geradores de onda quadrada
+* - Circuitos de teste
+* - Temporizadores
+* - Sirenes
+* - Geradores de tom (audio)
+* - Base de tempo para contadores
+*
+* VANTAGENS:
+* ----------
+* + Muito simples (2 transistores!)
+* + Barato
+* + Nao precisa cristal ou indutor
+* + Facil ajustar frequencia (mudar R ou C)
+* + Confiavel
+*
+* DESVANTAGENS:
+* -------------
+* - Freq varia com temperatura
+* - Freq varia com VCC
+* - Duty cycle nao e exatamente 50%
+* - Onda quadrada nao perfeita (edges lentos)
+* - Estabilidade moderada
+*
+* COMPARACAO COM 555:
+* --------------------
+*              ASTAVEL BJT    555 TIMER
+* Componentes: 2 BJT + R/C    1 IC + R/C
+* Custo:       muito baixo    baixo
+* Estabilidade: media         boa
+* Freq range:  mHz - MHz      mHz - MHz
+* Duty cycle:  ~50%           1-99%
+* Uso:         hobby/basico   profissional
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* ALIMENTACAO
+* ---------------------------------------------------------
+VCC vcc 0 DC 9
+
+* ---------------------------------------------------------
+* MULTIVIBRADOR ASTAVEL SIMETRICO (10 Hz)
+* ---------------------------------------------------------
+*
+* Parametros de projeto:
+*   f = 10 Hz
+*   T = 100 ms
+*   Duty cycle = 50%
+*
+* Calculo:
+*   T = 1.386 * R * C
+*   100ms = 1.386 * R * 10uF
+*   R = 7.2k -> usar 10k (mais comum)
+*   Verificacao: T = 1.386 * 10k * 10uF = 138.6ms
+*   f = 1/138.6ms = 7.2 Hz (perto de 10 Hz)
+*
+* Para 10 Hz exato: R = 7.2k
+
+* ---------------------------------------------------------
+* Transistor Q1 (esquerdo)
+* ---------------------------------------------------------
+Q1 coll1 base1 0 BC548
+
+* Resistor de coletor Q1 (carga)
+RC1 vcc coll1 1k
+
+* Resistor de base Q1 (bias)
+RB1 coll2 base1 10k
+
+* Capacitor de acoplamento Q1
+C1 coll2 base1 10u IC=0
+
+* ---------------------------------------------------------
+* Transistor Q2 (direito)
+* ---------------------------------------------------------
+Q2 coll2 base2 0 BC548
+
+* Resistor de coletor Q2 (carga)
+RC2 vcc coll2 1k
+
+* Resistor de base Q2 (bias)
+RB2 coll1 base2 10k
+
+* Capacitor de acoplamento Q2
+C2 coll1 base2 10u IC=0
+
+* ---------------------------------------------------------
+* SAIDAS
+* ---------------------------------------------------------
+* Saida 1: coletor Q1 (180 graus defasada de saida 2)
+* Saida 2: coletor Q2
+
+* Cargas de saida (opcional - para acionar LED, buzzer, etc)
+Rload1 coll1 0 10k
+Rload2 coll2 0 10k
+
+* ---------------------------------------------------------
+* CONDICAO INICIAL (ajuda startup)
+* ---------------------------------------------------------
+* Pequena assimetria para garantir oscilacao
+.ic v(coll1)=4.5 v(coll2)=0.1
+
+* ---------------------------------------------------------
+* MODELO BC548 (NPN)
+* ---------------------------------------------------------
+.model BC548 NPN (
++ IS=1e-14
++ BF=200
++ VAF=100
++ CJE=8p
++ CJC=3p
++ TF=0.3n
++ TR=50n
++ RB=100
++ RE=1
++ RC=10
+)
+
+* ---------------------------------------------------------
+* ANALISE TRANSIENTE
+* ---------------------------------------------------------
+* Simular tempo suficiente para ver varios ciclos
+* 10 Hz = 100ms periodo
+* Simular 1 segundo = 10 ciclos completos
+
+.tran 100u 1
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    MULTIVIBRADOR ASTAVEL 10 Hz"
+  echo "=========================================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  VCC = 9V"
+  echo "  RC1 = RC2 = 1k"
+  echo "  RB1 = RB2 = 10k"
+  echo "  C1 = C2 = 10uF"
+  echo "  Freq esperada: ~7.2 Hz (T=138.6ms)"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Medida de Frequencia
+  * ---------------------------------------------------------
+  echo "--- Frequencia de Oscilacao ---"
+  echo ""
+
+  * Medir periodo (tempo entre dois rising edges)
+  * Usar regiao estavel (apos 200ms)
+  meas tran TPER TRIG v(coll1) VAL=4.5 RISE=1 TARG v(coll1) VAL=4.5 RISE=2 FROM=200m
+
+  * Frequencia
+  meas tran FREQ PARAM='1/TPER'
+
+  echo "Periodo medido:"
+  print TPER
+  echo "Frequencia medida:"
+  print FREQ
+  echo ""
+
+  * ---------------------------------------------------------
+  * Duty Cycle
+  * ---------------------------------------------------------
+  echo "--- Duty Cycle ---"
+  echo ""
+
+  * Tempo em HIGH (coletor Q1)
+  meas tran T_HIGH TRIG v(coll1) VAL=4.5 RISE=1 TARG v(coll1) VAL=4.5 FALL=1 FROM=200m
+
+  * Duty cycle
+  meas tran DUTY PARAM='T_HIGH/TPER*100'
+
+  echo "Tempo HIGH:"
+  print T_HIGH
+  echo "Duty cycle:"
+  print DUTY
+  echo "% (ideal: 50%)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Amplitude das Saidas
+  * ---------------------------------------------------------
+  echo "--- Niveis Logicos ---"
+  echo ""
+
+  * Nivel HIGH
+  meas tran V_HIGH MAX v(coll1) FROM=200m TO=1
+
+  * Nivel LOW
+  meas tran V_LOW MIN v(coll1) FROM=200m TO=1
+
+  echo "Nivel HIGH:"
+  print V_HIGH
+  echo "Nivel LOW:"
+  print V_LOW
+  echo ""
+  echo "HIGH proximo de VCC-VCE(sat) ~ 8.7V"
+  echo "LOW proximo de VCE(sat) ~ 0.2V"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Corrente de Consumo
+  * ---------------------------------------------------------
+  echo "--- Consumo de Corrente ---"
+  echo ""
+
+  * Corrente media da fonte
+  let i_vcc = -i(vcc)
+  meas tran I_AVG AVG i_vcc FROM=200m TO=1
+
+  * Potencia media
+  meas tran P_AVG PARAM='9*I_AVG'
+
+  echo "Corrente media:"
+  print I_AVG
+  echo "Potencia media:"
+  print P_AVG
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots - Formas de Onda
+  * ---------------------------------------------------------
+
+  * Saidas complementares (defasadas 180 graus)
+  plot v(coll1) v(coll2) title 'Saidas Complementares' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom em 2 ciclos
+  plot v(coll1) v(coll2) xlimit 200m 400m title 'Detalhe: 2 Ciclos' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Tensoes nas bases (mostra carga/descarga dos capacitores)
+  plot v(base1) v(base2) title 'Tensoes nas Bases' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Startup (mostra como comeca a oscilar)
+  plot v(coll1) v(coll2) xlimit 0 500m title 'Startup da Oscilacao' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Corrente de consumo
+  plot i_vcc*1000 title 'Corrente de Alimentacao' xlabel 'Tempo (s)' ylabel 'Corrente (mA)'
+
+  * ---------------------------------------------------------
+  * FFT - Conteudo Harmonico
+  * ---------------------------------------------------------
+  echo "--- Analise Espectral (FFT) ---"
+  echo ""
+
+  fft v(coll1)
+  let coll1_db = db(v(coll1))
+
+  plot coll1_db xlimit 0 100 title 'Espectro de Frequencia' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  echo "Onda quadrada contem:"
+  echo "  - Fundamental: ~7-10 Hz"
+  echo "  - Harmonicas impares: 3f, 5f, 7f, ..."
+  echo "  - Amplitude harmonicas: 1/n (decai)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy astavel_outputs.png v(coll1) v(coll2)
+  hardcopy astavel_detail.png v(coll1) v(coll2) xlimit 200m 400m
+  hardcopy astavel_bases.png v(base1) v(base2)
+  hardcopy astavel_startup.png v(coll1) v(coll2) xlimit 0 500m
+  hardcopy astavel_current.png i_vcc*1000
+
+  setplot spec1
+  hardcopy astavel_spectrum.png coll1_db xlimit 0 100
+
+  setplot tran1
+  wrdata astavel_time.csv time v(coll1) v(coll2) v(base1) v(base2) i_vcc
+
+  echo "Arquivos gerados:"
+  echo "  - astavel_outputs.png"
+  echo "  - astavel_detail.png"
+  echo "  - astavel_bases.png"
+  echo "  - astavel_startup.png"
+  echo "  - astavel_current.png"
+  echo "  - astavel_spectrum.png"
+  echo "  - astavel_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. CALCULO DA FREQUENCIA:"
+  echo "   - Formula: f = 0.72 / (R * C)"
+  echo "   - Ou: T = 1.386 * R * C"
+  echo "   - Valida para circuito simetrico"
+  echo "   - Exemplo:"
+  echo "     R=10k, C=10uF -> f=7.2 Hz"
+  echo "     R=10k, C=1uF -> f=72 Hz"
+  echo "     R=1k, C=1uF -> f=720 Hz"
+  echo ""
+  echo "2. ESCOLHA DE COMPONENTES:"
+  echo "   - RC (coletor): 470R a 10k (tipico: 1k)"
+  echo "     * Menor: mais corrente, edges rapidos"
+  echo "     * Maior: menos corrente, edges lentos"
+  echo "   - RB (base): 1k a 100k (tipico: 10k)"
+  echo "     * Define tempo de carga do capacitor"
+  echo "   - C: 100pF a 1000uF"
+  echo "     * Pequeno: alta freq (MHz)"
+  echo "     * Grande: baixa freq (mHz)"
+  echo ""
+  echo "3. AJUSTE DE FREQUENCIA:"
+  echo "   - Facil: trocar C (capacitor)"
+  echo "   - Fino: potenciometro no lugar de RB"
+  echo "   - Exemplo: RB = 10k pot + 1k fixo"
+  echo "     Range: 5-10 Hz (ajustavel)"
+  echo ""
+  echo "4. DUTY CYCLE ASSIMETRICO:"
+  echo "   - Use R1 != R2 ou C1 != C2"
+  echo "   - Exemplo: R1=10k, R2=20k"
+  echo "     Duty ~ 33% / 67%"
+  echo "   - Aplicacao: PWM, tons diferentes"
+  echo ""
+  echo "5. RANGE DE FREQUENCIAS:"
+  echo "   - Baixa (mHz): C=1000uF, R=1M"
+  echo "   - Audio (100Hz-10kHz): C=10nF-10uF, R=1k-100k"
+  echo "   - RF (MHz): C=10pF, R=100R"
+  echo "   - Limite: tempo de chaveamento do BJT"
+  echo ""
+  echo "6. ESTABILIDADE:"
+  echo "   - Freq varia ~0.3%/°C (coef temp de C)"
+  echo "   - Usar capacitores NP0/C0G (estavel)"
+  echo "   - Evitar eletroliticos (alta tolerancia)"
+  echo "   - Para estavel: use 555 ou cristal"
+  echo ""
+  echo "7. STARTUP:"
+  echo "   - Oscilacao comeca por ruido/assimetria"
+  echo "   - Se nao oscilar:"
+  echo "     * Verifique conexoes cruzadas"
+  echo "     * Beta do transistor muito baixo"
+  echo "     * C1 ou C2 em curto"
+  echo "   - Pode levar alguns ciclos para estabilizar"
+  echo ""
+  echo "8. APLICACAO: LED PISCANTE"
+  echo "   - Conecte LED+resistor no coletor"
+  echo "   - RC ja limita corrente (1k = ~8mA)"
+  echo "   - Freq tipica: 1-10 Hz (visivel)"
+  echo "   - Exemplo:"
+  echo "     f=2Hz (pisca 2x/seg)"
+  echo "     R=10k, C=47uF"
+  echo ""
+  echo "9. APLICACAO: BUZZER/ALARME"
+  echo "   - Conecte buzzer piezo no coletor"
+  echo "   - Freq audio: 500Hz - 5kHz"
+  echo "   - Exemplo tom 1kHz:"
+  echo "     R=10k, C=100nF"
+  echo "   - Sirene: modular freq (VCO)"
+  echo ""
+  echo "10. APLICACAO: CLOCK DIGITAL"
+  echo "    - Frequencia fixa para contadores"
+  echo "    - Exemplo 1 Hz (segundo):"
+  echo "      R=10k, C=100uF"
+  echo "    - Buffer saida (evita carga)"
+  echo "    - Schmitt trigger para edges limpos"
+  echo ""
+  echo "11. MELHORIAS:"
+  echo "    - Adicionar diodo em serie com RB"
+  echo "      (acelera descarga, edges rapidos)"
+  echo "    - Regulador de tensao (estabiliza VCC)"
+  echo "    - Buffer de saida (evita pulling)"
+  echo "    - Schmitt trigger (limpa onda)"
+  echo ""
+  echo "12. TROUBLESHOOTING:"
+  echo "    - Nao oscila:"
+  echo "      * Conexoes erradas (check cruzamento)"
+  echo "      * Transistor queimado (teste beta)"
+  echo "      * C em curto (medir com ohmimetro)"
+  echo "      * VCC insuficiente (min 3V)"
+  echo "    - Freq errada:"
+  echo "      * Calculo: f=0.72/(R*C)"
+  echo "      * Tolerancia C (±20% eletro!)"
+  echo "      * Beta do transistor (varia)"
+  echo "    - Duty != 50%:"
+  echo "      * Normal! Beta Q1 != Beta Q2"
+  echo "      * Tolerancia R e C"
+  echo "      * Usar trim pot para ajustar"
+  echo ""
+  echo "13. COMPARACAO COM 555:"
+  echo "    - Astavel BJT: mais simples, menos estavel"
+  echo "    - 555: mais componentes, muito estavel"
+  echo "    - 555: duty 1-99% facil"
+  echo "    - 555: menos sensivel a VCC e temp"
+  echo "    - Escolha: hobby/teste=BJT, pro=555"
+  echo ""
+  echo "14. VARIACOES DO CIRCUITO:"
+  echo "    - Com diodos: duty ajustavel"
+  echo "    - Com op-amp: mais estavel"
+  echo "    - Com CMOS: baixissimo consumo"
+  echo "    - Com UJT: relaxacao exponencial"
+  echo "    - Com Schmitt: edges perfeitos"
+  echo ""
+  echo "15. MATEMATICA (aprofundamento):"
+  echo "    Durante carga do capacitor:"
+  echo "      Vc(t) = VCC * (1 - e^(-t/RC))"
+  echo "    Transistor desliga quando:"
+  echo "      Vc > Vbe ~ 0.7V"
+  echo "    Tempo (aproximado):"
+  echo "      t = -RC * ln(1 - Vbe/VCC)"
+  echo "      t ~ 0.693 * RC (para VCC>>Vbe)"
+  echo "    Periodo total:"
+  echo "      T = t1 + t2 ~ 1.386*RC"
+  echo ""
+
+.endc
+
+.end

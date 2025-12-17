@@ -1,0 +1,472 @@
+* =========================================================
+* AMPLIFICADOR JFET COM SELF-BIAS - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O JFET (Junction Field-Effect Transistor) e um transistor
+* de efeito de campo que usa a tensao de GATE para controlar
+* a corrente de DRAIN. Diferente do BJT, o JFET:
+*
+* - Tem ALTISSIMA impedancia de entrada (>100MOhm)
+* - Nao consome corrente de gate (Ig ~ 0)
+* - Funciona em modo DEPLETION (normalmente ON)
+* - Ideal para amplificadores de RF e sinais fracos
+*
+* COMPARACAO JFET vs BJT:
+* -----------------------
+*              JFET          BJT
+* Controle:    Tensao Vgs    Corrente Ib
+* Zin:         >100MOhm      ~1kOhm
+* Ganho:       medio (5-20)  alto (50-200)
+* Ruido:       baixo         medio
+* Custo:       maior         menor
+* Aplicacao:   RF, audio HiFi  geral
+*
+* POLARIZACAO SELF-BIAS:
+* -----------------------
+* E a forma mais comum de polarizar JFET. Usa um resistor
+* de source (Rs) para criar automaticamente a tensao Vgs
+* negativa necessaria.
+*
+* DIAGRAMA:
+*
+*        VDD (+12V)
+*         |
+*        [RD] --- carga de drain
+*         |
+*         D
+*         |
+*    G ---| JFET (canal N)
+*         |
+*         S
+*         |
+*        [RS] --- resistor de source
+*         |        (cria Vgs negativo!)
+*        [CS]---- bypass (AC)
+*         |
+*        GND
+*
+* PRINCIPIO DO SELF-BIAS:
+* ------------------------
+* 1. Corrente Id flui pelo JFET
+* 2. Id passa por Rs, criando Vs = Id * Rs
+* 3. Gate esta em GND (Vg = 0V via Rg)
+* 4. Vgs = Vg - Vs = 0 - Vs = -Vs (negativo!)
+* 5. Vgs negativo controla Id (realimentacao!)
+*
+* FORMULAS:
+* ---------
+*   Id = Idss * (1 - Vgs/Vp)^2   (equacao Shockley)
+*
+*   Onde:
+*   Idss = corrente drain-source com Vgs=0
+*   Vp = tensao pinch-off (negativa)
+*   Vgs = tensao gate-source
+*
+*   Self-bias:
+*   Vgs = -Id * Rs
+*   Id = Idss * (1 + Id*Rs/Vp)^2
+*   (equacao transcendental, resolver graficamente)
+*
+*   Ganho de tensao:
+*   Av = -gm * RD
+*
+*   Transcondutancia:
+*   gm = 2*Idss/|Vp| * (1 - Vgs/Vp)
+*
+* EXEMPLO NUMERICO:
+*   Idss = 10mA, Vp = -4V, Rs = 470ohm
+*   Id ~ 5mA (ponto Q)
+*   Vgs = -5mA * 470 = -2.35V
+*   gm = 2*10mA/4V * (1 - (-2.35)/(-4)) = 2.5mS
+*   Av = -2.5mS * 2.2k = -5.5
+*
+* APLICACOES:
+* -----------
+* - Pre-amplificadores de audio (phono, microfone)
+* - Amplificadores de RF (baixo ruido)
+* - Buffers de impedancia
+* - Osciladores (Pierce, Colpitts)
+* - Mixers e moduladores
+* - Front-end de receptores
+* - Instrumentacao (eletrometro)
+*
+* VANTAGENS DO JFET:
+* ------------------
+* + Impedancia entrada altissima
+* + Baixo ruido (menor que BJT)
+* + Nao precisa corrente de gate
+* + Self-bias e automatico e estavel
+* + Baixa distorcao
+* + Funciona ate frequencias altas (GHz)
+*
+* DESVANTAGENS:
+* -------------
+* - Ganho menor que BJT
+* - Mais caro
+* - Maior dispersao de parametros
+* - Precisa casamento para push-pull
+* - Transcondutancia varia com temperatura
+*
+* JFETS COMUNS:
+* -------------
+* - 2N5457, 2N5458, 2N5459 (low noise, audio)
+* - J310, J309 (RF, VHF/UHF)
+* - BF245, BF256 (dual gate, mixers)
+* - 2N3819 (geral, barato)
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO
+* ---------------------------------------------------------
+VDD vdd 0 DC 12
+
+* ---------------------------------------------------------
+* EXEMPLO 1: Amplificador Common-Source (CS) Basico
+* ---------------------------------------------------------
+* Configuracao mais comum, similar a emissor-comum do BJT
+* Ganho: -5 a -20 (tipico)
+* Zin: muito alta (>1MOhm)
+* Zout: media (~RD)
+
+.subckt jfet_cs_basic vin vout vdd gnd
+  * Acoplamento de entrada (bloqueia DC)
+  Cin vin gate 100n
+
+  * Resistor de gate (define Vg=0, nao consome corrente!)
+  Rg gate gnd 1MEG
+
+  * JFET canal N
+  J1 drain gate source JFET_2N5457
+
+  * Resistor de drain (carga)
+  Rd vdd drain 2.2k
+
+  * Resistor de source (self-bias)
+  Rs source gnd 470
+
+  * Capacitor de bypass do source (curto em AC!)
+  * Sem ele: ganho cai (degeneracao)
+  Cs source gnd 100u
+
+  * Acoplamento de saida
+  Cout drain vout 100n
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: Source Follower (Seguidor de Source)
+* ---------------------------------------------------------
+* Similar ao emissor-seguidor do BJT
+* Ganho: ~0.8-0.95 (< 1, nao amplifica tensao!)
+* Zin: altissima
+* Zout: baixissima (~1/gm ~ 200ohm)
+* USO: Buffer de impedancia
+
+.subckt jfet_source_follower vin vout vdd gnd
+  Cin vin gate 100n
+  Rg gate gnd 1MEG
+
+  * JFET: drain direto em VDD
+  J2 vdd gate source JFET_2N5457
+
+  * Carga no source (saida!)
+  Rs source gnd 1k
+
+  * Saida no source (segue a entrada)
+  Cout source vout 100n
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: Amplificador com Ganho Controlado
+* ---------------------------------------------------------
+* Cs nao aterrado = degeneracao de source
+* Permite controlar ganho via Rs/Rcs
+* Ganho = -gm*RD / (1 + gm*Rcs)
+
+.subckt jfet_gain_control vin vout vdd gnd
+  Cin vin gate 100n
+  Rg gate gnd 1MEG
+  J3 drain gate source JFET_2N5457
+  Rd vdd drain 2.2k
+
+  * Rs dividido: parte com bypass, parte sem
+  Rs1 source node_s 220
+  Rs2 node_s gnd 220
+
+  * Bypass apenas Rs2 (Rs1 fica sem bypass)
+  Cs node_s gnd 100u
+
+  Cout drain vout 100n
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE
+* =========================================================
+
+* ---------------------------------------------------------
+* Sinal de entrada (senoide 1kHz, 10mVpp - sinal fraco!)
+* ---------------------------------------------------------
+VIN input 0 SIN(0 5m 1k)
+
+* ---------------------------------------------------------
+* Instanciando os amplificadores
+* ---------------------------------------------------------
+X1 input out1 vdd 0 jfet_cs_basic
+X2 input out2 vdd 0 jfet_source_follower
+X3 input out3 vdd 0 jfet_gain_control
+
+* Cargas de saida
+Rload1 out1 0 10k
+Rload2 out2 0 10k
+Rload3 out3 0 10k
+
+* ---------------------------------------------------------
+* MODELO JFET 2N5457 (parametros tipicos)
+* ---------------------------------------------------------
+* JFET canal N de baixo ruido
+* Idss = 1-5mA (tipico: 3mA)
+* Vp = -0.5 a -6V (tipico: -2V)
+* gm ~ 2000 uS
+
+.model JFET_2N5457 NJF (
++ VTO=-2.0
++ BETA=0.75m
++ LAMBDA=0.01
++ IS=100f
++ RD=10
++ RS=10
++ CGS=4p
++ CGD=2p
+)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+.op
+.tran 10u 10m
+.ac dec 20 1 10MEG
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    AMPLIFICADOR JFET COM SELF-BIAS"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise DC - Ponto de Operacao
+  * ---------------------------------------------------------
+  echo "--- Analise DC: Ponto de Operacao (Q-point) ---"
+  echo ""
+
+  op
+
+  echo "=== Common-Source (X1) ==="
+  echo "Corrente de drain Id:"
+  print @j1[id]
+  echo "Tensao gate-source Vgs:"
+  print @j1[vgs]
+  echo "Tensao drain Vd:"
+  print v(x1.drain)
+  echo "Transcondutancia gm:"
+  print @j1[gm]
+  echo ""
+
+  echo "=== Source Follower (X2) ==="
+  echo "Corrente de drain Id:"
+  print @j2[id]
+  echo "Tensao gate-source Vgs:"
+  print @j2[vgs]
+  echo "Tensao source Vs:"
+  print v(x2.source)
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 10u 10m
+
+  * Amplitudes
+  meas tran VIN_PP MAX v(input)
+
+  meas tran OUT1_MAX MAX v(out1) FROM=2m TO=10m
+  meas tran OUT1_MIN MIN v(out1) FROM=2m TO=10m
+  meas tran OUT1_PP PARAM='OUT1_MAX-OUT1_MIN'
+  meas tran GAIN1 PARAM='OUT1_PP/(2*VIN_PP)'
+
+  meas tran OUT2_MAX MAX v(out2) FROM=2m TO=10m
+  meas tran OUT2_MIN MIN v(out2) FROM=2m TO=10m
+  meas tran OUT2_PP PARAM='OUT2_MAX-OUT2_MIN'
+  meas tran GAIN2 PARAM='OUT2_PP/(2*VIN_PP)'
+
+  meas tran OUT3_MAX MAX v(out3) FROM=2m TO=10m
+  meas tran OUT3_MIN MIN v(out3) FROM=2m TO=10m
+  meas tran OUT3_PP PARAM='OUT3_MAX-OUT3_MIN'
+  meas tran GAIN3 PARAM='OUT3_PP/(2*VIN_PP)'
+
+  echo "Entrada (pico): "
+  print VIN_PP
+  echo ""
+  echo "Common-Source (esperado: Av ~ -10):"
+  print OUT1_PP GAIN1
+  echo ""
+  echo "Source Follower (esperado: Av ~ 0.9):"
+  print OUT2_PP GAIN2
+  echo ""
+  echo "Ganho Controlado (esperado: Av ~ -5):"
+  print OUT3_PP GAIN3
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots Transiente
+  * ---------------------------------------------------------
+  plot v(input) v(out1) title 'Common-Source: Entrada vs Saida' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  plot v(input) v(out2) title 'Source Follower (Buffer)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Comparacao das tres configuracoes
+  plot v(input)*10 v(out1) v(out2) v(out3) title 'Comparacao: CS vs SF vs Controlado' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * Analise AC - Resposta em Frequencia
+  * ---------------------------------------------------------
+  echo "--- Analise AC: Resposta em Frequencia ---"
+  echo ""
+
+  ac dec 20 1 10MEG
+
+  let gain1_db = db(v(out1)/v(input))
+  let gain2_db = db(v(out2)/v(input))
+  let gain3_db = db(v(out3)/v(input))
+
+  let phase1 = phase(v(out1)/v(input))*180/pi
+  let phase2 = phase(v(out2)/v(input))*180/pi
+
+  plot gain1_db gain2_db gain3_db title 'Resposta em Frequencia - Ganho' xlabel 'Freq (Hz)' ylabel 'Ganho (dB)' xlog
+
+  plot phase1 phase2 title 'Resposta em Frequencia - Fase' xlabel 'Freq (Hz)' ylabel 'Fase (graus)' xlog
+
+  * Medir bandwidth (-3dB)
+  meas ac BW1 WHEN gain1_db=17 FALL=1
+  meas ac BW2 WHEN gain2_db=-3 FALL=1
+
+  echo "Bandwidth (-3dB):"
+  print BW1 BW2
+  echo ""
+
+  * ---------------------------------------------------------
+  * Impedancia de Entrada (estimativa)
+  * ---------------------------------------------------------
+  echo "--- Impedancia de Entrada ---"
+  echo ""
+  echo "JFET: Zin >> 1MOhm (praticamente infinita)"
+  echo "Limitada apenas por Rg (1MOhm neste exemplo)"
+  echo "Para medir: precisa fonte de corrente AC"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy jfet_cs_waveform.png v(input)*10 v(out1)
+
+  setplot ac1
+  hardcopy jfet_freq_response.png gain1_db gain2_db gain3_db xlog
+
+  setplot tran1
+  wrdata jfet_time.csv time v(input) v(out1) v(out2) v(out3)
+
+  setplot ac1
+  wrdata jfet_freq.csv frequency gain1_db gain2_db phase1
+
+  echo "Arquivos gerados:"
+  echo "  - jfet_cs_waveform.png"
+  echo "  - jfet_freq_response.png"
+  echo "  - jfet_time.csv"
+  echo "  - jfet_freq.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. ESCOLHA DO PONTO Q (quiescent):"
+  echo "   - Id tipico: Idss/2 (meio da curva)"
+  echo "   - Vgs = Vp/2 (regra pratica)"
+  echo "   - Vd = Vdd/2 (maxima excursao simetrica)"
+  echo "   - Rs = |Vgs|/Id"
+  echo ""
+  echo "2. SELF-BIAS:"
+  echo "   - Automatico e estavel termicamente"
+  echo "   - Rs cria Vgs negativo"
+  echo "   - Cs bypassa Rs (ganho em AC)"
+  echo "   - Sem Cs: ganho cai, mas +estavel"
+  echo ""
+  echo "3. RESISTOR DE GATE (Rg):"
+  echo "   - Muito alto: 1-10MOhm"
+  echo "   - Define Vg=0 (nao consome corrente!)"
+  echo "   - Limita Zin efetiva"
+  echo "   - Em RF: pode usar indutor (RFC)"
+  echo ""
+  echo "4. GANHO DE TENSAO:"
+  echo "   - Av = -gm * RD (sem degeneracao)"
+  echo "   - gm tipico JFET: 1-5mS"
+  echo "   - RD tipico: 1k-10k"
+  echo "   - Av tipico: -5 a -20"
+  echo "   - Menor que BJT, mas Zin >> BJT"
+  echo ""
+  echo "5. SOURCE FOLLOWER:"
+  echo "   - Ganho ~1 (buffer)"
+  echo "   - Zout baixa (~1/gm ~ 200-500ohm)"
+  echo "   - Ideal para isolar estagios"
+  echo "   - Exemplo: sensor -> SF -> ADC"
+  echo ""
+  echo "6. DISPERSAO DE PARAMETROS:"
+  echo "   - Idss e Vp variam MUITO (+/-50%!)"
+  echo "   - Self-bias ajuda compensar"
+  echo "   - Para precisao: use source degenerado"
+  echo "   - Ou selecione JFETs (matched pair)"
+  echo ""
+  echo "7. TEMPERATURA:"
+  echo "   - gm diminui com T (coef. negativo)"
+  echo "   - Mais estavel que BJT"
+  echo "   - Self-bias compensa drift"
+  echo ""
+  echo "8. APLICACOES PRATICAS:"
+  echo "   - Pre-amp phono: baixo ruido"
+  echo "   - Pre-amp microfone: alta Zin"
+  echo "   - Buffer ADC: isola carga"
+  echo "   - RF LNA: baixo ruido, alta freq"
+  echo "   - Oscilador Pierce: estavel"
+  echo "   - Eletrometro: mede tensoes altas"
+  echo ""
+  echo "9. RUIDO:"
+  echo "   - JFET tem ruido menor que BJT"
+  echo "   - Use Id baixo para min ruido"
+  echo "   - Source follower: ruido minimo"
+  echo "   - Evite Rs alto (ruido termico)"
+  echo ""
+  echo "10. CASCODE (avancar):"
+  echo "    - Dois JFETs: CS + CG"
+  echo "    - Bandwidth muito maior"
+  echo "    - Isolacao entrada/saida"
+  echo "    - Usado em RF e video"
+  echo ""
+
+.endc
+
+.end

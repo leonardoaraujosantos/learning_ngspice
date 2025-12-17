@@ -1,0 +1,374 @@
+* =========================================================
+* AMPLIFICADOR OPERACIONAL INVERSOR - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O amplificador inversor e uma das configuracoes mais basicas
+* e importantes de amp-op. Ele inverte e amplifica o sinal de
+* entrada usando realimentacao negativa.
+*
+* DIAGRAMA:
+*
+*        Rin
+*   IN --[===]---+
+*                |
+*                |     Rf
+*               ---  [====]----+
+*               | -\           |
+*               |   >----------+--- OUT
+*               | +/
+*               ---
+*                |
+*               GND
+*
+* PRINCIPIO DE FUNCIONAMENTO:
+* ----------------------------
+* 1. Terra virtual: entrada (-) esta em ~0V (GND virtual)
+* 2. Realimentacao negativa mantem V- = V+ = 0V
+* 3. Corrente Iin = Vin/Rin flui para terra virtual
+* 4. Mesma corrente flui por Rf (lei de Kirchhoff)
+* 5. Vout = -If * Rf = -(Vin/Rin) * Rf
+*
+* FORMULAS:
+* ---------
+*   Ganho: Av = -Rf / Rin
+*   Vout = -Vin * (Rf / Rin)
+*
+*   Impedancia entrada: Zin = Rin
+*   Impedancia saida: Zout ~ 0 (baixa)
+*
+* EXEMPLOS NUMERICOS:
+*   1. Ganho -10x: Rin=10k, Rf=100k
+*      Vin=1V -> Vout=-10V
+*
+*   2. Inversor unitario: Rin=Rf=10k
+*      Vin=2V -> Vout=-2V
+*
+*   3. Atenuador inversor: Rin=100k, Rf=10k
+*      Vin=5V -> Vout=-0.5V
+*
+* APLICACOES:
+* -----------
+* - Inversao de fase (180 graus)
+* - Amplificacao com inversao
+* - Somador inversor (varias entradas)
+* - Conversor corrente-tensao (transimpedancia)
+* - Filtros ativos
+* - Circuitos de audio (mixer, equalizador)
+*
+* VANTAGENS:
+* ----------
+* + Ganho muito previsivel (depende so de R)
+* + Baixa impedancia de saida
+* + Alta rejeicao de modo comum (CMRR)
+* + Facil de projetar e calcular
+*
+* DESVANTAGENS:
+* -------------
+* - Impedancia de entrada = Rin (nao muito alta)
+* - Inverte o sinal (nem sempre desejado)
+* - Bandwidth limitada pelo produto ganho-bandwidth
+*
+* LIMITACOES PRATICAS:
+* --------------------
+* - Slew rate: taxa maxima dV/dt na saida
+* - Bandwidth: f_max ~ GBW / |Av|
+* - Tensao de saida limitada por Vcc
+* - Offset de entrada causa erro DC
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO (tipico para amp-op)
+* ---------------------------------------------------------
+VCC vcc 0 DC 15
+VEE vee 0 DC -15
+
+* ---------------------------------------------------------
+* EXEMPLO 1: Amplificador Inversor com Ganho -10
+* ---------------------------------------------------------
+* Rin = 10k, Rf = 100k
+* Av = -100k/10k = -10
+
+.subckt inversor_10x vin vout vcc vee
+  * Resistor de entrada
+  Rin vin v_minus 10k
+
+  * Resistor de realimentacao
+  Rf v_minus vout 100k
+
+  * Amplificador operacional (LM741)
+  XOP1 v_plus v_minus vcc vee vout LM741
+
+  * Entrada nao-inversora aterrada
+  Rg v_plus 0 100k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: Inversor Unitario (Ganho -1)
+* ---------------------------------------------------------
+* Rin = Rf = 10k
+* Av = -1 (apenas inverte)
+
+.subckt inversor_unity vin vout vcc vee
+  Rin vin v_minus 10k
+  Rf v_minus vout 10k
+  XOP2 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: Atenuador Inversor (Ganho -0.1)
+* ---------------------------------------------------------
+* Rin = 100k, Rf = 10k
+* Av = -10k/100k = -0.1
+
+.subckt inversor_atten vin vout vcc vee
+  Rin vin v_minus 100k
+  Rf v_minus vout 10k
+  XOP3 v_plus v_minus vcc vee vout LM741
+  Rg v_plus 0 100k
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE
+* =========================================================
+
+* ---------------------------------------------------------
+* Sinal de entrada (senoide 1kHz, 1Vpp)
+* ---------------------------------------------------------
+VIN input 0 SIN(0 0.5 1k)
+
+* ---------------------------------------------------------
+* Instanciando os tres amplificadores
+* ---------------------------------------------------------
+X1 input out1 vcc vee inversor_10x
+X2 input out2 vcc vee inversor_unity
+X3 input out3 vcc vee inversor_atten
+
+* Cargas de saida
+Rload1 out1 0 10k
+Rload2 out2 0 10k
+Rload3 out3 0 10k
+
+* ---------------------------------------------------------
+* MODELO LM741 (simplificado, mas representativo)
+* ---------------------------------------------------------
+
+.subckt LM741 inp inn vcc vee out
+  * Estagio diferencial de entrada
+  Rin inp inn 2MEG
+  Cin inp inn 1.4p
+
+  * Ganho de tensao (tipico: 200k = 106dB)
+  * Incluindo polo dominante para estabilidade
+  E1 int 0 inp inn 200k
+
+  * Polo dominante (compensacao interna)
+  * f_pole = 1/(2*pi*Rpole*Cpole) ~ 10 Hz
+  Rpole int int2 1k
+  Cpole int2 0 15.9u
+
+  * Limitacao de slew rate (~0.5V/us para LM741)
+  * Modelado com limitador de corrente
+  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
+
+  * Estagio de saida (buffer com impedancia baixa)
+  Eout out 0 int2 1
+  Rout out out_int 75
+
+  * Limitacao de tensao de saida (rail-to-rail - 2V)
+  * LM741 nao e rail-to-rail, tem ~2V de dropout
+  Dclip_pos out_int vcc_int DCLAMP
+  Dclip_neg vee_int out_int DCLAMP
+  Vcc_int vcc_int vcc DC 2
+  Vee_int vee vee_int DC 2
+
+  * Corrente de polarizacao de entrada (bias current)
+  Ibias_p inp 0 80n
+  Ibias_n inn 0 80n
+
+  * Offset de entrada (tipico: 1-5mV)
+  Voffset inp inp_int DC 2m
+.ends
+
+.model DCLAMP D (IS=1e-14 N=0.01)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+* Ponto de operacao DC
+.op
+
+* Analise transiente (10 ciclos de 1kHz)
+.tran 10u 10m
+
+* Analise AC (resposta em frequencia)
+.ac dec 20 1 10MEG
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    AMPLIFICADOR OPERACIONAL INVERSOR"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise DC
+  * ---------------------------------------------------------
+  echo "--- Analise DC: Offset de Saida ---"
+  echo ""
+
+  op
+
+  echo "Tensao DC nas saidas (idealmente ~0V):"
+  print v(out1) v(out2) v(out3)
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 10u 10m
+
+  * Medidas de amplitude (apos 2ms para estabilizar)
+  meas tran VIN_PP MAX v(input) FROM=2m TO=10m
+
+  meas tran OUT1_MAX MAX v(out1) FROM=2m TO=10m
+  meas tran OUT1_MIN MIN v(out1) FROM=2m TO=10m
+  meas tran OUT1_PP PARAM='OUT1_MAX-OUT1_MIN'
+  meas tran GAIN1 PARAM='OUT1_PP/VIN_PP'
+
+  meas tran OUT2_MAX MAX v(out2) FROM=2m TO=10m
+  meas tran OUT2_MIN MIN v(out2) FROM=2m TO=10m
+  meas tran OUT2_PP PARAM='OUT2_MAX-OUT2_MIN'
+  meas tran GAIN2 PARAM='OUT2_PP/VIN_PP'
+
+  meas tran OUT3_MAX MAX v(out3) FROM=2m TO=10m
+  meas tran OUT3_MIN MIN v(out3) FROM=2m TO=10m
+  meas tran OUT3_PP PARAM='OUT3_PP/VIN_PP'
+  meas tran GAIN3 PARAM='OUT3_PP/VIN_PP'
+
+  echo "Entrada: "
+  print VIN_PP
+  echo ""
+  echo "Inversor -10x (esperado: 10V):"
+  print OUT1_PP GAIN1
+  echo ""
+  echo "Inversor unitario (esperado: 1V):"
+  print OUT2_PP GAIN2
+  echo ""
+  echo "Atenuador -0.1x (esperado: 0.1V):"
+  print OUT3_PP GAIN3
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots Transiente
+  * ---------------------------------------------------------
+  plot v(input) v(out1) v(out2) v(out3) title 'Amplificadores Inversores' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zoom em 2 ciclos
+  plot v(input) v(out2) xlimit 2m 4m title 'Detalhe: Inversor Unitario' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * Analise AC - Resposta em Frequencia
+  * ---------------------------------------------------------
+  echo "--- Analise AC: Resposta em Frequencia ---"
+  echo ""
+
+  ac dec 20 1 10MEG
+
+  * Ganho em dB
+  let gain1_db = db(v(out1)/v(input))
+  let gain2_db = db(v(out2)/v(input))
+  let gain3_db = db(v(out3)/v(input))
+
+  * Fase
+  let phase1 = phase(v(out1)/v(input))*180/pi
+  let phase2 = phase(v(out2)/v(input))*180/pi
+
+  plot gain1_db gain2_db gain3_db title 'Resposta em Frequencia - Magnitude' xlabel 'Freq (Hz)' ylabel 'Ganho (dB)' xlog
+
+  plot phase1 phase2 title 'Resposta em Frequencia - Fase' xlabel 'Freq (Hz)' ylabel 'Fase (graus)' xlog
+
+  * Medir bandwidth (-3dB)
+  * Para inversor -10x, BW ~ GBW/10
+  * GBW do 741 ~ 1MHz, entao BW ~ 100kHz
+
+  meas ac BW1 WHEN gain1_db=17 FALL=1
+  meas ac BW2 WHEN gain2_db=-3 FALL=1
+
+  echo "Bandwidth (-3dB):"
+  print BW1 BW2
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy amp_op_inversor_time.png v(input) v(out1) v(out2)
+
+  setplot ac1
+  hardcopy amp_op_inversor_freq.png gain1_db gain2_db gain3_db xlog
+
+  setplot tran1
+  wrdata amp_op_inversor_time.csv time v(input) v(out1) v(out2) v(out3)
+
+  setplot ac1
+  wrdata amp_op_inversor_freq.csv frequency gain1_db gain2_db phase1
+
+  echo "Arquivos gerados:"
+  echo "  - amp_op_inversor_time.png"
+  echo "  - amp_op_inversor_freq.png"
+  echo "  - amp_op_inversor_time.csv"
+  echo "  - amp_op_inversor_freq.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. ESCOLHA DE RESISTORES:"
+  echo "   - Rin: 1k a 100k (tipico: 10k)"
+  echo "   - Muito baixo: carrega a fonte"
+  echo "   - Muito alto: ruido e offset aumentam"
+  echo "   - Rf = |Av| * Rin"
+  echo ""
+  echo "2. BANDWIDTH vs GANHO:"
+  echo "   - BW = GBW / |Av|"
+  echo "   - Ganho alto = banda estreita"
+  echo "   - LM741: GBW ~ 1MHz"
+  echo "   - Para |Av|=10: BW ~ 100kHz"
+  echo ""
+  echo "3. SLEW RATE:"
+  echo "   - LM741: SR ~ 0.5V/us"
+  echo "   - Vout_max freq = SR/(2*pi*Vpp)"
+  echo "   - Para Vpp=10V: f_max ~ 8kHz"
+  echo "   - Use amp-op rapido se precisar mais!"
+  echo ""
+  echo "4. RUIDO:"
+  echo "   - Ruido total ~ sqrt(4kTRin*BW)"
+  echo "   - Use Rin baixo para menos ruido termico"
+  echo "   - Mas nao tao baixo que carregue fonte"
+  echo ""
+  echo "5. ESTABILIDADE:"
+  echo "   - Sempre use realimentacao negativa!"
+  echo "   - Evite capacitancia alta na saida"
+  echo "   - Desacople VCC/VEE perto do chip"
+  echo ""
+
+.endc
+
+.end

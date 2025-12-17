@@ -1,0 +1,437 @@
+* =========================================================
+* MIXER COM DIODO (FREQUENCY MIXER) - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* Um MIXER e um circuito que MULTIPLICA dois sinais,
+* gerando novas frequencias (soma e diferenca). E o
+* componente fundamental de TODOS os radios, receptores,
+* transmissores e sistemas de comunicacao.
+*
+* PRINCIPIO BASICO:
+* -----------------
+* Matematicamente:
+*   A*sin(w1*t) * B*sin(w2*t) =
+*   (A*B/2) * [cos((w1-w2)*t) - cos((w1+w2)*t)]
+*
+* Ou seja, multiplicar dois sinais gera:
+*   - Frequencia DIFERENCA: |f1 - f2|  (importante!)
+*   - Frequencia SOMA: f1 + f2
+*   - E as frequencias originais f1, f2
+*
+* EXEMPLO NUMERICO:
+*   RF (sinal): 1000 kHz (AM radio)
+*   LO (oscilador local): 1455 kHz
+*   IF (intermediaria) = |1000 - 1455| = 455 kHz
+*   Soma = 1000 + 1455 = 2455 kHz
+*
+* APLICACAO: RECEPTOR SUPER-HETERODINO
+* --------------------------------------
+* TODO radio AM/FM moderno usa mixer:
+*
+*   Antena -> RF amp -> MIXER -> IF amp -> Detector
+*                         ^
+*                         |
+*                    Oscilador Local (LO)
+*
+* Por que usar IF (freq intermediaria)?
+* - Mais facil filtrar (banda estreita fixa)
+* - Ganho mais estavel
+* - Melhor seletividade
+*
+* TIPOS DE MIXERS:
+* ----------------
+* 1. PASSIVO (diodo): simples, sem ganho, robusto
+* 2. ATIVO (transistor): com ganho, mais complexo
+* 3. BALANCEADO (ring): suprime LO, menos espurias
+* 4. DUPLO-BALANCEADO: suprime LO e RF, melhor
+* 5. GILBERT CELL: integrado, usado em ICs RF
+*
+* MIXER COM DIODO (mais simples):
+* --------------------------------
+* Usa a NAO-LINEARIDADE do diodo (curva I-V)
+* para fazer a multiplicacao dos sinais.
+*
+* DIAGRAMA:
+*
+*   RF ----+
+*          |
+*         [D1] --- LO (forte)
+*          |
+*          +---- IF out --> filtro
+*          |
+*         GND
+*
+* CARACTERISTICAS:
+* ----------------
+*   PERDA DE CONVERSAO: -6 a -8 dB (tipico)
+*   LO drive: +7 a +10 dBm (forte!)
+*   Isolacao LO-IF: 20-30 dB
+*   Ruido: moderado (6-8 dB NF)
+*   IP3: baixo (~0 dBm)
+*
+* FORMULAS:
+* ---------
+*   Perda conversao = Pout(IF) / Pin(RF)
+*   Tipico: 0.4 a 0.25 (-6 a -8 dB)
+*
+*   Isolacao = Pleak / Pdesired
+*   Quanto maior, melhor!
+*
+* PRODUTOS DE INTERMODULACAO (espurios):
+* ---------------------------------------
+* Mixer gera MUITAS frequencias indesejadas:
+*   f_out = m*f1 +/- n*f2
+*
+* Onde m, n = 0, 1, 2, 3, ... (ordem)
+*
+* Exemplo (f1=1MHz, f2=1.5MHz):
+*   Ordem 1: 1MHz, 1.5MHz (fundamentais)
+*   Ordem 2: 0.5MHz, 2.5MHz (f2-f1, f1+f2) <- IF
+*   Ordem 3: 2MHz, 3MHz, 0.5MHz, 3.5MHz
+*   ...
+*
+* Problema: espurios caem na banda IF!
+* Solucao: filtro passa-banda na IF
+*
+* APLICACOES:
+* -----------
+* - Receptores AM/FM/SSB
+* - Conversores up/down de frequencia
+* - Analisadores de espectro
+* - Sintetizadores de frequencia
+* - Radar (Doppler shift)
+* - Instrumentacao RF
+*
+* VANTAGENS MIXER DIODO:
+* -----------------------
+* + Muito simples (1 diodo!)
+* + Robusto (aguenta overdrive)
+* + Baixo custo
+* + Funciona ate GHz
+* + Nao precisa alimentacao
+*
+* DESVANTAGENS:
+* -------------
+* - Perda de conversao (precisa amp depois)
+* - Muitos produtos espurios
+* - Isolacao moderada
+* - LO precisa ser forte (+7dBm)
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* EXEMPLO 1: MIXER SIMPLES (SINGLE-ENDED)
+* ---------------------------------------------------------
+* RF = 1 MHz, amplitude 100mV
+* LO = 1.5 MHz, amplitude 500mV (forte!)
+* IF esperada = |1.5 - 1| = 0.5 MHz (500 kHz)
+
+* Sinal RF (fraco, da antena)
+VRF rf_in 0 SIN(0 0.1 1MEG)
+
+* Oscilador Local (forte!)
+VLO lo_in 0 SIN(0 0.5 1.5MEG)
+
+* Somar RF + LO
+Rseries_rf rf_in n_sum 50
+Rseries_lo lo_in n_sum 50
+
+* Diodo mixer (detecta nao-linearidade)
+D1 n_sum if_raw DIODE_1N4148
+
+* Carga do diodo
+Rload if_raw 0 1k
+
+* ---------------------------------------------------------
+* FILTRO PASSA-BANDA PARA IF (500 kHz)
+* ---------------------------------------------------------
+* Remove LO, RF, e harmonicas
+* Deixa passar apenas IF = 500 kHz
+*
+* Filtro LC passa-banda simples:
+*   fc = 1/(2*pi*sqrt(LC))
+*   BW = fc/Q
+
+* Indutor
+Lif if_raw if_filt 100u
+
+* Capacitor
+Cif if_filt 0 1n
+
+* Resistor de carga (define Q)
+Rif if_filt if_out 1k
+
+* Capacitor de saida
+Cout if_out output 10u
+
+* Carga final
+Rout output 0 10k
+
+* ---------------------------------------------------------
+* EXEMPLO 2: MIXER BALANCEADO (melhor isolacao)
+* ---------------------------------------------------------
+* Usa 2 diodos em configuracao balanceada
+* Suprime a frequencia LO na saida (melhor!)
+
+* Sinais de entrada
+VRF2 rf2_in 0 SIN(0 0.1 1MEG)
+VLO2 lo2_in 0 SIN(0 0.5 1.5MEG)
+
+* Transformador de RF (center-tap simulado)
+Rrf2_a rf2_in n2_rf_p 50
+Rrf2_b rf2_in n2_rf_n 50
+
+* Transformador de LO
+Rlo2_a lo2_in n2_lo 50
+
+* Diodos em push-pull
+D2a n2_rf_p n2_if DIODE_1N4148
+D2b n2_rf_n n2_if DIODE_1N4148
+
+* LO comum
+Rlo2_com n2_lo n2_if 50
+
+* Filtro IF
+Lif2 n2_if n2_filt 100u
+Cif2 n2_filt 0 1n
+Rif2 n2_filt out2 1k
+Cout2 out2 output2 10u
+Rout2 output2 0 10k
+
+* ---------------------------------------------------------
+* MODELO DIODO 1N4148 (fast switching)
+* ---------------------------------------------------------
+* Diodo rapido, usado em RF
+.model DIODE_1N4148 D (
++ IS=2.52n
++ RS=0.568
++ N=1.752
++ CJO=4p
++ VJ=0.5
++ M=0.4
++ TT=20n
++ BV=100
+)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+* Transiente: simular tempo suficiente para ver IF
+* IF = 500 kHz, T = 2us
+* Simular ~100 ciclos = 200us
+
+.tran 10n 200u
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    MIXER DE FREQUENCIA COM DIODO"
+  echo "=========================================================="
+  echo ""
+  echo "Configuracao:"
+  echo "  RF (sinal): 1 MHz, 100 mVpp"
+  echo "  LO (oscilador): 1.5 MHz, 500 mVpp"
+  echo "  IF esperada: |1.5 - 1| = 0.5 MHz (500 kHz)"
+  echo "  Filtro IF: passa-banda em 500 kHz"
+  echo ""
+
+  run
+
+  * ---------------------------------------------------------
+  * Analise no Tempo
+  * ---------------------------------------------------------
+  echo "--- Analise Temporal ---"
+  echo ""
+
+  * Medir amplitude da IF
+  meas tran IF_MAX MAX v(output) FROM=100u TO=200u
+  meas tran IF_MIN MIN v(output) FROM=100u TO=200u
+  meas tran IF_PP PARAM='IF_MAX-IF_MIN'
+
+  * Medir freq da IF (periodo)
+  meas tran T_IF TRIG v(output) VAL=0 RISE=1 TARG v(output) VAL=0 RISE=2 FROM=100u
+  meas tran F_IF PARAM='1/T_IF'
+
+  echo "Amplitude IF (saida):"
+  print IF_PP
+  echo "Frequencia IF medida:"
+  print F_IF
+  echo "(Esperado: 500 kHz)"
+  echo ""
+
+  * Perda de conversao
+  let RF_amp = 0.1
+  let loss_linear = IF_PP / (2*RF_amp)
+  let loss_db = 20*log10(loss_linear)
+
+  echo "Perda de conversao:"
+  print loss_linear loss_db
+  echo "(Tipico: -6 a -8 dB para mixer diodo)"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots no Tempo
+  * ---------------------------------------------------------
+
+  * Entrada: RF e LO
+  plot v(rf_in) v(lo_in) xlimit 0 10u title 'Entradas: RF e LO' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Mixer raw (antes do filtro)
+  plot v(if_raw) xlimit 100u 110u title 'Saida Mixer (antes filtro)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * IF filtrada (saida final)
+  plot v(output) xlimit 100u 200u title 'IF Filtrada (500 kHz)' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Comparacao mixer simples vs balanceado
+  plot v(output) v(output2) xlimit 100u 200u title 'Simples vs Balanceado' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * FFT - Analise Espectral (IMPORTANTE!)
+  * ---------------------------------------------------------
+  echo "--- Analise Espectral (FFT) ---"
+  echo ""
+
+  * FFT da saida bruta (antes filtro)
+  fft v(if_raw)
+  let raw_db = db(v(if_raw))
+
+  * FFT da IF filtrada
+  fft v(output)
+  let if_db = db(v(output))
+
+  * Plot espectro
+  plot raw_db xlimit 0 3MEG title 'Espectro: Antes do Filtro IF' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+  plot if_db xlimit 0 3MEG title 'Espectro: Depois do Filtro IF' xlabel 'Freq (Hz)' ylabel 'Mag (dB)'
+
+  echo "Componentes espectrais visiveis:"
+  echo "  RF: 1.0 MHz"
+  echo "  LO: 1.5 MHz"
+  echo "  IF (diferenca): 0.5 MHz <- DESEJADO"
+  echo "  Soma: 2.5 MHz"
+  echo "  Harmonicas: 2MHz, 3MHz, ..."
+  echo ""
+  echo "Filtro IF remove tudo exceto 500 kHz!"
+  echo ""
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy mixer_inputs.png v(rf_in) v(lo_in) xlimit 0 10u
+  hardcopy mixer_if_output.png v(output) xlimit 100u 200u
+
+  setplot spec1
+  hardcopy mixer_spectrum_raw.png raw_db xlimit 0 3MEG
+
+  setplot spec2
+  hardcopy mixer_spectrum_filtered.png if_db xlimit 0 3MEG
+
+  setplot tran1
+  wrdata mixer_time.csv time v(rf_in) v(lo_in) v(if_raw) v(output)
+
+  echo "Arquivos gerados:"
+  echo "  - mixer_inputs.png"
+  echo "  - mixer_if_output.png"
+  echo "  - mixer_spectrum_raw.png"
+  echo "  - mixer_spectrum_filtered.png"
+  echo "  - mixer_time.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. NIVEL DE LO (CRITICO!):"
+  echo "   - LO deve ser FORTE: +7 a +10 dBm"
+  echo "   - ~500mV a 1V RMS (700mV a 1.4Vpp)"
+  echo "   - Se fraco: conversao ruim, distorcao"
+  echo "   - Se muito forte: queima diodo!"
+  echo ""
+  echo "2. NIVEL DE RF:"
+  echo "   - RF deve ser FRACO: -20 a 0 dBm"
+  echo "   - ~10mV a 100mV tipico"
+  echo "   - Se forte: IP3 cai, intermod aumenta"
+  echo ""
+  echo "3. ESCOLHA DO DIODO:"
+  echo "   - RF baixa (<100MHz): 1N4148, 1N914"
+  echo "   - RF alta (>100MHz): Schottky (BAT85, HP2835)"
+  echo "   - UHF/microondas: diodo especial (MA4E1317)"
+  echo "   - Caracteristicas: baixo Cj, rapido (tt)"
+  echo ""
+  echo "4. FILTRO IF:"
+  echo "   - ESSENCIAL para remover espurios!"
+  echo "   - Passa-banda centrado na IF"
+  echo "   - Q tipico: 10-50"
+  echo "   - Topologia: LC, ceramico, cristal, SAW"
+  echo ""
+  echo "5. PRODUTOS ESPURIOS:"
+  echo "   - Mixer gera MUITAS frequencias:"
+  echo "     f_out = m*fRF +/- n*fLO"
+  echo "   - Problemas:"
+  echo "     * Image (fLO + fIF)"
+  echo "     * Harmonicas (2*fLO, 3*fLO)"
+  echo "   - Solucao:"
+  echo "     * Filtro RF antes mixer"
+  echo "     * Filtro IF depois mixer"
+  echo "     * Mixer balanceado (suprime algumas)"
+  echo ""
+  echo "6. ISOLACAO:"
+  echo "   - LO-IF: ~20-30 dB (diodo simples)"
+  echo "   - RF-IF: ~20 dB"
+  echo "   - Melhorar: mixer balanceado ou duplo-bal"
+  echo ""
+  echo "7. PERDA DE CONVERSAO:"
+  echo "   - Mixer diodo: -6 a -8 dB (tipico)"
+  echo "   - Significa: precisa amplificar IF!"
+  echo "   - IF amp: ganho 20-40 dB comum"
+  echo ""
+  echo "8. CASAMENTO DE IMPEDANCIA:"
+  echo "   - RF port: 50 ohm (tipico)"
+  echo "   - LO port: 50 ohm ou alta Z"
+  echo "   - IF port: pode variar (1k comum)"
+  echo "   - Use transformadores para casar"
+  echo ""
+  echo "9. MIXER BALANCEADO:"
+  echo "   - Usa 2 diodos (ring de 4 para duplo-bal)"
+  echo "   - Suprime LO na saida (melhor!)"
+  echo "   - Isolacao +10-20 dB"
+  echo "   - Mais componentes, mais caro"
+  echo ""
+  echo "10. APLICACAO PRATICA:"
+  echo "    - Radio AM (super-heterodino):"
+  echo "      RF=530-1700kHz -> IF=455kHz"
+  echo "      LO=985-2155kHz (RF + IF)"
+  echo "    - Radio FM:"
+  echo "      RF=88-108MHz -> IF=10.7MHz"
+  echo "      LO=98.7-118.7MHz"
+  echo "    - Analisador espectro:"
+  echo "      Sweep LO, IF fixa, medir amplitude"
+  echo ""
+  echo "11. TROUBLESHOOTING:"
+  echo "    - Sem saida IF:"
+  echo "      * LO muito fraco (precisa +7dBm)"
+  echo "      * Filtro IF errado (freq/banda)"
+  echo "      * Diodo em curto/aberto"
+  echo "    - IF fraca:"
+  echo "      * Perda conversao normal (-6dB)"
+  echo "      * Adicione amp IF"
+  echo "    - Espurios na saida:"
+  echo "      * Filtro IF com Q baixo"
+  echo "      * Harmonicas de LO"
+  echo "      * Use mixer balanceado"
+  echo ""
+
+.endc
+
+.end

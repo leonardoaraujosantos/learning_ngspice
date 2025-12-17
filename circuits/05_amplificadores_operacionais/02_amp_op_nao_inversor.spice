@@ -1,0 +1,368 @@
+* =========================================================
+* AMPLIFICADOR OPERACIONAL NAO-INVERSOR - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O amplificador nao-inversor amplifica o sinal SEM inverter
+* a fase. Ele tem ALTISSIMA impedancia de entrada (ideal para
+* buffers e sensores de alta impedancia).
+*
+* DIAGRAMA:
+*
+*               +------+
+*          +----| +    |
+*   IN ----+    |   OP |---- OUT
+*          |  +-| -    |
+*          |  | +------+
+*         GND |    |
+*             |    |
+*             |   [Rf]
+*             |    |
+*             +---[R1]
+*                  |
+*                 GND
+*
+* PRINCIPIO DE FUNCIONAMENTO:
+* ----------------------------
+* 1. Sinal entra em V+ (entrada nao-inversora)
+* 2. Realimentacao negativa via R1 e Rf para V-
+* 3. Amp-op ajusta Vout para manter V+ = V-
+* 4. Divisor R1/Rf define ganho
+*
+* FORMULAS:
+* ---------
+*   Ganho: Av = 1 + (Rf / R1)
+*   Vout = Vin * (1 + Rf/R1)
+*
+*   Impedancia entrada: Zin ~ infinito (tipico > 1GOhm)
+*   Impedancia saida: Zout ~ 0 (baixa)
+*
+* NOTA: Ganho minimo = 1 (buffer/seguidor)
+*
+* EXEMPLOS NUMERICOS:
+*   1. Ganho +10: R1=10k, Rf=90k
+*      Av = 1 + 90k/10k = 10
+*      Vin=1V -> Vout=10V
+*
+*   2. Ganho +2: R1=10k, Rf=10k
+*      Av = 1 + 10k/10k = 2
+*      Vin=2V -> Vout=4V
+*
+*   3. Buffer (ganho +1): Rf=0, R1=infinito
+*      Av = 1
+*      Vout = Vin (seguidor de tensao)
+*
+* COMPARACAO: INVERSOR vs NAO-INVERSOR
+* -------------------------------------
+*                INVERSOR    NAO-INVERSOR
+* Fase:          180°        0° (mesma fase)
+* Ganho min:     pode < 1    sempre >= 1
+* Zin:           = Rin       muito alta
+* Formula:       -Rf/Rin     1+Rf/R1
+* CMRR:          alta        altissima
+* Uso:           mixing      buffers, sensores
+*
+* APLICACOES:
+* -----------
+* - Buffer de impedancia (Av=1, Zin altissima)
+* - Interface com sensores de alta impedancia
+* - Pre-amplificador de instrumentacao
+* - Amplificador de microfone/piezo
+* - Conversores ADC (buffer para reduzir carga)
+* - Amplificadores de RF (baixo ruido)
+*
+* VANTAGENS:
+* ----------
+* + Impedancia de entrada MUITO alta
+* + Nao inverte o sinal
+* + Excelente CMRR (rejeicao modo comum)
+* + Ganho sempre >= 1
+* + Ideal para buffers
+*
+* DESVANTAGENS:
+* -------------
+* - Nao pode atenuar (ganho minimo = 1)
+* - Ligeiramente mais sensivel a ruido de modo comum
+* - Precisa casamento de impedancia em R1/Rf
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO
+* ---------------------------------------------------------
+VCC vcc 0 DC 15
+VEE vee 0 DC -15
+
+* ---------------------------------------------------------
+* EXEMPLO 1: Amplificador Nao-Inversor Ganho +10
+* ---------------------------------------------------------
+* R1 = 10k, Rf = 90k
+* Av = 1 + 90k/10k = 10
+
+.subckt nao_inversor_10x vin vout vcc vee
+  * Sinal entra na entrada nao-inversora
+  Rin vin v_plus 0.1
+
+  * Divisor resistivo de realimentacao
+  R1 v_minus 0 10k
+  Rf v_minus vout 90k
+
+  * Amplificador operacional
+  XOP1 v_plus v_minus vcc vee vout LM741
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: Amplificador Nao-Inversor Ganho +2
+* ---------------------------------------------------------
+* R1 = Rf = 10k
+* Av = 1 + 10k/10k = 2
+
+.subckt nao_inversor_2x vin vout vcc vee
+  Rin vin v_plus 0.1
+  R1 v_minus 0 10k
+  Rf v_minus vout 10k
+  XOP2 v_plus v_minus vcc vee vout LM741
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: BUFFER (Seguidor de Tensao) - Ganho +1
+* ---------------------------------------------------------
+* Realimentacao direta (Rf=0, R1=infinito)
+* Av = 1 + 0/inf = 1
+* USO: Isolacao de impedancia!
+
+.subckt buffer vin vout vcc vee
+  Rin vin v_plus 0.1
+
+  * Realimentacao direta (saida conectada em v_minus)
+  Rfb vout v_minus 0.1
+
+  XOP3 v_plus v_minus vcc vee vout LM741
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE
+* =========================================================
+
+* ---------------------------------------------------------
+* Sinal de entrada (senoide 1kHz, 1Vpp)
+* ---------------------------------------------------------
+VIN input 0 SIN(0 0.5 1k)
+
+* ---------------------------------------------------------
+* Instanciando os tres amplificadores
+* ---------------------------------------------------------
+X1 input out1 vcc vee nao_inversor_10x
+X2 input out2 vcc vee nao_inversor_2x
+X3 input out3 vcc vee buffer
+
+* Cargas de saida (simulando impedancia externa)
+Rload1 out1 0 10k
+Rload2 out2 0 10k
+Rload3 out3 0 10k
+
+* ---------------------------------------------------------
+* MODELO LM741 (mesmo do arquivo anterior)
+* ---------------------------------------------------------
+
+.subckt LM741 inp inn vcc vee out
+  * Estagio diferencial de entrada
+  Rin inp inn 2MEG
+  Cin inp inn 1.4p
+
+  * Ganho de tensao (tipico: 200k = 106dB)
+  E1 int 0 inp inn 200k
+
+  * Polo dominante (compensacao interna)
+  Rpole int int2 1k
+  Cpole int2 0 15.9u
+
+  * Limitacao de slew rate (~0.5V/us)
+  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
+
+  * Estagio de saida
+  Eout out 0 int2 1
+  Rout out out_int 75
+
+  * Limitacao de tensao de saida
+  Dclip_pos out_int vcc_int DCLAMP
+  Dclip_neg vee_int out_int DCLAMP
+  Vcc_int vcc_int vcc DC 2
+  Vee_int vee vee_int DC 2
+
+  * Corrente de polarizacao
+  Ibias_p inp 0 80n
+  Ibias_n inn 0 80n
+
+  * Offset
+  Voffset inp inp_int DC 2m
+.ends
+
+.model DCLAMP D (IS=1e-14 N=0.01)
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+.op
+.tran 10u 10m
+.ac dec 20 1 10MEG
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    AMPLIFICADOR OPERACIONAL NAO-INVERSOR"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise DC
+  * ---------------------------------------------------------
+  echo "--- Analise DC ---"
+  echo ""
+
+  op
+
+  echo "Tensao DC nas saidas (idealmente ~0V):"
+  print v(out1) v(out2) v(out3)
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 10u 10m
+
+  meas tran VIN_PP MAX v(input) FROM=2m TO=10m
+
+  meas tran OUT1_MAX MAX v(out1) FROM=2m TO=10m
+  meas tran OUT1_MIN MIN v(out1) FROM=2m TO=10m
+  meas tran OUT1_PP PARAM='OUT1_MAX-OUT1_MIN'
+  meas tran GAIN1 PARAM='OUT1_PP/VIN_PP'
+
+  meas tran OUT2_MAX MAX v(out2) FROM=2m TO=10m
+  meas tran OUT2_MIN MIN v(out2) FROM=2m TO=10m
+  meas tran OUT2_PP PARAM='OUT2_MAX-OUT2_MIN'
+  meas tran GAIN2 PARAM='OUT2_PP/VIN_PP'
+
+  meas tran OUT3_MAX MAX v(out3) FROM=2m TO=10m
+  meas tran OUT3_MIN MIN v(out3) FROM=2m TO=10m
+  meas tran OUT3_PP PARAM='OUT3_MAX-OUT3_MIN'
+  meas tran GAIN3 PARAM='OUT3_PP/VIN_PP'
+
+  echo "Entrada: "
+  print VIN_PP
+  echo ""
+  echo "Nao-Inversor +10x (esperado: 10V):"
+  print OUT1_PP GAIN1
+  echo ""
+  echo "Nao-Inversor +2x (esperado: 2V):"
+  print OUT2_PP GAIN2
+  echo ""
+  echo "Buffer +1x (esperado: 1V):"
+  print OUT3_PP GAIN3
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+  plot v(input) v(out1) v(out2) v(out3) title 'Amplificadores Nao-Inversores' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Comparacao de fase (nao inverte!)
+  plot v(input) v(out2) xlimit 2m 4m title 'Detalhe: Mesma Fase' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * ---------------------------------------------------------
+  * Analise AC
+  * ---------------------------------------------------------
+  echo "--- Analise AC: Resposta em Frequencia ---"
+  echo ""
+
+  ac dec 20 1 10MEG
+
+  let gain1_db = db(v(out1)/v(input))
+  let gain2_db = db(v(out2)/v(input))
+  let gain3_db = db(v(out3)/v(input))
+
+  let phase1 = phase(v(out1)/v(input))*180/pi
+  let phase2 = phase(v(out2)/v(input))*180/pi
+
+  plot gain1_db gain2_db gain3_db title 'Resposta em Frequencia - Ganho' xlabel 'Freq (Hz)' ylabel 'Ganho (dB)' xlog
+
+  plot phase1 phase2 title 'Resposta em Frequencia - Fase' xlabel 'Freq (Hz)' ylabel 'Fase (graus)' xlog
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy amp_op_nao_inversor_time.png v(input) v(out1) v(out2) v(out3)
+
+  setplot ac1
+  hardcopy amp_op_nao_inversor_freq.png gain1_db gain2_db gain3_db xlog
+
+  setplot tran1
+  wrdata amp_op_nao_inversor_time.csv time v(input) v(out1) v(out2) v(out3)
+
+  setplot ac1
+  wrdata amp_op_nao_inversor_freq.csv frequency gain1_db gain2_db phase1
+
+  echo "Arquivos gerados:"
+  echo "  - amp_op_nao_inversor_time.png"
+  echo "  - amp_op_nao_inversor_freq.png"
+  echo "  - amp_op_nao_inversor_time.csv"
+  echo "  - amp_op_nao_inversor_freq.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. ESCOLHA DO GANHO:"
+  echo "   - Formula: Av = 1 + Rf/R1"
+  echo "   - SEMPRE >= 1 (nao pode atenuar!)"
+  echo "   - Para Av=10: use Rf=9*R1"
+  echo "   - Para buffer: conecte saida direto em V-"
+  echo ""
+  echo "2. ESCOLHA DE RESISTORES:"
+  echo "   - R1: tipico 10k (1k a 100k)"
+  echo "   - Rf = (Av-1) * R1"
+  echo "   - Resistores muito altos: ruido"
+  echo "   - Resistores muito baixos: carga na saida"
+  echo ""
+  echo "3. BUFFER (SEGUIDOR DE TENSAO):"
+  echo "   - Uso: Zin altissima, Zout baixissima"
+  echo "   - Ideal para interface com sensores"
+  echo "   - Exemplo: microfone -> buffer -> ADC"
+  echo "   - Nao amplifica, mas ISOLA!"
+  echo ""
+  echo "4. BANDWIDTH vs GANHO:"
+  echo "   - BW = GBW / Av"
+  echo "   - Para Av=10: BW ~ 100kHz (LM741)"
+  echo "   - Para Av=1 (buffer): BW ~ 1MHz"
+  echo "   - Buffer tem maior bandwidth!"
+  echo ""
+  echo "5. RUIDO:"
+  echo "   - Nao-inversor: ruido e_n amplificado"
+  echo "   - Inversor: pode ser melhor em ruido"
+  echo "   - Use amp-op low-noise se critico"
+  echo "   - Exemplo: OP07, OP27, LT1028"
+  echo ""
+  echo "6. APLICACAO PRATICA - SENSOR:"
+  echo "   - Sensor piezo (alta Z) -> buffer -> amp +10"
+  echo "   - Termistor -> buffer -> diferencial"
+  echo "   - pH sensor -> buffer -> ADC"
+  echo ""
+
+.endc
+
+.end
