@@ -1,0 +1,245 @@
+* ============================================================================
+* SOMADOR DE 4 BITS - Simulacao Digital com Portas Logicas Comportamentais
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* Este circuito implementa um somador binario de 4 bits usando portas logicas
+* comportamentais (B-sources). Estas fontes implementam funcoes booleanas
+* diretamente sem usar MOSFETs, permitindo simulacao puramente digital.
+*
+* TOPOLOGIA:
+* ----------
+* - 4 Full Adders em cascata (Ripple Carry Adder)
+* - Cada Full Adder: portas XOR, AND, OR comportamentais
+* - Carry propagado do LSB (bit 0) ao MSB (bit 3)
+*
+* FULL ADDER:
+* -----------
+* Entradas:  A, B, Cin (carry in)
+* Saidas:    S (sum), Cout (carry out)
+*
+* Equacoes booleanas:
+*   S    = A XOR B XOR Cin
+*   Cout = (A AND B) OR (Cin AND (A XOR B))
+*
+* EXEMPLO DE OPERACAO:
+* --------------------
+*   A[3:0] = 0101 (5 decimal)
+*   B[3:0] = 0011 (3 decimal)
+*   Cin    = 0
+*   ---------------
+*   S[3:0] = 1000 (8 decimal)
+*   Cout   = 0 (sem overflow)
+*
+* PORTAS LOGICAS COMPORTAMENTAIS:
+* --------------------------------
+* Usamos fontes de tensao comportamentais (B-sources) com funcoes booleanas:
+*   - XOR: V = (A > 2.5) != (B > 2.5) ? 5 : 0
+*   - AND: V = (A > 2.5) && (B > 2.5) ? 5 : 0
+*   - OR:  V = (A > 2.5) || (B > 2.5) ? 5 : 0
+*
+* Nivel logico: 0V = 0, 5V = 1, threshold = 2.5V
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Somador de 4 Bits - Portas Logicas Comportamentais
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* SINAIS DE ENTRADA - TESTE 1: 5 + 3 = 8
+* ============================================================================
+* Primeiro numero: A = 0101 (5 decimal)
+VA0 a0 0 PULSE(5 5 0 1n 1n 50u 100u)    ; A[0] = 1
+VA1 a1 0 PULSE(0 0 0 1n 1n 50u 100u)    ; A[1] = 0
+VA2 a2 0 PULSE(5 5 0 1n 1n 50u 100u)    ; A[2] = 1
+VA3 a3 0 PULSE(0 0 0 1n 1n 50u 100u)    ; A[3] = 0
+
+* Segundo numero: B = 0011 (3 decimal)
+VB0 b0 0 PULSE(5 5 0 1n 1n 50u 100u)    ; B[0] = 1
+VB1 b1 0 PULSE(5 5 0 1n 1n 50u 100u)    ; B[1] = 1
+VB2 b2 0 PULSE(0 0 0 1n 1n 50u 100u)    ; B[2] = 0
+VB3 b3 0 PULSE(0 0 0 1n 1n 50u 100u)    ; B[3] = 0
+
+* Carry inicial (normalmente 0)
+VCIN cin 0 0
+
+* ============================================================================
+* FULL ADDER 0 (LSB)
+* ============================================================================
+* Entradas: a0, b0, cin
+* Saidas:   sum0, c0
+
+* XOR1: xor0_1 = a0 XOR b0
+BXOR0_1 xor0_1 0 V={((V(a0) > 2.5) != (V(b0) > 2.5)) ? 5 : 0}
+Rxor0_1 xor0_1 0 1Meg
+
+* XOR2: sum0 = xor0_1 XOR cin
+BXOR0_2 sum0 0 V={((V(xor0_1) > 2.5) != (V(cin) > 2.5)) ? 5 : 0}
+Rsum0 sum0 0 1Meg
+
+* AND1: and0_1 = a0 AND b0
+BAND0_1 and0_1 0 V={((V(a0) > 2.5) && (V(b0) > 2.5)) ? 5 : 0}
+Rand0_1 and0_1 0 1Meg
+
+* AND2: and0_2 = cin AND xor0_1
+BAND0_2 and0_2 0 V={((V(cin) > 2.5) && (V(xor0_1) > 2.5)) ? 5 : 0}
+Rand0_2 and0_2 0 1Meg
+
+* OR: c0 = and0_1 OR and0_2
+BOR0 c0 0 V={((V(and0_1) > 2.5) || (V(and0_2) > 2.5)) ? 5 : 0}
+Rc0 c0 0 1Meg
+
+* ============================================================================
+* FULL ADDER 1
+* ============================================================================
+* Entradas: a1, b1, c0
+* Saidas:   sum1, c1
+
+* XOR1: xor1_1 = a1 XOR b1
+BXOR1_1 xor1_1 0 V={((V(a1) > 2.5) != (V(b1) > 2.5)) ? 5 : 0}
+Rxor1_1 xor1_1 0 1Meg
+
+* XOR2: sum1 = xor1_1 XOR c0
+BXOR1_2 sum1 0 V={((V(xor1_1) > 2.5) != (V(c0) > 2.5)) ? 5 : 0}
+Rsum1 sum1 0 1Meg
+
+* AND1: and1_1 = a1 AND b1
+BAND1_1 and1_1 0 V={((V(a1) > 2.5) && (V(b1) > 2.5)) ? 5 : 0}
+Rand1_1 and1_1 0 1Meg
+
+* AND2: and1_2 = c0 AND xor1_1
+BAND1_2 and1_2 0 V={((V(c0) > 2.5) && (V(xor1_1) > 2.5)) ? 5 : 0}
+Rand1_2 and1_2 0 1Meg
+
+* OR: c1 = and1_1 OR and1_2
+BOR1 c1 0 V={((V(and1_1) > 2.5) || (V(and1_2) > 2.5)) ? 5 : 0}
+Rc1 c1 0 1Meg
+
+* ============================================================================
+* FULL ADDER 2
+* ============================================================================
+* Entradas: a2, b2, c1
+* Saidas:   sum2, c2
+
+* XOR1: xor2_1 = a2 XOR b2
+BXOR2_1 xor2_1 0 V={((V(a2) > 2.5) != (V(b2) > 2.5)) ? 5 : 0}
+Rxor2_1 xor2_1 0 1Meg
+
+* XOR2: sum2 = xor2_1 XOR c1
+BXOR2_2 sum2 0 V={((V(xor2_1) > 2.5) != (V(c1) > 2.5)) ? 5 : 0}
+Rsum2 sum2 0 1Meg
+
+* AND1: and2_1 = a2 AND b2
+BAND2_1 and2_1 0 V={((V(a2) > 2.5) && (V(b2) > 2.5)) ? 5 : 0}
+Rand2_1 and2_1 0 1Meg
+
+* AND2: and2_2 = c1 AND xor2_1
+BAND2_2 and2_2 0 V={((V(c1) > 2.5) && (V(xor2_1) > 2.5)) ? 5 : 0}
+Rand2_2 and2_2 0 1Meg
+
+* OR: c2 = and2_1 OR and2_2
+BOR2 c2 0 V={((V(and2_1) > 2.5) || (V(and2_2) > 2.5)) ? 5 : 0}
+Rc2 c2 0 1Meg
+
+* ============================================================================
+* FULL ADDER 3 (MSB)
+* ============================================================================
+* Entradas: a3, b3, c2
+* Saidas:   sum3, cout
+
+* XOR1: xor3_1 = a3 XOR b3
+BXOR3_1 xor3_1 0 V={((V(a3) > 2.5) != (V(b3) > 2.5)) ? 5 : 0}
+Rxor3_1 xor3_1 0 1Meg
+
+* XOR2: sum3 = xor3_1 XOR c2
+BXOR3_2 sum3 0 V={((V(xor3_1) > 2.5) != (V(c2) > 2.5)) ? 5 : 0}
+Rsum3 sum3 0 1Meg
+
+* AND1: and3_1 = a3 AND b3
+BAND3_1 and3_1 0 V={((V(a3) > 2.5) && (V(b3) > 2.5)) ? 5 : 0}
+Rand3_1 and3_1 0 1Meg
+
+* AND2: and3_2 = c2 AND xor3_1
+BAND3_2 and3_2 0 V={((V(c2) > 2.5) && (V(xor3_1) > 2.5)) ? 5 : 0}
+Rand3_2 and3_2 0 1Meg
+
+* OR: cout = and3_1 OR and3_2
+BOR3 cout 0 V={((V(and3_1) > 2.5) || (V(and3_2) > 2.5)) ? 5 : 0}
+Rcout cout 0 1Meg
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.1u 80u
+
+* ============================================================================
+* MEDICOES E VERIFICACAO
+* ============================================================================
+* Esperado: A=5, B=3, S=8 (1000 binario), Cout=0
+
+.measure tran sum0_final find v(sum0) at=70u
+.measure tran sum1_final find v(sum1) at=70u
+.measure tran sum2_final find v(sum2) at=70u
+.measure tran sum3_final find v(sum3) at=70u
+.measure tran cout_final find v(cout) at=70u
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plotar entradas A e B
+plot v(a0)+20 v(a1)+15 v(a2)+10 v(a3)+5 v(cin)
++ title "Entradas A[3:0] = 0101 (5 decimal) e Cin" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+plot v(b0)+20 v(b1)+15 v(b2)+10 v(b3)+5
++ title "Entradas B[3:0] = 0011 (3 decimal)" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+* Plotar saidas (soma)
+plot v(sum0)+25 v(sum1)+20 v(sum2)+15 v(sum3)+10 v(cout)+5
++ title "Saidas: S[3:0] = 1000 (8 decimal) e Cout=0" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+* Plotar carries intermediarios
+plot v(cin)+20 v(c0)+15 v(c1)+10 v(c2)+5 v(cout)
++ title "Propagacao dos Carries" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/08_logica_digital/somador_4bits_entradas.csv v(a0) v(a1) v(a2) v(a3) v(b0) v(b1) v(b2) v(b3) v(cin)
+wrdata circuits/08_logica_digital/somador_4bits_saidas.csv v(sum0) v(sum1) v(sum2) v(sum3) v(cout)
+wrdata circuits/08_logica_digital/somador_4bits_carries.csv v(cin) v(c0) v(c1) v(c2) v(cout)
+
+echo ""
+echo "=========================================="
+echo "RESULTADOS DO SOMADOR 4 BITS"
+echo "=========================================="
+echo "Teste 1: 5 + 3 = 8"
+echo ""
+echo "Entradas:"
+echo "  A[3:0] = 0101 (5 decimal)"
+echo "  B[3:0] = 0011 (3 decimal)"
+echo "  Cin    = 0"
+echo ""
+echo "Saidas esperadas:"
+echo "  S[3:0] = 1000 (8 decimal)"
+echo "  Cout   = 0 (sem overflow)"
+echo ""
+echo "Valores medidos (5V = 1, 0V = 0):"
+print sum0_final sum1_final sum2_final sum3_final cout_final
+echo "=========================================="
+echo ""
+
+quit
+.endc
+
+.end

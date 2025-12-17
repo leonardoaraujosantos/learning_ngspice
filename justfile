@@ -267,6 +267,16 @@ exemplo-cmos:
     @echo "=== Exemplo: Portas Logicas CMOS (7 portas) ==="
     just run circuits/07_logica_digital_cmos/portas_logicas_cmos.spice
 
+# Exemplo: somador 4 bits digital
+exemplo-somador:
+    @echo "=== Exemplo: Somador 4 Bits Digital (Portas Ideais) ==="
+    just run circuits/08_logica_digital/somador_4bits_digital.spice
+
+# Exemplo: contador BCD 0-10 digital
+exemplo-contador:
+    @echo "=== Exemplo: Contador BCD 0-10 Digital (Portas Ideais) ==="
+    just run circuits/08_logica_digital/contador_bcd_0_10.spice
+
 # Simula todos os novos osciladores
 exemplo-osciladores-todos:
     @echo "=== Simulando TODOS os osciladores ==="

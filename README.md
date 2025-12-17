@@ -37,8 +37,11 @@ learning_ngspice/
 │   │   ├── mixer_diodo.spice               # Mixer de frequência
 │   │   ├── modulador_am.spice              # AM (3 topologias)
 │   │   └── pll_completo.spice              # Phase-Locked Loop
-│   └── 07_logica_digital_cmos/             # Lógica CMOS (1 circuito)
-│       └── portas_logicas_cmos.spice       # 7 portas (NOT a XNOR)
+│   ├── 07_logica_digital_cmos/             # Lógica CMOS (1 circuito)
+│   │   └── portas_logicas_cmos.spice       # 7 portas (NOT a XNOR)
+│   └── 08_logica_digital/                  # Lógica Digital Comportamental (2 circuitos)
+│       ├── somador_4bits_digital.spice     # Somador 4 bits com portas ideais
+│       └── contador_bcd_0_10.spice         # Contador BCD 0-10 com reset
 ├── docs/
 │   ├── tutorial_spice.md                   # Tutorial completo SPICE
 │   └── circuitikzmanual.pdf                # Manual CircuiTikZ
@@ -257,6 +260,8 @@ pdflatex --version
 | Comando | Descricao |
 |---------|-----------|
 | `just exemplo-cmos` | Portas Lógicas CMOS (7 portas) |
+| `just exemplo-somador` | Somador 4 Bits Digital (portas ideais) |
+| `just exemplo-contador` | Contador BCD 0-10 Digital (portas ideais) |
 
 ### Limpeza
 
@@ -297,7 +302,7 @@ just full circuits/02_filtros/filtro_rc_passa_baixa.spice
 just full-all
 ```
 
-## Conteúdo dos Circuitos (24 circuitos)
+## Conteúdo dos Circuitos (26 circuitos)
 
 ### 00_esquematicos
 
@@ -366,6 +371,15 @@ Circuitos didáticos com teoria explicada nos comentários e uso de subcircuitos
 | Arquivo | Descrição |
 |---------|-----------|
 | `portas_logicas_cmos.spice` | 7 portas lógicas CMOS (NOT, NAND, NOR, AND, OR, XOR, XNOR) |
+
+### 08_logica_digital (2 circuitos)
+
+Circuitos digitais puros usando portas lógicas comportamentais (B-sources).
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `somador_4bits_digital.spice` | Somador binário de 4 bits com full adders (portas XOR, AND, OR) |
+| `contador_bcd_0_10.spice` | Contador BCD com reset automático em 10 (detector de estado + reset) |
 
 ## Scripts
 
