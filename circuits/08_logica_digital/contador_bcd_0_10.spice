@@ -1,0 +1,204 @@
+* ============================================================================
+* CONTADOR BCD 0-10 - Simulacao Digital com Portas Logicas Comportamentais
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* Este circuito implementa um contador binario que demonstra como contar de 0
+* a 10 usando portas logicas comportamentais (B-sources). O contador reseta
+* automaticamente quando atinge 10.
+*
+* OBJETIVO DIDATICO:
+* ------------------
+* Este exemplo mostra como implementar logica digital pura no SPICE usando
+* fontes comportamentais, sem usar MOSFETs. Demonstra:
+*   - Portas logicas AND, OR, NOT, XOR com B-sources
+*   - Detector de estado binario (1010 = 10)
+*   - Geracao de sinais digitais com PWL
+*
+* TOPOLOGIA:
+* ----------
+* - Sinais de entrada simulam um contador crescente
+* - Detector de estado 10 (1010 binario) implementado com portas logicas
+* - Reset automatico quando detecta estado 10
+*
+* CONTAGEM:
+* ---------
+* Estados: 0 -> 1 -> 2 -> 3 -> ... -> 9 -> 10 -> 0 (reset)
+*          0000 -> 0001 -> 0010 -> ... -> 1010 -> 0000
+*
+* DETECTOR DE ESTADO 10:
+* ----------------------
+* 1010 em binario = Q3=1, Q2=0, Q1=1, Q0=0
+* Reset = Q3 AND (NOT Q2) AND Q1 AND (NOT Q0)
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Contador BCD 0-10 - Portas Logicas Comportamentais
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* SINAIS DE ENTRADA - SIMULACAO DE CONTADOR
+* ============================================================================
+* Para demonstracao, vamos criar sinais que mudam ao longo do tempo
+* simulando um contador de 0 a 12 (para mostrar o reset em 10)
+
+* Q0 = bit menos significativo (muda a cada 20us)
+* Sequencia: 0 1 0 1 0 1 0 1 0 1 0 1 ...
+VQ0_IN q0_in 0 PWL(
++ 0u 0  20u 0  20.1u 5  40u 5  40.1u 0  60u 0  60.1u 5  80u 5  80.1u 0
++ 100u 0  100.1u 5  120u 5  120.1u 0  140u 0  140.1u 5  160u 5  160.1u 0
++ 180u 0  180.1u 5  200u 5  200.1u 0  220u 0  220.1u 5  240u 5)
+
+* Q1 = segundo bit (muda a cada 40us)
+* Sequencia: 0 0 1 1 0 0 1 1 ...
+VQ1_IN q1_in 0 PWL(
++ 0u 0  40u 0  40.1u 5  80u 5  80.1u 0  120u 0  120.1u 5  160u 5  160.1u 0
++ 200u 0  200.1u 5  240u 5)
+
+* Q2 = terceiro bit (muda a cada 80us)
+* Sequencia: 0 0 0 0 1 1 1 1 ...
+VQ2_IN q2_in 0 PWL(
++ 0u 0  80u 0  80.1u 5  160u 5  160.1u 0  240u 0)
+
+* Q3 = bit mais significativo (muda a cada 160us)
+* Sequencia: 0 0 0 0 0 0 0 0 1 1 1 1 ...
+VQ3_IN q3_in 0 PWL(
++ 0u 0  160u 0  160.1u 5  240u 5)
+
+* ============================================================================
+* DETECTOR DE ESTADO 10 (1010 binario)
+* ============================================================================
+* Reset = Q3 AND (NOT Q2) AND Q1 AND (NOT Q0)
+*
+* Estado 10: Q3=1 (5V), Q2=0 (0V), Q1=1 (5V), Q0=0 (0V)
+
+* NOT Q2
+BNOT_Q2 q2_n 0 V={V(q2_in) > 2.5 ? 0 : 5}
+Rq2_n q2_n 0 1Meg
+
+* NOT Q0
+BNOT_Q0 q0_n 0 V={V(q0_in) > 2.5 ? 0 : 5}
+Rq0_n q0_n 0 1Meg
+
+* AND(Q3, NOT Q2)
+BAND_STEP1 and_step1 0 V={((V(q3_in) > 2.5) && (V(q2_n) > 2.5)) ? 5 : 0}
+Rand_step1 and_step1 0 1Meg
+
+* AND(Q1, NOT Q0)
+BAND_STEP2 and_step2 0 V={((V(q1_in) > 2.5) && (V(q0_n) > 2.5)) ? 5 : 0}
+Rand_step2 and_step2 0 1Meg
+
+* AND final: and_step1 AND and_step2
+BAND_RESET reset_signal 0 V={((V(and_step1) > 2.5) && (V(and_step2) > 2.5)) ? 5 : 0}
+Rreset_signal reset_signal 0 1Meg
+
+* ============================================================================
+* SAIDAS DO CONTADOR (COM RESET)
+* ============================================================================
+* Quando reset=1, todas as saidas vao para 0
+* Caso contrario, saidas = entradas
+
+* Q0 com reset
+BQ0 q0 0 V={V(reset_signal) > 2.5 ? 0 : V(q0_in)}
+Rq0 q0 0 1Meg
+
+* Q1 com reset
+BQ1 q1 0 V={V(reset_signal) > 2.5 ? 0 : V(q1_in)}
+Rq1 q1 0 1Meg
+
+* Q2 com reset
+BQ2 q2 0 V={V(reset_signal) > 2.5 ? 0 : V(q2_in)}
+Rq2 q2 0 1Meg
+
+* Q3 com reset
+BQ3 q3 0 V={V(reset_signal) > 2.5 ? 0 : V(q3_in)}
+Rq3 q3 0 1Meg
+
+* ============================================================================
+* EXEMPLOS DE OUTRAS PORTAS LOGICAS
+* ============================================================================
+
+* AND(Q0, Q1) - exemplo de porta AND
+BAND_EXAMPLE and_example 0 V={((V(q0) > 2.5) && (V(q1) > 2.5)) ? 5 : 0}
+Rand_example and_example 0 1Meg
+
+* OR(Q0, Q1) - exemplo de porta OR
+BOR_EXAMPLE or_example 0 V={((V(q0) > 2.5) || (V(q1) > 2.5)) ? 5 : 0}
+Ror_example or_example 0 1Meg
+
+* XOR(Q0, Q1) - exemplo de porta XOR
+BXOR_EXAMPLE xor_example 0 V={((V(q0) > 2.5) != (V(q1) > 2.5)) ? 5 : 0}
+Rxor_example xor_example 0 1Meg
+
+* NAND(Q0, Q1) - exemplo de porta NAND
+BNAND_EXAMPLE nand_example 0 V={((V(q0) > 2.5) && (V(q1) > 2.5)) ? 0 : 5}
+Rnand_example nand_example 0 1Meg
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.1u 250u
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot das entradas originais (antes do reset)
+plot v(q0_in)+20 v(q1_in)+15 v(q2_in)+10 v(q3_in)+5
++ title "Sinais de Entrada (simulando contador)" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+* Plot das saidas com reset aplicado
+plot v(q0)+20 v(q1)+15 v(q2)+10 v(q3)+5 v(reset_signal)
++ title "Saidas do Contador com Reset em 10" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+* Plot do valor decimal
+let valor_decimal = v(q0)/5 + 2*v(q1)/5 + 4*v(q2)/5 + 8*v(q3)/5
+plot valor_decimal
++ title "Valor Decimal do Contador (0-10 com reset)" xlabel "Tempo (us)" ylabel "Valor"
+
+* Plot das portas logicas exemplo
+plot v(and_example)+15 v(or_example)+10 v(xor_example)+5 v(nand_example)
++ title "Exemplos de Portas Logicas (AND, OR, XOR, NAND)" xlabel "Tempo (us)" ylabel "Voltagem (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/08_logica_digital/contador_bcd_0_10.csv v(q0) v(q1) v(q2) v(q3) v(reset_signal) valor_decimal
+wrdata circuits/08_logica_digital/contador_portas_exemplo.csv v(and_example) v(or_example) v(xor_example) v(nand_example)
+
+echo ""
+echo "=========================================="
+echo "CONTADOR BCD 0-10"
+echo "=========================================="
+echo "Este exemplo demonstra:"
+echo "  - Implementacao de portas logicas com B-sources"
+echo "  - Detector de estado binario (1010 = 10)"
+echo "  - Reset automatico usando logica combinacional"
+echo ""
+echo "Sequencia de contagem:"
+echo "  0 (0000) -> 1 (0001) -> 2 (0010) -> 3 (0011)"
+echo "  4 (0100) -> 5 (0101) -> 6 (0110) -> 7 (0111)"
+echo "  8 (1000) -> 9 (1001) -> 10 (1010) -> RESET -> 0"
+echo ""
+echo "Quando o contador atinge 10 (1010 binario),"
+echo "o detector de reset ativa e zera todas as saidas."
+echo "=========================================="
+echo ""
+
+* Mostrar valores em diferentes tempos
+print valor_decimal[at=30u] valor_decimal[at=70u] valor_decimal[at=110u] valor_decimal[at=150u] valor_decimal[at=190u] valor_decimal[at=210u]
+
+quit
+.endc
+
+.end
