@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spice_to_schematic.py - Converte arquivos SPICE em esquematicos PNG usando lcapy
+spice_to_schematic.py - Converte arquivos SPICE em esquematicos PNG usando circuitikz
 
 Uso:
     python scripts/spice_to_schematic.py circuito.spice
@@ -8,7 +8,7 @@ Uso:
     python scripts/spice_to_schematic.py circuits/  # processa todos
 
 Requer:
-    pip install lcapy
+    LaTeX com circuitikz
 
 Componentes suportados:
     R  - Resistor
@@ -27,15 +27,10 @@ import os
 import re
 import glob
 import argparse
+import tempfile
+import subprocess
+from pathlib import Path
 from collections import defaultdict
-
-try:
-    from lcapy import Circuit
-    LCAPY_AVAILABLE = True
-except ImportError:
-    LCAPY_AVAILABLE = False
-    print("Aviso: lcapy nao encontrado. Instale com: pip install lcapy")
-    print("       Tambem precisa de LaTeX com circuitikz instalado.")
 
 
 # =============================================================================
@@ -56,6 +51,60 @@ class SpiceComponent:
         return f"{self.comp_type}:{self.name}({self.nodes}) = {self.value or self.model}"
 
 
+class SubcircuitDefinition:
+    """Define um subcircuito com pinos e componentes."""
+
+    def __init__(self, name, pins):
+        self.name = name
+        self.pins = [normalize_node(p) for p in pins]
+        self.components = []
+        self.instances = []
+
+
+class SubcircuitInstance:
+    """Instancia de subcircuito (.SUBCKT)."""
+
+    def __init__(self, name, subckt, nodes):
+        self.name = name
+        self.subckt = subckt
+        self.nodes = nodes
+
+
+def expand_subcircuit(instance, subckt_defs, depth=0):
+    """Expande uma instancia em componentes planos."""
+    if depth > 8:
+        return []
+    if instance.subckt not in subckt_defs:
+        return []
+
+    sub = subckt_defs[instance.subckt]
+    pin_map = {}
+    for pin, node in zip(sub.pins, instance.nodes):
+        pin_map[pin] = normalize_node(node)
+
+    flattened = []
+    prefix = instance.name
+
+    def map_node(n):
+        nn = normalize_node(n)
+        if nn == '0':
+            return '0'
+        if nn in pin_map:
+            return pin_map[nn]
+        return f"{prefix}_{nn}"
+
+    for comp in sub.components:
+        mapped = [map_node(n) for n in comp.nodes]
+        flattened.append(SpiceComponent(f"{prefix}_{comp.name}", comp.comp_type, mapped, comp.value, comp.model))
+
+    for inst in sub.instances:
+        mapped_nodes = [map_node(n) for n in inst.nodes]
+        flat = expand_subcircuit(SubcircuitInstance(f"{prefix}_{inst.name}", inst.subckt, mapped_nodes), subckt_defs, depth + 1)
+        flattened.extend(flat)
+
+    return flattened
+
+
 def parse_value(value_str):
     """Converte string de valor SPICE para formato legivel."""
     if not value_str:
@@ -70,7 +119,9 @@ def parse_spice_file(filepath):
     """Parseia arquivo SPICE e retorna lista de componentes."""
     components = []
     title = ""
-    in_subckt = False
+    current_subckt = None
+    subckt_defs = {}
+    instances = []
     in_control = False
 
     with open(filepath, 'r') as f:
@@ -112,10 +163,15 @@ def parse_spice_file(filepath):
         line_upper = line.upper()
 
         if line_upper.startswith('.SUBCKT'):
-            in_subckt = True
+            parts = line.split()
+            if len(parts) >= 2:
+                name = parts[1]
+                pins = parts[2:]
+                subckt_defs[name] = SubcircuitDefinition(name, pins)
+                current_subckt = name
             continue
         if line_upper.startswith('.ENDS'):
-            in_subckt = False
+            current_subckt = None
             continue
         if line_upper.startswith('.CONTROL'):
             in_control = True
@@ -124,7 +180,7 @@ def parse_spice_file(filepath):
             in_control = False
             continue
 
-        if line.startswith('.') or in_subckt or in_control:
+        if line.startswith('.') or current_subckt is not None and line_upper.startswith('.ENDS') or in_control:
             continue
 
         parts = line.split()
@@ -134,34 +190,36 @@ def parse_spice_file(filepath):
         name = parts[0].upper()
         comp_type = name[0]
 
+        target = components if current_subckt is None else subckt_defs[current_subckt].components
+
         try:
             if comp_type in ['R', 'C', 'L']:
                 nodes = [parts[1], parts[2]]
                 value = parse_value(parts[3]) if len(parts) > 3 else ""
-                components.append(SpiceComponent(name, comp_type, nodes, value))
+                target.append(SpiceComponent(name, comp_type, nodes, value))
 
             elif comp_type == 'D':
                 nodes = [parts[1], parts[2]]
                 model = parts[3] if len(parts) > 3 else ""
-                components.append(SpiceComponent(name, 'D', nodes, model=model))
+                target.append(SpiceComponent(name, 'D', nodes, model=model))
 
             elif comp_type == 'Q':
                 if len(parts) >= 5:
                     nodes = [parts[1], parts[2], parts[3]]  # C, B, E
                     model = parts[4]
-                    components.append(SpiceComponent(name, 'Q', nodes, model=model))
+                    target.append(SpiceComponent(name, 'Q', nodes, model=model))
 
             elif comp_type == 'M':
                 if len(parts) >= 6:
                     nodes = [parts[1], parts[2], parts[3], parts[4]]  # D, G, S, B
                     model = parts[5]
-                    components.append(SpiceComponent(name, 'M', nodes, model=model))
+                    target.append(SpiceComponent(name, 'M', nodes, model=model))
 
             elif comp_type == 'J':
                 if len(parts) >= 5:
                     nodes = [parts[1], parts[2], parts[3]]  # D, G, S
                     model = parts[4]
-                    components.append(SpiceComponent(name, 'J', nodes, model=model))
+                    target.append(SpiceComponent(name, 'J', nodes, model=model))
 
             elif comp_type == 'V':
                 nodes = [parts[1], parts[2]]
@@ -172,7 +230,7 @@ def parse_spice_file(filepath):
                     value = parse_value(dc_match.group(1))
                 elif len(parts) > 3 and parts[3].upper() not in ['AC', 'PULSE', 'SIN', 'PWL', 'EXP']:
                     value = parse_value(parts[3])
-                components.append(SpiceComponent(name, 'V', nodes, value))
+                target.append(SpiceComponent(name, 'V', nodes, value))
 
             elif comp_type == 'I':
                 nodes = [parts[1], parts[2]]
@@ -183,20 +241,32 @@ def parse_spice_file(filepath):
                     value = parse_value(dc_match.group(1))
                 elif len(parts) > 3 and parts[3].upper() not in ['AC', 'PULSE', 'SIN', 'PWL']:
                     value = parse_value(parts[3])
-                components.append(SpiceComponent(name, 'I', nodes, value))
+                target.append(SpiceComponent(name, 'I', nodes, value))
+
+            elif comp_type == 'X' and len(parts) >= 3:
+                subckt_name = parts[-1]
+                node_list = parts[1:-1]
+                inst = SubcircuitInstance(name, subckt_name, node_list)
+                if current_subckt:
+                    subckt_defs[current_subckt].instances.append(inst)
+                else:
+                    instances.append(inst)
 
         except (IndexError, ValueError):
             continue
+
+    for inst in instances:
+        components.extend(expand_subcircuit(inst, subckt_defs))
 
     return components, title
 
 
 # =============================================================================
-# CONVERSAO PARA LCAPY
+# CONVERSAO PARA NETLIST INTERNO
 # =============================================================================
 
 def normalize_node(node):
-    """Normaliza nome de no para lcapy."""
+    """Normaliza nome de no para netlist interno."""
     node = str(node).lower().strip()
     # Substituir 0 por 0 (terra)
     if node == '0' or node == 'gnd':
@@ -209,9 +279,29 @@ def normalize_node(node):
     return node
 
 
-def create_lcapy_netlist(components, title):
+def _safe_id(text):
+    """Gera um identificador seguro para TikZ."""
+    return re.sub(r'[^a-zA-Z0-9]+', '_', str(text))
+
+
+def _component_label(comp):
+    if comp.value:
+        return comp.value
+    if comp.model:
+        return comp.model
+    return comp.name
+
+
+def _label_attr(text):
+    if not text:
+        return ""
+    safe = str(text).replace('_', '\\_')
+    return f",l=${safe}$"
+
+
+def create_netlist(components, title):
     """
-    Cria netlist no formato lcapy com layout correto.
+    Cria netlist interno para debug.
 
     Nova estrategia:
     - Detectar componentes paralelos e usar wires para separa-los
@@ -221,9 +311,15 @@ def create_lcapy_netlist(components, title):
     if not components:
         return ""
 
+    # Caso especial: 1 fonte de tensao + resistores -> layout manual
+    if _is_simple_voltage_fan(components):
+        net = _create_netlist_simple_fan(components)
+        if net:
+            return net
+
     lines = []
 
-    # Mapear nos para formato lcapy
+    # Mapear nos para netlist interno
     node_map = {'0': '0', 'gnd': '0'}
     node_counter = 1
 
@@ -271,7 +367,7 @@ def create_lcapy_netlist(components, title):
                     parallel_node_map[comp.name] = (n2, aux_node, n1)
                     aux_counter += 1
 
-    # Gerar componentes lcapy
+    # Gerar componentes
     wires_needed = []
 
     for comp in components:
@@ -372,7 +468,7 @@ def create_lcapy_netlist(components, title):
                 s = node_map.get(normalize_node(comp.nodes[2]), '0')
 
                 is_njf = 'PJF' not in (comp.model or '').upper()
-                kind = 'njf' if is_njf else 'pjf'
+                kind = 'njfet' if is_njf else 'pjfet'
 
                 lines.append(f"J{comp.name[1:]} {d} {g} {s}; {kind}")
 
@@ -386,39 +482,486 @@ def create_lcapy_netlist(components, title):
     return '\n'.join(lines)
 
 
-def create_schematic_lcapy(components, title, output_path):
-    """Cria esquematico usando lcapy."""
-    if not LCAPY_AVAILABLE:
-        print("  Erro: lcapy nao disponivel")
+def _is_simple_voltage_fan(components):
+    """Detecta 1 fonte de tensao + resistores com ground presente."""
+    vs = [c for c in components if c.comp_type == 'V']
+    if len(vs) != 1:
+        return False
+    if any(c.comp_type not in ('V', 'R') for c in components):
+        return False
+    nodes = [normalize_node(n) for n in vs[0].nodes]
+    return '0' in nodes
+
+
+def _create_netlist_simple_fan(components):
+    """Layout manual estilo tutorial para um fan de resistores."""
+    v = next(c for c in components if c.comp_type == 'V')
+    n1, n0 = normalize_node(v.nodes[0]), normalize_node(v.nodes[1])
+    hub, gnd = (n1, n0) if n0 == '0' else (n0, n1)
+    if gnd != '0':
         return None
 
-    netlist = create_lcapy_netlist(components, title)
+    resistors = [c for c in components if c.comp_type == 'R']
+    adj = defaultdict(list)
+    for r in resistors:
+        a, b = normalize_node(r.nodes[0]), normalize_node(r.nodes[1])
+        adj[a].append((r, b))
+        adj[b].append((r, a))
 
-    if not netlist:
-        print("  Erro: netlist vazio")
+    used = set()
+    branches = []
+
+    def build_branch(res, other):
+        chain = [res]
+        used.add(res.name)
+        prev = hub
+        curr = other
+        while True:
+            next_r = None
+            for r, nxt in adj[curr]:
+                if r.name in used or nxt == prev:
+                    continue
+                next_r = (r, nxt)
+                break
+            if not next_r:
+                break
+            r, nxt = next_r
+            chain.append(r)
+            used.add(r.name)
+            prev, curr = curr, nxt
+        return chain, curr
+
+    for r in resistors:
+        if r.name in used:
+            continue
+        a, b = normalize_node(r.nodes[0]), normalize_node(r.nodes[1])
+        if hub not in (a, b):
+            continue
+        other = b if a == hub else a
+        chain, end_node = build_branch(r, other)
+        branches.append((chain, end_node))
+
+    lines = []
+    lines.append(f"V{v.name[1:]} {hub} 0; down")
+    dir_cycle = ['right', 'up', 'down', 'left']
+
+    for idx, (chain, end_node) in enumerate(branches):
+        branch_node = f"{hub}_b{idx}"
+        direction = dir_cycle[idx % len(dir_cycle)]
+        lines.append(f"W {hub} {branch_node}; {direction}")
+        current = branch_node
+        for j, r in enumerate(chain):
+            is_last = (j == len(chain) - 1)
+            end_norm = normalize_node(end_node)
+            dest = '0' if is_last and end_norm == '0' else f"{branch_node}_n{j}"
+            orient = 'down' if is_last and end_norm == '0' else 'right'
+            val = r.value or ""
+            lines.append(f"R{r.name[1:]} {current} {dest} {val}; {orient}")
+            current = dest
+        if normalize_node(end_node) == '0':
+            lines.append(f"W {current} 0; down")
+
+    lines.append("; draw_nodes=connections, label_nodes=none")
+    return "\n".join(lines)
+
+
+def _extract_fan_branches(components):
+    """Extrai hub, resistores em ramos, e valor da fonte (sem linearizar ramos)."""
+    v = next(c for c in components if c.comp_type == 'V')
+    v_value = v.value or v.name
+    n1, n0 = normalize_node(v.nodes[0]), normalize_node(v.nodes[1])
+    hub, gnd = (n1, n0) if n0 == '0' else (n0, n1)
+    resistors = [c for c in components if c.comp_type == 'R']
+
+    adj = defaultdict(list)
+    for r in resistors:
+        a, b = normalize_node(r.nodes[0]), normalize_node(r.nodes[1])
+        adj[a].append((r, b))
+        adj[b].append((r, a))
+
+    used = set()
+    branches = []
+
+    for r in resistors:
+        if r.name in used:
+            continue
+        a, b = normalize_node(r.nodes[0]), normalize_node(r.nodes[1])
+        if hub not in (a, b):
+            continue
+        other = b if a == hub else a
+        chain = [r]
+        used.add(r.name)
+
+        prev = hub
+        curr = other
+        while True:
+            if curr == '0':
+                break
+            next_r = None
+            for rr, nxt in adj[curr]:
+                if rr.name in used or nxt == prev:
+                    continue
+                next_r = (rr, nxt)
+                break
+            if not next_r:
+                break
+            rr, nxt = next_r
+            chain.append(rr)
+            used.add(rr.name)
+            prev, curr = curr, nxt
+
+        branches.append((chain, curr))
+
+    return hub, gnd, v_value, branches
+
+
+def _circuitikz_simple_fan(components, title):
+    """Gera codigo circuitikz para um fan simples."""
+    hub, gnd, vval, branches = _extract_fan_branches(components)
+
+    lines = []
+    lines.append("\\begin{circuitikz}[american voltages]")
+    # Coordenadas
+    lines.append("\\coordinate (hub) at (0,0);")
+    lines.append("\\coordinate (gnd) at (0,-3);")
+    lines.append(f"\\draw (hub) to[V,l=${vval}$, invert] (gnd);")
+
+    # Posicoes fixas para ramos: direita, cima, esquerda, baixo
+    dir_vectors = [(3, 0), (0, 3), (-3, 0), (0, -3)]
+
+    for idx, (chain, end_node) in enumerate(branches):
+        dx, dy = dir_vectors[idx % len(dir_vectors)]
+        start = f"b{idx}_0"
+        lines.append(f"\\draw (hub) to[short] ++({dx},{dy}) coordinate ({start});")
+        current = start
+        for j, r in enumerate(chain):
+            is_last = (j == len(chain) - 1)
+            end_norm = normalize_node(end_node)
+            val = r.value or r.name
+
+            if dx != 0:
+                step_x, step_y = (2 if dx > 0 else -2), 0
+            else:
+                step_x, step_y = 0, (2 if dy > 0 else -2)
+
+            if is_last and end_norm == '0':
+                lines.append(f"\\draw ({current}) to[R,l=${val}$] ++({step_x},{step_y}) to[short] ++(0,-2) node[ground]{{}};")
+            else:
+                nxt = f"b{idx}_{j+1}"
+                lines.append(f"\\draw ({current}) to[R,l=${val}$] ++({step_x},{step_y}) coordinate ({nxt});")
+                current = nxt
+
+    lines.append("\\end{circuitikz}")
+    return "\n".join(lines)
+
+
+def _circuitikz_generic(components, title):
+    """Gera circuito circuitikz com layout simples em grade."""
+    bipoles = {'R', 'C', 'L', 'V', 'I', 'D'}
+    nodes = set()
+    for comp in components:
+        for node in comp.nodes[:4]:
+            n = normalize_node(node)
+            if n != '0':
+                nodes.add(n)
+    if not nodes:
         return None
 
-    try:
-        cct = Circuit(netlist)
-        cct.draw(output_path, draw_nodes='connections', label_ids=False, label_nodes='none')
-        return output_path
-    except Exception as e:
-        error_msg = str(e)
-        # Se for erro de pdflatex, avisar especificamente
-        if "pdflatex" in error_msg.lower():
-            print(f"  Aviso: pdflatex nao instalado ou nao disponivel")
-            print(f"  Instale LaTeX: sudo apt install texlive-latex-base texlive-pictures")
-            print(f"  Usando fallback matplotlib...")
-            return None
-        # Se for erro de loop no grafico (circuito muito complexo), usar fallback
-        if "loop" in error_msg.lower() or "graph" in error_msg.lower() or "size violation" in error_msg.lower():
-            print(f"  Aviso lcapy: Circuito muito complexo para layout automatico")
-            print(f"  Usando fallback matplotlib...")
-            return None
-        # Outros erros
-        print(f"  Erro lcapy: {e}")
-        print(f"  Netlist gerado:\n{netlist}")
-        return None
+    nodes = sorted(nodes)
+    node_ids = {n: f"n{idx}" for idx, n in enumerate(nodes)}
+
+    # Grafo para BFS (sem ground)
+    adj = defaultdict(set)
+    for comp in components:
+        if comp.comp_type in bipoles and len(comp.nodes) >= 2:
+            a = normalize_node(comp.nodes[0])
+            b = normalize_node(comp.nodes[1])
+            if a != '0' and b != '0':
+                adj[a].add(b)
+                adj[b].add(a)
+        elif comp.comp_type in ('Q', 'M', 'J') and len(comp.nodes) >= 3:
+            pins = [normalize_node(n) for n in comp.nodes[:4] if normalize_node(n) != '0']
+            if len(pins) >= 2:
+                hub = pins[0]
+                for other in pins[1:]:
+                    adj[hub].add(other)
+                    adj[other].add(hub)
+
+    # Componentes desconectados (ignora ground como ligacao)
+    components_nodes = []
+    visited = set()
+    for n in nodes:
+        if n in visited:
+            continue
+        stack = [n]
+        group = set()
+        while stack:
+            cur = stack.pop()
+            if cur in group:
+                continue
+            group.add(cur)
+            for nxt in adj[cur]:
+                if nxt not in group:
+                    stack.append(nxt)
+        visited |= group
+        components_nodes.append(group)
+
+    def choose_ref(group):
+        for comp in components:
+            if comp.comp_type not in ('V', 'I') or len(comp.nodes) < 2:
+                continue
+            n1 = normalize_node(comp.nodes[0])
+            n2 = normalize_node(comp.nodes[1])
+            if n1 in group and n2 == '0':
+                return n1
+            if n2 in group and n1 == '0':
+                return n2
+        degrees = {n: len(adj[n]) for n in group}
+        return max(group, key=lambda n: (degrees.get(n, 0), n))
+
+    def layout_group(group):
+        ref = choose_ref(group)
+        level = {ref: 0}
+        queue = [ref]
+        while queue:
+            cur = queue.pop(0)
+            for nxt in adj[cur]:
+                if nxt in group and nxt not in level:
+                    level[nxt] = level[cur] + 1
+                    queue.append(nxt)
+
+        max_level = max(level.values()) if level else 0
+        for n in group:
+            if n not in level:
+                max_level += 1
+                level[n] = max_level
+
+        by_level = defaultdict(list)
+        for n, lvl in level.items():
+            by_level[lvl].append(n)
+
+        order = {}
+        for lvl, group_nodes in by_level.items():
+            order[lvl] = sorted(group_nodes)
+
+        max_lvl = max(order.keys()) if order else 0
+        for _ in range(2):
+            for lvl in range(1, max_lvl + 1):
+                prev = order.get(lvl - 1, [])
+                prev_idx = {n: i for i, n in enumerate(prev)}
+
+                def key_prev(n):
+                    indices = [prev_idx[p] for p in adj[n] if p in prev_idx]
+                    return sum(indices) / len(indices) if indices else len(prev) / 2
+
+                order[lvl].sort(key=key_prev)
+
+            for lvl in range(max_lvl - 1, -1, -1):
+                nxt = order.get(lvl + 1, [])
+                nxt_idx = {n: i for i, n in enumerate(nxt)}
+
+                def key_next(n):
+                    indices = [nxt_idx[p] for p in adj[n] if p in nxt_idx]
+                    return sum(indices) / len(indices) if indices else len(nxt) / 2
+
+                order[lvl].sort(key=key_next)
+
+        coords_local = {}
+        dx, dy = 6, 4
+        for lvl in sorted(order.keys()):
+            group_nodes = order[lvl]
+            total = len(group_nodes)
+            for i, n in enumerate(group_nodes):
+                y = (i - (total - 1) / 2) * dy
+                x = lvl * dx
+                coords_local[n] = (x, y)
+        return coords_local
+
+    # Posicionar grupos em grade
+    coords = {}
+    cursor_x = 0
+    cursor_y = 0
+    row_height = 0
+    max_row_width = 36
+    margin = 6
+
+    for group in components_nodes:
+        local = layout_group(group)
+        xs = [v[0] for v in local.values()]
+        ys = [v[1] for v in local.values()]
+        minx, maxx = min(xs), max(xs)
+        miny, maxy = min(ys), max(ys)
+        width = maxx - minx if xs else 0
+        height = maxy - miny if ys else 0
+
+        if cursor_x + width > max_row_width and cursor_x > 0:
+            cursor_x = 0
+            cursor_y -= (row_height + margin)
+            row_height = 0
+
+        for n, (x, y) in local.items():
+            coords[n] = (x - minx + cursor_x, y - miny + cursor_y)
+
+        cursor_x += width + margin
+        row_height = max(row_height, height)
+
+    lines = []
+    lines.append("\\begin{circuitikz}[american voltages]")
+    for n, (x, y) in coords.items():
+        lines.append(f"\\coordinate ({node_ids[n]}) at ({x},{y});")
+
+    # Offsets para componentes em ground
+    ground_groups = defaultdict(list)
+    for comp in components:
+        if comp.comp_type in bipoles and len(comp.nodes) >= 2:
+            n1 = normalize_node(comp.nodes[0])
+            n2 = normalize_node(comp.nodes[1])
+            if (n1 == '0') ^ (n2 == '0'):
+                other = n2 if n1 == '0' else n1
+                if other in node_ids:
+                    ground_groups[other].append(comp)
+
+    ground_offsets = {}
+    ground_spacing = 2.5
+    for node, comps in ground_groups.items():
+        total = len(comps)
+        start = -(total - 1) / 2
+        for idx, comp in enumerate(comps):
+            ground_offsets[comp.name] = (start + idx) * ground_spacing
+
+    def draw_ground_bipole(comp, node):
+        comp_id = _safe_id(comp.name)
+        offset = ground_offsets.get(comp.name, 0)
+        base = node_ids[node]
+        label = _component_label(comp)
+        label_attr = _label_attr(label)
+        kind = comp.comp_type
+        if offset:
+            anchor = f"{comp_id}_gnd"
+            lines.append(f"\\draw ({base}) to[short] ++({offset},0) coordinate ({anchor});")
+            start = anchor
+        else:
+            start = base
+        lines.append(f"\\draw ({start}) to[{kind}{label_attr}] ++(0,-2.5) node[ground]{{}};")
+
+    # Desenhar bipolos
+    for comp in components:
+        if comp.comp_type not in bipoles or len(comp.nodes) < 2:
+            continue
+
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        if (n1 == '0') ^ (n2 == '0'):
+            other = n2 if n1 == '0' else n1
+            if other in node_ids:
+                draw_ground_bipole(comp, other)
+            continue
+
+        if n1 not in node_ids or n2 not in node_ids:
+            continue
+
+        id1 = node_ids[n1]
+        id2 = node_ids[n2]
+        label = _component_label(comp)
+        label_attr = _label_attr(label)
+        kind = comp.comp_type
+
+        x1, y1 = coords.get(n1, (0, 0))
+        x2, y2 = coords.get(n2, (0, 0))
+        aligned = (x1 == x2) or (y1 == y2)
+        if aligned:
+            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({id2});")
+            continue
+
+        if abs(x2 - x1) >= abs(y2 - y1):
+            bend = (x2, y1)
+            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bend[0]},{bend[1]}) to[short] ({id2});")
+        else:
+            bend = (x1, y2)
+            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bend[0]},{bend[1]}) to[short] ({id2});")
+
+    # BJTs
+    for comp in components:
+        if comp.comp_type != 'Q' or len(comp.nodes) < 3:
+            continue
+        c = normalize_node(comp.nodes[0])
+        b = normalize_node(comp.nodes[1])
+        e = normalize_node(comp.nodes[2])
+        kind = 'pnp' if 'PNP' in (comp.model or '').upper() else 'npn'
+        comp_id = _safe_id(comp.name)
+
+        pins = [n for n in (c, b, e) if n in coords]
+        if not pins:
+            continue
+        cx = sum(coords[n][0] for n in pins) / len(pins)
+        cy = sum(coords[n][1] for n in pins) / len(pins)
+
+        lines.append(f"\\node[{kind}] ({comp_id}) at ({cx},{cy}) {{}};")
+        if c in node_ids:
+            lines.append(f"\\draw ({comp_id}.C) -- ({node_ids[c]});")
+        if b in node_ids:
+            lines.append(f"\\draw ({comp_id}.B) -- ({node_ids[b]});")
+        if e in node_ids:
+            lines.append(f"\\draw ({comp_id}.E) -- ({node_ids[e]});")
+        elif e == '0':
+            lines.append(f"\\draw ({comp_id}.E) -- ++(0,-2) node[ground]{{}};")
+
+    # MOSFETs
+    for comp in components:
+        if comp.comp_type != 'M' or len(comp.nodes) < 3:
+            continue
+        d = normalize_node(comp.nodes[0])
+        g = normalize_node(comp.nodes[1])
+        s = normalize_node(comp.nodes[2])
+        is_p = 'PMOS' in (comp.model or '').upper()
+        kind = 'pfet' if is_p else 'nfet'
+        comp_id = _safe_id(comp.name)
+
+        pins = [n for n in (d, g, s) if n in coords]
+        if not pins:
+            continue
+        cx = sum(coords[n][0] for n in pins) / len(pins)
+        cy = sum(coords[n][1] for n in pins) / len(pins)
+
+        lines.append(f"\\node[{kind}] ({comp_id}) at ({cx},{cy}) {{}};")
+        if d in node_ids:
+            lines.append(f"\\draw ({comp_id}.D) -- ({node_ids[d]});")
+        if g in node_ids:
+            lines.append(f"\\draw ({comp_id}.G) -- ({node_ids[g]});")
+        if s in node_ids:
+            lines.append(f"\\draw ({comp_id}.S) -- ({node_ids[s]});")
+        elif s == '0':
+            lines.append(f"\\draw ({comp_id}.S) -- ++(0,-2) node[ground]{{}};")
+
+    # JFETs
+    for comp in components:
+        if comp.comp_type != 'J' or len(comp.nodes) < 3:
+            continue
+        d = normalize_node(comp.nodes[0])
+        g = normalize_node(comp.nodes[1])
+        s = normalize_node(comp.nodes[2])
+        is_p = 'PJF' in (comp.model or '').upper()
+        kind = 'pjfet' if is_p else 'njfet'
+        comp_id = _safe_id(comp.name)
+
+        pins = [n for n in (d, g, s) if n in coords]
+        if not pins:
+            continue
+        cx = sum(coords[n][0] for n in pins) / len(pins)
+        cy = sum(coords[n][1] for n in pins) / len(pins)
+
+        lines.append(f"\\node[{kind}] ({comp_id}) at ({cx},{cy}) {{}};")
+        if d in node_ids:
+            lines.append(f"\\draw ({comp_id}.D) -- ({node_ids[d]});")
+        if g in node_ids:
+            lines.append(f"\\draw ({comp_id}.G) -- ({node_ids[g]});")
+        if s in node_ids:
+            lines.append(f"\\draw ({comp_id}.S) -- ({node_ids[s]});")
+        elif s == '0':
+            lines.append(f"\\draw ({comp_id}.S) -- ++(0,-2) node[ground]{{}};")
+
+    lines.append("\\end{circuitikz}")
+    return "\n".join(lines)
 
 
 def create_schematic_matplotlib(components, title, output_path):
@@ -460,7 +1003,7 @@ def create_schematic_matplotlib(components, title, output_path):
     ax.set_xlim(0, n_cols * 3)
     ax.set_ylim(0, n_rows * 2 + 1)
 
-    ax.text(0.02, 0.02, f"Componentes: {len(components)}\n(Instale lcapy para esquematicos melhores)",
+    ax.text(0.02, 0.02, f"Componentes: {len(components)}\n(Use LaTeX+circuitikz para esquematicos melhores)",
            transform=ax.transAxes, fontsize=8, va='bottom',
            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
@@ -472,12 +1015,58 @@ def create_schematic_matplotlib(components, title, output_path):
 
 
 def create_schematic(components, title, output_path):
-    """Cria esquematico usando lcapy ou fallback."""
-    if LCAPY_AVAILABLE:
-        result = create_schematic_lcapy(components, title, output_path)
-        if result:
-            return result
+    """Cria esquematico usando circuitikz (LaTeX) ou fallback matplotlib."""
+    result = create_schematic_circuitikz(components, title, output_path)
+    if result:
+        return result
     return create_schematic_matplotlib(components, title, output_path)
+
+
+def run_cmd(cmd, cwd):
+    proc = subprocess.run(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+def create_schematic_circuitikz(components, title, output_path):
+    """Gera circuito usando circuitikz + pdflatex."""
+    if not components:
+        return None
+
+    if _is_simple_voltage_fan(components):
+        tex_body = _circuitikz_simple_fan(components, title)
+    else:
+        tex_body = _circuitikz_generic(components, title)
+
+    if not tex_body:
+        return None
+
+    output_path = Path(output_path)
+    pdf_dir = Path(tempfile.mkdtemp(prefix="ckt_", dir=Path.cwd()))
+    tex_path = pdf_dir / "circuit.tex"
+    pdf_path = pdf_dir / "circuit.pdf"
+
+    tex_content = r"""\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\begin{document}
+%s
+\end{document}
+""" % tex_body
+
+    tex_path.write_text(tex_content)
+
+    code, out, err = run_cmd("pdflatex -interaction=nonstopmode -halt-on-error circuit.tex", cwd=pdf_dir)
+    if code != 0 or not pdf_path.exists():
+        return None
+
+    # Converter para PNG
+    code, out, err = run_cmd(f"pdftocairo -png -singlefile circuit.pdf {pdf_path.with_suffix('').as_posix()}", cwd=pdf_dir)
+    if code != 0:
+        return None
+
+    png_generated = pdf_path.with_suffix('.png')
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    png_generated.replace(output_path)
+    return str(output_path)
 
 
 # =============================================================================
@@ -503,16 +1092,13 @@ def main():
     parser = argparse.ArgumentParser(
         description='Converte arquivos SPICE em esquematicos PNG',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+    epilog="""
 Exemplos:
   python spice_to_schematic.py circuito.spice
   python spice_to_schematic.py circuito.spice -o esquematico.png
   python spice_to_schematic.py circuits/
 
-Requer lcapy para esquematicos de alta qualidade:
-  pip install lcapy
-
-Tambem precisa de LaTeX com circuitikz:
+Requer LaTeX com circuitikz:
   macOS: brew install --cask mactex
   Ubuntu: sudo apt install texlive-pictures texlive-latex-extra
         """
@@ -521,18 +1107,9 @@ Tambem precisa de LaTeX com circuitikz:
     parser.add_argument('input', help='Arquivo SPICE ou diretorio')
     parser.add_argument('-o', '--output', help='Arquivo de saida PNG')
     parser.add_argument('-v', '--verbose', action='store_true', help='Modo verbose')
-    parser.add_argument('--netlist', action='store_true', help='Mostrar netlist lcapy gerado')
+    parser.add_argument('--netlist', action='store_true', help='Mostrar netlist interno gerado')
 
     args = parser.parse_args()
-
-    if not LCAPY_AVAILABLE:
-        print("=" * 50)
-        print("AVISO: lcapy nao encontrado!")
-        print("Para esquematicos de alta qualidade, instale:")
-        print("  pip install lcapy")
-        print("  + LaTeX com circuitikz")
-        print("Usando fallback matplotlib (qualidade reduzida)")
-        print("=" * 50)
 
     spice_files = find_spice_files(args.input)
 
@@ -563,8 +1140,8 @@ Tambem precisa de LaTeX com circuitikz:
                 continue
 
             if args.netlist:
-                netlist = create_lcapy_netlist(components, title)
-                print(f"\nNetlist lcapy:\n{netlist}\n")
+                netlist = create_netlist(components, title)
+                print(f"\nNetlist interno:\n{netlist}\n")
 
             if args.output and len(spice_files) == 1:
                 output_path = args.output
