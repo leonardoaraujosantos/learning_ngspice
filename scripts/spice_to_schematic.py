@@ -886,6 +886,15 @@ def _circuitikz_generic(components, title):
                 x, y = coords[n]
                 coords[n] = (x + shift_x, y + shift_y)
 
+    # Snapping em grade para roteamento
+    route_grid = 2.0
+    def snap(value):
+        return round(value / route_grid) * route_grid
+
+    for n in coords:
+        x, y = coords[n]
+        coords[n] = (snap(x), snap(y))
+
     # Mapear grupos para rails locais
     group_of = {}
     for idx, group in enumerate(components_nodes):
@@ -1007,11 +1016,12 @@ def _circuitikz_generic(components, title):
         group_id = group_of.get(node)
         group_ground = gnd_y_by_group.get(group_id, node_y - 6)
         bus_y = max(node_y - bus_gap, group_ground + 2)
+        bus_y = snap(bus_y)
         total = len(comps)
         start = -(total - 1) / 2
         xs = []
         for idx, comp in enumerate(sorted(comps, key=lambda c: c.name)):
-            x = node_x + (start + idx) * bus_spacing
+            x = snap(node_x + (start + idx) * bus_spacing)
             xs.append(x)
             bus_positions[comp.name] = (x, bus_y)
         if xs:
@@ -1038,6 +1048,8 @@ def _circuitikz_generic(components, title):
         lines.append(f"\\draw ({x1},{y1}) -- ({x2},{y2});")
 
     node_positions = {n: coords[n] for n in coords}
+    bus_segments = list(bus_lines)
+    bend_offset = route_grid
 
     def segment_hits_nodes(x1, y1, x2, y2, ignore):
         hits = 0
@@ -1057,11 +1069,49 @@ def _circuitikz_generic(components, title):
                     hits += 1
         return hits
 
+    def segment_hits_bus(x1, y1, x2, y2):
+        hits = 0
+        if x1 == x2 and y1 == y2:
+            return hits
+        for bx1, by1, bx2, by2 in bus_segments:
+            if bx1 == bx2 and by1 == by2:
+                continue
+            # vertical segment vs horizontal bus
+            if x1 == x2 and by1 == by2:
+                if min(bx1, bx2) < x1 < max(bx1, bx2) and min(y1, y2) < by1 < max(y1, y2):
+                    hits += 1
+            # horizontal segment vs vertical bus
+            if y1 == y2 and bx1 == bx2:
+                if min(x1, x2) < bx1 < max(x1, x2) and min(by1, by2) < y1 < max(by1, by2):
+                    hits += 1
+        return hits
+
     def bend_score(bx, by, x1, y1, x2, y2, ignore):
         hits = segment_hits_nodes(x1, y1, bx, by, ignore)
         hits += segment_hits_nodes(bx, by, x2, y2, ignore)
+        hits += segment_hits_bus(x1, y1, bx, by)
+        hits += segment_hits_bus(bx, by, x2, y2)
         length = abs(x1 - bx) + abs(y1 - by) + abs(x2 - bx) + abs(y2 - by)
         return hits, length
+
+    def bend_hits_node(bx, by, ignore):
+        for node, (nx, ny) in node_positions.items():
+            if node in ignore:
+                continue
+            if abs(nx - bx) < 0.01 and abs(ny - by) < 0.01:
+                return True
+        return False
+
+    def ortho_path(start_pos, end_pos, ignore_nodes):
+        x1, y1 = start_pos
+        x2, y2 = end_pos
+        if abs(x1 - x2) < 0.01 or abs(y1 - y2) < 0.01:
+            return "--"
+        cand1 = (x1, y2)
+        cand2 = (x2, y1)
+        score1 = bend_score(cand1[0], cand1[1], x1, y1, x2, y2, ignore_nodes)
+        score2 = bend_score(cand2[0], cand2[1], x1, y1, x2, y2, ignore_nodes)
+        return "|-" if score1 <= score2 else "-|"
 
     def draw_ground_bipole(comp, node, group_id):
         comp_id = _safe_id(comp.name)
@@ -1147,7 +1197,28 @@ def _circuitikz_generic(components, title):
             bend = cand1 if deg1 >= deg2 else cand2
         else:
             bend = cand1 if score1 < score2 else cand2
-        lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bend[0]},{bend[1]}) to[short] ({id2});")
+        bx, by = bend
+        if bend_hits_node(bx, by, ignore_nodes):
+            if bx == x1:
+                cand_offsets = [by + bend_offset, by - bend_offset]
+                best = None
+                for off in cand_offsets:
+                    score = bend_score(bx, off, x1, y1, x2, y2, ignore_nodes)
+                    if best is None or score < best[0]:
+                        best = (score, off)
+                by = best[1]
+                lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bx},{by}) to[short] ({x2},{by}) to[short] ({id2});")
+            else:
+                cand_offsets = [bx + bend_offset, bx - bend_offset]
+                best = None
+                for off in cand_offsets:
+                    score = bend_score(off, by, x1, y1, x2, y2, ignore_nodes)
+                    if best is None or score < best[0]:
+                        best = (score, off)
+                bx = best[1]
+                lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bx},{by}) to[short] ({bx},{y2}) to[short] ({id2});")
+        else:
+            lines.append(f"\\draw ({id1}) to[{kind}{label_attr}] ({bx},{by}) to[short] ({id2});")
 
     # BJTs
     for comp in components:
@@ -1165,14 +1236,24 @@ def _circuitikz_generic(components, title):
         group_id = group_of.get(pins[0])
         cx = sum(coords[n][0] for n in pins) / len(pins)
         cy = sum(coords[n][1] for n in pins) / len(pins)
+        pin_offset = route_grid
 
         lines.append(f"\\node[{kind}] ({comp_id}) at ({cx},{cy}) {{}};")
         if c in node_ids:
-            lines.append(f"\\draw ({comp_id}.C) -- ({node_ids[c]});")
+            start = (cx, cy + pin_offset)
+            end = coords[c]
+            path = ortho_path(start, end, {c})
+            lines.append(f"\\draw ({comp_id}.C) {path} ({node_ids[c]});")
         if b in node_ids:
-            lines.append(f"\\draw ({comp_id}.B) -- ({node_ids[b]});")
+            start = (cx - pin_offset, cy)
+            end = coords[b]
+            path = ortho_path(start, end, {b})
+            lines.append(f"\\draw ({comp_id}.B) {path} ({node_ids[b]});")
         if e in node_ids:
-            lines.append(f"\\draw ({comp_id}.E) -- ({node_ids[e]});")
+            start = (cx, cy - pin_offset)
+            end = coords[e]
+            path = ortho_path(start, end, {e})
+            lines.append(f"\\draw ({comp_id}.E) {path} ({node_ids[e]});")
         elif e == '0':
             gnd_anchor = gnd_bus_name.get(group_id)
             if gnd_anchor:
@@ -1197,14 +1278,24 @@ def _circuitikz_generic(components, title):
         group_id = group_of.get(pins[0])
         cx = sum(coords[n][0] for n in pins) / len(pins)
         cy = sum(coords[n][1] for n in pins) / len(pins)
+        pin_offset = route_grid
 
         lines.append(f"\\node[{kind}] ({comp_id}) at ({cx},{cy}) {{}};")
         if d in node_ids:
-            lines.append(f"\\draw ({comp_id}.D) -- ({node_ids[d]});")
+            start = (cx, cy + pin_offset)
+            end = coords[d]
+            path = ortho_path(start, end, {d})
+            lines.append(f"\\draw ({comp_id}.D) {path} ({node_ids[d]});")
         if g in node_ids:
-            lines.append(f"\\draw ({comp_id}.G) -- ({node_ids[g]});")
+            start = (cx - pin_offset, cy)
+            end = coords[g]
+            path = ortho_path(start, end, {g})
+            lines.append(f"\\draw ({comp_id}.G) {path} ({node_ids[g]});")
         if s in node_ids:
-            lines.append(f"\\draw ({comp_id}.S) -- ({node_ids[s]});")
+            start = (cx, cy - pin_offset)
+            end = coords[s]
+            path = ortho_path(start, end, {s})
+            lines.append(f"\\draw ({comp_id}.S) {path} ({node_ids[s]});")
         elif s == '0':
             gnd_anchor = gnd_bus_name.get(group_id)
             if gnd_anchor:
@@ -1229,14 +1320,24 @@ def _circuitikz_generic(components, title):
         group_id = group_of.get(pins[0])
         cx = sum(coords[n][0] for n in pins) / len(pins)
         cy = sum(coords[n][1] for n in pins) / len(pins)
+        pin_offset = route_grid
 
         lines.append(f"\\node[{kind}] ({comp_id}) at ({cx},{cy}) {{}};")
         if d in node_ids:
-            lines.append(f"\\draw ({comp_id}.D) -- ({node_ids[d]});")
+            start = (cx, cy + pin_offset)
+            end = coords[d]
+            path = ortho_path(start, end, {d})
+            lines.append(f"\\draw ({comp_id}.D) {path} ({node_ids[d]});")
         if g in node_ids:
-            lines.append(f"\\draw ({comp_id}.G) -- ({node_ids[g]});")
+            start = (cx - pin_offset, cy)
+            end = coords[g]
+            path = ortho_path(start, end, {g})
+            lines.append(f"\\draw ({comp_id}.G) {path} ({node_ids[g]});")
         if s in node_ids:
-            lines.append(f"\\draw ({comp_id}.S) -- ({node_ids[s]});")
+            start = (cx, cy - pin_offset)
+            end = coords[s]
+            path = ortho_path(start, end, {s})
+            lines.append(f"\\draw ({comp_id}.S) {path} ({node_ids[s]});")
         elif s == '0':
             gnd_anchor = gnd_bus_name.get(group_id)
             if gnd_anchor:
