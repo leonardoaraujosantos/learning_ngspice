@@ -108,7 +108,7 @@ cargo install just
 
 ### LaTeX (para esquematicos de alta qualidade)
 
-O script `spice_to_schematic.py` usa **lcapy** + **circuitikz** para gerar esquematicos profissionais.
+O script `spice_to_schematic.py` usa **LaTeX + circuitikz** para gerar esquematicos profissionais.
 LaTeX e **obrigatorio** para gerar os esquematicos com simbolos corretos.
 
 #### macOS
@@ -393,7 +393,7 @@ Converte arquivos CSV gerados pelo ngspice em graficos PNG.
 
 ### spice_to_schematic.py
 
-Gera esquematicos PNG a partir de arquivos SPICE usando **lcapy**.
+Gera esquematicos PNG a partir de arquivos SPICE usando **LaTeX + circuitikz**.
 
 Componentes suportados:
 - **R** - Resistores
@@ -414,7 +414,6 @@ Componentes suportados:
 ## Referencias
 
 - [Manual do ngspice](http://ngspice.sourceforge.net/docs.html)
-- [lcapy Documentation](https://lcapy.readthedocs.io/)
 - [Circuitikz Manual](https://ctan.org/pkg/circuitikz)
 
 ## Licenca

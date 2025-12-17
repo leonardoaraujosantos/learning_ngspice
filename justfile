@@ -28,7 +28,6 @@ check:
     @which pdflatex > /dev/null && echo "✓ LaTeX instalado" || echo "✗ LaTeX NAO encontrado (necessario para esquematicos)"
     @{{python}} -c "import matplotlib; print('✓ matplotlib', matplotlib.__version__)" 2>/dev/null || echo "✗ matplotlib NAO encontrado"
     @{{python}} -c "import numpy; print('✓ numpy', numpy.__version__)" 2>/dev/null || echo "✗ numpy NAO encontrado"
-    @{{python}} -c "import lcapy; print('✓ lcapy', lcapy.__version__)" 2>/dev/null || echo "✗ lcapy NAO encontrado"
 
 # =============================================================================
 # SIMULACAO

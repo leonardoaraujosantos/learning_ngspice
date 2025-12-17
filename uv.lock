@@ -529,37 +529,10 @@ wheels = [
 ]
 
 [[package]]
-name = "lcapy"
-version = "1.26"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "importlib" },
-    { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "ipython", version = "9.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "matplotlib" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "packaging" },
-    { name = "property-cached" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "setuptools" },
-    { name = "sympy" },
-    { name = "wheel" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/70/6e/e7498864d5dfc7d6d7fbe6fda81b24c5caf74e6202cfa762fe9eeb34d0c8/lcapy-1.26.tar.gz", hash = "sha256:edfc9635cc1ac62351038efc48b01e2f55620154115b19d22e36c4f8655e9220", size = 578392, upload-time = "2025-09-28T07:30:36.974Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/a8/7baabf86871aecb7ce079a1f92b1a867097efe373bb0d2980e961012f738/lcapy-1.26-py3-none-any.whl", hash = "sha256:b9f6091133bbd923e7fc89a71b185edb0fd141d0e46a410bafaa7b40b82c715f", size = 452727, upload-time = "2025-09-28T07:30:33.383Z" },
-]
-
-[[package]]
 name = "learning-ngspice"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "lcapy" },
     { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -582,7 +555,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0" },
-    { name = "lcapy", specifier = ">=1.10" },
     { name = "matplotlib", specifier = ">=3.7" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
