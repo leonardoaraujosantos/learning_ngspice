@@ -276,6 +276,41 @@ exemplo-contador:
     @echo "=== Exemplo: Contador BCD 0-10 Digital (Portas Ideais) ==="
     just run circuits/08_logica_digital/contador_bcd_0_10.spice
 
+# Exemplo: retificadores (meia onda, onda completa, ponte)
+exemplo-retificadores:
+    @echo "=== Exemplo: Retificadores (Meia Onda, Onda Completa, Ponte) ==="
+    just run circuits/09_fontes_alimentacao/01_retificadores.spice
+
+# Exemplo: reguladores de tensão (Zener, LM7805, LM317)
+exemplo-reguladores:
+    @echo "=== Exemplo: Reguladores de Tensao (Zener, LM7805, LM317) ==="
+    just run circuits/09_fontes_alimentacao/02_reguladores_tensao.spice
+
+# Exemplo: Timer 555 (astável, monostável, PWM)
+exemplo-555:
+    @echo "=== Exemplo: Timer 555 (Astavel, Monostavel, PWM) ==="
+    just run circuits/10_timer_555/01_timer_555_astavel_monostavel_pwm.spice
+
+# Exemplo: filtros ativos Sallen-Key
+exemplo-sallen-key:
+    @echo "=== Exemplo: Filtros Ativos Sallen-Key (Passa-Baixa, Passa-Alta) ==="
+    just run circuits/11_filtros_ativos/01_sallen_key_passa_baixa_passa_alta.spice
+
+# Exemplo: amplificador diferencial BJT
+exemplo-diff-bjt:
+    @echo "=== Exemplo: Amplificador Diferencial BJT ==="
+    just run circuits/12_amplificadores_diferenciais/01_par_diferencial_bjt.spice
+
+# Exemplo: amplificador diferencial JFET
+exemplo-diff-jfet:
+    @echo "=== Exemplo: Amplificador Diferencial JFET ==="
+    just run circuits/12_amplificadores_diferenciais/02_par_diferencial_jfet.spice
+
+# Exemplo: espelhos de corrente (BJT, JFET, MOSFET)
+exemplo-espelhos:
+    @echo "=== Exemplo: Espelhos de Corrente (BJT, JFET, MOSFET) ==="
+    just run circuits/13_espelhos_corrente/01_espelhos_corrente_bjt_jfet_mosfet.spice
+
 # Simula todos os novos osciladores
 exemplo-osciladores-todos:
     @echo "=== Simulando TODOS os osciladores ==="

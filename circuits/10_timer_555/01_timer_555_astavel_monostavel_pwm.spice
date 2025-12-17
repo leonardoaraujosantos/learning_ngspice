@@ -1,0 +1,342 @@
+* ============================================================================
+* TIMER 555 - Astável, Monostável e PWM
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* O circuito integrado 555 é um dos CIs mais populares e versáteis da
+* eletrônica. Este arquivo demonstra três configurações fundamentais:
+* 1. Astável (gerador de clock/oscilador)
+* 2. Monostável (one-shot/pulso único)
+* 3. PWM (modulação por largura de pulso)
+*
+* PINAGEM DO 555:
+* ----------------
+*   1 - GND      : Terra
+*   2 - TRIGGER  : Disparo (ativa quando < Vcc/3)
+*   3 - OUTPUT   : Saída (nível lógico 0 ou Vcc)
+*   4 - RESET    : Reset (ativo baixo, normalmente em Vcc)
+*   5 - CONTROL  : Controle de tensão (normalmente 2/3 Vcc com cap 10nF)
+*   6 - THRESHOLD: Limiar (desativa quando > 2/3 Vcc)
+*   7 - DISCHARGE: Descarga (transistor open-collector)
+*   8 - Vcc      : Alimentação (4.5V a 16V, típico 5V ou 12V)
+*
+* ============================================================================
+* 1. MODO ASTAVEL (Oscilador)
+* ============================================================================
+*
+* TOPOLOGIA:
+*          Vcc
+*           |
+*          R1
+*           |
+*    +------+------+
+*    |      |      |
+*    7      8      4 (RESET = Vcc)
+*   555     |
+*    |      2,6----+----[R2]----+
+*    3      |                   |
+*    |      1,5----------[C2]--GND
+*   OUT            |
+*                 [C1]
+*                  |
+*                 GND
+*
+* FORMULAS:
+*   T_high = 0.693 × (R1 + R2) × C1
+*   T_low  = 0.693 × R2 × C1
+*   Period = T_high + T_low = 0.693 × (R1 + 2×R2) × C1
+*   Freq   = 1.44 / ((R1 + 2×R2) × C1)
+*   Duty   = (R1 + R2) / (R1 + 2×R2) × 100%
+*
+* NOTA: Duty cycle sempre > 50% nesta configuração básica
+*
+* EXEMPLO: R1=10k, R2=10k, C1=100nF
+*   f = 1.44 / (30k × 100nF) = 480 Hz
+*   Duty = 20k/30k = 66.7%
+*
+* ============================================================================
+* 2. MODO MONOSTAVEL (One-Shot)
+* ============================================================================
+*
+* TOPOLOGIA:
+*          Vcc
+*           |
+*          [R]
+*           |
+*    +------+------+
+*    |      |      |
+*    7      8      4 (RESET = Vcc)
+*   555     |
+*    |      6------+
+*    3      |      |
+*    |      2     [C]
+*   OUT     |      |
+*    |      1,5---GND
+*  TRIGGER--+
+*
+* FORMULAS:
+*   T_pulse = 1.1 × R × C
+*
+* FUNCIONAMENTO:
+*   - Saída normalmente LOW
+*   - Pulso negativo no TRIGGER (< Vcc/3) inicia o pulso
+*   - Saída vai HIGH por tempo T_pulse
+*   - Retorna para LOW após T_pulse
+*   - Ignora novos triggers durante o pulso
+*
+* EXEMPLO: R=100k, C=10µF
+*   T_pulse = 1.1 × 100k × 10µF = 1.1 segundos
+*
+* ============================================================================
+* 3. MODO PWM (Pulse Width Modulation)
+* ============================================================================
+*
+* Similar ao astável, mas com diodos para controlar carga/descarga
+* independentemente, permitindo duty cycle variável de 0% a 100%.
+*
+* TOPOLOGIA:
+*          Vcc
+*           |
+*      [R1] [D1]
+*        |   |
+*        +---+
+*        |
+*    +---+------+
+*    |   |      |
+*    7   8      4
+*   555  |
+*    |   2,6----+----[R2]--[D2]--+
+*    3   |                       |
+*   OUT  1,5-----------[C2]-----GND
+*                  |
+*                 [C1]
+*                  |
+*                 GND
+*
+* Com potenciômetro variável, duty cycle pode ser ajustado.
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Timer 555 - Astavel, Monostavel e PWM
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* FONTE DE ALIMENTACAO
+* ============================================================================
+Vcc vcc 0 DC 5
+
+* ============================================================================
+* CONFIGURACAO 1: ASTAVEL (Oscilador ~1kHz)
+* ============================================================================
+* R1=4.7k, R2=4.7k, C=100nF
+* f = 1.44 / ((4.7k + 2×4.7k) × 100nF) ≈ 1 kHz
+
+X555_AST vcc trig_ast out_ast rst_ast ctrl_ast thresh_ast disch_ast gnd_ast NE555_MODEL
+
+* Conexões astável
+Vcc_ast vcc_ast 0 DC 5
+R1_ast vcc_ast disch_ast 4.7k
+R2_ast disch_ast thresh_ast 4.7k
+C1_ast thresh_ast gnd_ast 100n IC=0
+C2_ast ctrl_ast gnd_ast 10n
+
+* Trigger e Threshold conectados juntos
+Vtrig_ast trig_ast thresh_ast 0
+Vrst_ast rst_ast vcc_ast 0
+Vgnd_ast gnd_ast 0 0
+
+* Carga de saída
+Rload_ast out_ast gnd_ast 1k
+
+* ============================================================================
+* CONFIGURACAO 2: MONOSTAVEL (Pulso ~10ms)
+* ============================================================================
+* R=100k, C=100nF
+* T = 1.1 × 100k × 100nF = 11 ms
+
+X555_MONO vcc_mono trig_mono out_mono rst_mono ctrl_mono thresh_mono disch_mono gnd_mono NE555_MODEL
+
+* Conexões monostável
+Vcc_mono vcc_mono 0 DC 5
+R_mono vcc_mono disch_mono 100k
+C_mono disch_mono gnd_mono 100n IC=0
+C2_mono ctrl_mono gnd_mono 10n
+
+* Threshold conectado ao capacitor
+Vthresh_mono thresh_mono disch_mono 0
+
+* Trigger: pulso negativo em t=1ms e t=50ms
+Vtrig_mono trig_mono gnd_mono PULSE(5 0 1m 1u 1u 100u 50m)
+
+Vrst_mono rst_mono vcc_mono 0
+Vgnd_mono gnd_mono 0 0
+
+* Carga de saída
+Rload_mono out_mono gnd_mono 1k
+
+* ============================================================================
+* CONFIGURACAO 3: PWM (~500Hz, duty ~75%)
+* ============================================================================
+* Usa diodos para permitir carga/descarga independente
+* R1=10k (carga), R2=3.3k (descarga), C=330nF
+* f ≈ 1.44 / ((R1+R2) × C) (aproximado com diodos)
+
+X555_PWM vcc_pwm trig_pwm out_pwm rst_pwm ctrl_pwm thresh_pwm disch_pwm gnd_pwm NE555_MODEL
+
+* Conexões PWM
+Vcc_pwm vcc_pwm 0 DC 5
+R1_pwm vcc_pwm n_pwm1 10k
+D1_pwm n_pwm1 thresh_pwm DMOD  ; Diodo de carga
+R2_pwm thresh_pwm n_pwm2 3.3k
+D2_pwm disch_pwm n_pwm2 DMOD   ; Diodo de descarga
+C1_pwm thresh_pwm gnd_pwm 330n IC=0
+C2_pwm ctrl_pwm gnd_pwm 10n
+
+* Trigger e Threshold conectados
+Vtrig_pwm trig_pwm thresh_pwm 0
+Vrst_pwm rst_pwm vcc_pwm 0
+Vgnd_pwm gnd_pwm 0 0
+
+* Carga de saída
+Rload_pwm out_pwm gnd_pwm 1k
+
+* ============================================================================
+* MODELOS
+* ============================================================================
+
+* Diodo simples para PWM
+.model DMOD D(
++ IS=1e-14
++ RS=0.1
++ N=1.7
++ )
+
+* Modelo comportamental simplificado do NE555
+.subckt NE555_MODEL VCC TRIG OUT RESET CTRL THRESH DISCH GND
+
+* Comparadores internos
+* Comparador inferior: dispara quando TRIG < Vcc/3
+* Comparador superior: reseta quando THRESH > 2×Vcc/3
+
+* Tensão de controle (normalmente 2/3 Vcc)
+Vctrl_internal ctrl_int GND VALUE={V(CTRL) > 0.1 ? V(CTRL) : 2*V(VCC)/3}
+
+* Comparador inferior (trigger)
+Ecomp_low comp_low GND VALUE={V(TRIG) < V(VCC)/3 ? 5 : 0}
+
+* Comparador superior (threshold)
+Ecomp_high comp_high GND VALUE={V(THRESH) > V(ctrl_int) ? 5 : 0}
+
+* Flip-flop SR (set-reset) - comportamental
+* S=comp_low, R=comp_high
+Eff ff GND VALUE={V(RESET) < 1 ? 0 : (V(comp_low) > 2.5 ? 5 : (V(comp_high) > 2.5 ? 0 : V(ff)))}
+Cff ff GND 1n IC=0
+Rff ff GND 10Meg
+
+* Saída (buffer)
+Eout OUT GND ff GND 1
+
+* Transistor de descarga (open collector)
+* Conduz quando saída está LOW
+Gdisch DISCH GND VALUE={V(ff) < 2.5 ? V(DISCH)/10 : 0}
+Rdisch DISCH GND 10Meg
+
+.ends NE555_MODEL
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.01m 100m
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+
+* Astável: frequência e duty cycle
+.measure tran period_ast TRIG v(out_ast) VAL=2.5 RISE=2 TARG v(out_ast) VAL=2.5 RISE=3
+.measure tran freq_ast PARAM='1/period_ast'
+.measure tran t_high_ast TRIG v(out_ast) VAL=2.5 RISE=2 TARG v(out_ast) VAL=2.5 FALL=2
+.measure tran duty_ast PARAM='100*t_high_ast/period_ast'
+
+* Monostável: largura do pulso
+.measure tran pulse_width_mono TRIG v(out_mono) VAL=2.5 RISE=1 TARG v(out_mono) VAL=2.5 FALL=1
+
+* PWM: frequência e duty cycle
+.measure tran period_pwm TRIG v(out_pwm) VAL=2.5 RISE=5 TARG v(out_pwm) VAL=2.5 RISE=6
+.measure tran freq_pwm PARAM='1/period_pwm'
+.measure tran t_high_pwm TRIG v(out_pwm) VAL=2.5 RISE=5 TARG v(out_pwm) VAL=2.5 FALL=5
+.measure tran duty_pwm PARAM='100*t_high_pwm/period_pwm'
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Astável
+plot v(out_ast) v(thresh_ast)
++ title "Timer 555 Astavel - Saida e Tensao do Capacitor" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 2: Monostável
+plot v(trig_mono) v(out_mono) v(disch_mono)
++ title "Timer 555 Monostavel - Trigger, Saida e Capacitor" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 3: PWM
+plot v(out_pwm) v(thresh_pwm)
++ title "Timer 555 PWM - Saida e Tensao do Capacitor" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 4: Comparação das três saídas
+plot v(out_ast)+10 v(out_mono)+5 v(out_pwm)
++ title "Comparacao: Astavel vs Monostavel vs PWM" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 5: Zoom no astável (2 ciclos)
+plot v(out_ast) v(thresh_ast) xlimit 10m 12m
++ title "Timer 555 Astavel - Zoom (2 ciclos)" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/10_timer_555/timer_555_astavel.csv v(out_ast) v(thresh_ast)
+wrdata circuits/10_timer_555/timer_555_monostavel.csv v(trig_mono) v(out_mono) v(disch_mono)
+wrdata circuits/10_timer_555/timer_555_pwm.csv v(out_pwm) v(thresh_pwm)
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DO TIMER 555"
+echo "============================================================================"
+echo ""
+echo "MODO ASTAVEL (Oscilador):"
+echo "  Frequencia:" freq_ast "Hz"
+echo "  Periodo:" period_ast "s"
+echo "  Duty cycle:" duty_ast "%"
+echo ""
+echo "MODO MONOSTAVEL (One-Shot):"
+echo "  Largura do pulso:" pulse_width_mono "s"
+echo "  Valor teorico: 1.1 × R × C = 1.1 × 100k × 100nF = 11ms"
+echo ""
+echo "MODO PWM:"
+echo "  Frequencia:" freq_pwm "Hz"
+echo "  Periodo:" period_pwm "s"
+echo "  Duty cycle:" duty_pwm "%"
+echo ""
+echo "APLICACOES:"
+echo "  - Astavel: geradores de clock, pisca-LED, alarmes"
+echo "  - Monostavel: temporizadores, debounce, atrasos"
+echo "  - PWM: controle de motores, dimmer LED, conversores DC-DC"
+echo "============================================================================"
+echo ""
+
+print freq_ast duty_ast pulse_width_mono freq_pwm duty_pwm
+
+quit
+.endc
+
+.end

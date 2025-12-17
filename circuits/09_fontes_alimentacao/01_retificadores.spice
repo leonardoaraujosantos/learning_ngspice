@@ -1,0 +1,242 @@
+* ============================================================================
+* RETIFICADORES - Meia Onda, Onda Completa e Ponte Retificadora
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* Este circuito demonstra os três tipos principais de retificadores usados
+* em fontes de alimentação para converter AC em DC. Compara desempenho,
+* ripple e eficiência de cada topologia.
+*
+* TOPOLOGIAS:
+* -----------
+* 1. RETIFICADOR MEIA ONDA (Half-Wave):
+*    - 1 diodo
+*    - Conduz apenas no semiciclo positivo
+*    - Ripple alto (~121% sem filtro)
+*    - Frequência de ripple = frede
+*    - Eficiência: ~40.6%
+*
+* 2. RETIFICADOR ONDA COMPLETA COM TRANSFORMADOR CENTER-TAP (Full-Wave):
+*    - 2 diodos + transformador com center tap
+*    - Usa ambos os semiciclos
+*    - Ripple médio (~48% sem filtro)
+*    - Frequência de ripple = 2 × frede
+*    - Eficiência: ~81.2%
+*
+* 3. RETIFICADOR PONTE (Bridge Rectifier):
+*    - 4 diodos em configuração ponte
+*    - Usa ambos os semiciclos
+*    - Não precisa de center tap
+*    - Ripple médio (~48% sem filtro)
+*    - Frequência de ripple = 2 × frede
+*    - Eficiência: ~81.2%
+*    - Queda de tensão: 2 × Vd (dois diodos em série)
+*
+* FILTRO CAPACITIVO:
+* ------------------
+* Adiciona capacitor na saída para suavizar o ripple:
+*   - Ripple reduzido para ~1-10% (dependendo de C e Iload)
+*   - Ripple voltage: Vr ≈ Iload / (f × C)
+*   - Fator de ripple: r = Vr / Vdc
+*
+* PARAMETROS IMPORTANTES:
+* -----------------------
+*   - PIV (Peak Inverse Voltage): tensão reversa máxima no diodo
+*   - Ripple factor: relação entre AC e DC na saída
+*   - Regulation: variação de Vout com a carga
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Retificadores - Meia Onda, Onda Completa e Ponte
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* FONTE AC (Rede Elétrica - 60Hz, 12Vrms ≈ 17Vpk)
+* ============================================================================
+* Simula secundário de transformador 12V AC
+VAC_HW ac_hw 0 SIN(0 17 60 0 0)      ; Para meia onda
+VAC_FW1 ac_fw1 ct SIN(0 17 60 0 0)   ; Para onda completa (parte superior)
+VAC_FW2 ct ac_fw2 SIN(0 17 60 0 0)   ; Para onda completa (parte inferior)
+VAC_BR ac_br 0 SIN(0 17 60 60 0)     ; Para ponte
+
+* ============================================================================
+* RETIFICADOR MEIA ONDA (SEM FILTRO)
+* ============================================================================
+* Topologia: AC --[D1]--> out --[Rload]--> GND
+
+D_HW ac_hw out_hw DMOD
+Rload_HW out_hw 0 1k
+
+* ============================================================================
+* RETIFICADOR MEIA ONDA (COM FILTRO CAPACITIVO)
+* ============================================================================
+* Filtro: capacitor de 470uF
+
+D_HWF ac_hw out_hwf DMOD
+Cfilt_HWF out_hwf 0 470u IC=0
+Rload_HWF out_hwf 0 1k
+
+* ============================================================================
+* RETIFICADOR ONDA COMPLETA CENTER-TAP (SEM FILTRO)
+* ============================================================================
+* Topologia:
+*   AC1 --[D1]--> out
+*   CT (center tap)
+*   AC2 --[D2]--> out
+
+D_FW1 ac_fw1 out_fw DMOD
+D_FW2 ac_fw2 out_fw DMOD
+Rload_FW out_fw ct 1k
+
+* ============================================================================
+* RETIFICADOR ONDA COMPLETA CENTER-TAP (COM FILTRO)
+* ============================================================================
+
+D_FWF1 ac_fw1 out_fwf DMOD
+D_FWF2 ac_fw2 out_fwf DMOD
+Cfilt_FWF out_fwf ct 470u IC=0
+Rload_FWF out_fwf ct 1k
+
+* ============================================================================
+* RETIFICADOR PONTE (SEM FILTRO)
+* ============================================================================
+* Topologia:
+*        D1
+*   AC --+-- out
+*        D3   D4
+*   GND -+---+
+*        D2
+
+D_BR1 ac_br n_br1 DMOD    ; Diodo superior direito
+D_BR2 0 ac_br DMOD        ; Diodo inferior esquerdo
+D_BR3 n_br1 out_br DMOD   ; Diodo superior esquerdo
+D_BR4 out_br 0 DMOD       ; Diodo inferior direito
+Rload_BR out_br 0 1k
+
+* ============================================================================
+* RETIFICADOR PONTE (COM FILTRO)
+* ============================================================================
+
+D_BRF1 ac_br n_brf1 DMOD
+D_BRF2 0 ac_br DMOD
+D_BRF3 n_brf1 out_brf DMOD
+D_BRF4 out_brf 0 DMOD
+Cfilt_BRF out_brf 0 470u IC=0
+Rload_BRF out_brf 0 1k
+
+* ============================================================================
+* MODELO DO DIODO
+* ============================================================================
+* Diodo de silício genérico (1N4007-like)
+.model DMOD D(
++ IS=1e-14      ; Corrente de saturação
++ RS=0.05       ; Resistência série (Ohms)
++ N=1.7         ; Coeficiente de emissão
++ BV=1000       ; Tensão de breakdown (V)
++ IBV=1e-3      ; Corrente de breakdown (A)
++ VJ=0.7        ; Tensão de junção (V)
++ CJO=15p       ; Capacitância de junção (F)
++ TT=5n         ; Tempo de trânsito (s)
++ )
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+* Simular 5 ciclos (5/60Hz = 83.3ms)
+.tran 0.1m 83.3m
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+* Valores médios (DC) e ripple
+
+.measure tran Vdc_hw AVG v(out_hw) FROM=33.3m TO=83.3m
+.measure tran Vdc_hwf AVG v(out_hwf) FROM=33.3m TO=83.3m
+.measure tran Vdc_fw AVG v(out_fw) FROM=33.3m TO=83.3m
+.measure tran Vdc_fwf AVG v(out_fwf) FROM=33.3m TO=83.3m
+.measure tran Vdc_br AVG v(out_br) FROM=33.3m TO=83.3m
+.measure tran Vdc_brf AVG v(out_brf) FROM=33.3m TO=83.3m
+
+* Ripple (pico a pico)
+.measure tran Vripple_hw PP v(out_hw) FROM=33.3m TO=83.3m
+.measure tran Vripple_hwf PP v(out_hwf) FROM=33.3m TO=83.3m
+.measure tran Vripple_fw PP v(out_fw) FROM=33.3m TO=83.3m
+.measure tran Vripple_fwf PP v(out_fwf) FROM=33.3m TO=83.3m
+.measure tran Vripple_br PP v(out_br) FROM=33.3m TO=83.3m
+.measure tran Vripple_brf PP v(out_brf) FROM=33.3m TO=83.3m
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Entrada AC
+plot v(ac_hw)
++ title "Entrada AC - 12Vrms (17Vpk) @ 60Hz" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 2: Comparação Meia Onda (sem e com filtro)
+plot v(out_hw) v(out_hwf)
++ title "Retificador Meia Onda - Sem Filtro vs Com Filtro 470uF" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 3: Comparação Onda Completa (sem e com filtro)
+plot v(out_fw) v(out_fwf)
++ title "Retificador Onda Completa - Sem Filtro vs Com Filtro 470uF" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 4: Comparação Ponte (sem e com filtro)
+plot v(out_br) v(out_brf)
++ title "Retificador Ponte - Sem Filtro vs Com Filtro 470uF" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 5: Comparação de todas as topologias COM filtro
+plot v(out_hwf) v(out_fwf) v(out_brf)
++ title "Comparacao: Meia Onda vs Onda Completa vs Ponte (com filtro)" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Plot 6: Zoom no ripple (últimos 2 ciclos)
+plot v(out_hwf) v(out_fwf) v(out_brf) xlimit 50m 83.3m
++ title "Ripple - Zoom nos ultimos 2 ciclos" xlabel "Tempo (ms)" ylabel "Tensao (V)"
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/09_fontes_alimentacao/retificadores_saidas.csv v(out_hw) v(out_hwf) v(out_fw) v(out_fwf) v(out_br) v(out_brf)
+wrdata circuits/09_fontes_alimentacao/retificadores_entrada.csv v(ac_hw)
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DOS RETIFICADORES"
+echo "============================================================================"
+echo ""
+echo "RETIFICADOR MEIA ONDA:"
+echo "  Sem filtro - Vdc:" Vdc_hw "V, Ripple:" Vripple_hw "V"
+echo "  Com filtro - Vdc:" Vdc_hwf "V, Ripple:" Vripple_hwf "V"
+echo ""
+echo "RETIFICADOR ONDA COMPLETA (CENTER-TAP):"
+echo "  Sem filtro - Vdc:" Vdc_fw "V, Ripple:" Vripple_fw "V"
+echo "  Com filtro - Vdc:" Vdc_fwf "V, Ripple:" Vripple_fwf "V"
+echo ""
+echo "RETIFICADOR PONTE:"
+echo "  Sem filtro - Vdc:" Vdc_br "V, Ripple:" Vripple_br "V"
+echo "  Com filtro - Vdc:" Vdc_brf "V, Ripple:" Vripple_brf "V"
+echo ""
+echo "OBSERVACOES:"
+echo "  - Meia onda: ripple @ 60Hz (frede)"
+echo "  - Onda completa/Ponte: ripple @ 120Hz (2×frede)"
+echo "  - Filtro capacitivo reduz ripple significativamente"
+echo "  - Ponte: 2 diodos em serie = maior queda de tensao"
+echo "============================================================================"
+echo ""
+
+print Vdc_hw Vdc_hwf Vdc_fw Vdc_fwf Vdc_br Vdc_brf
+
+quit
+.endc
+
+.end

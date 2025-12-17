@@ -1,0 +1,356 @@
+* ============================================================================
+* ESPELHOS DE CORRENTE - BJT, JFET e MOSFET
+* ============================================================================
+*
+* DESCRICAO:
+* ----------
+* O espelho de corrente (current mirror) é um bloco fundamental usado para
+* copiar/replicar correntes em circuitos analógicos. É essencial em:
+* - Fontes de corrente para polarização
+* - Cargas ativas em amplificadores
+* - Conversores D/A
+* - Referências de corrente
+*
+* ============================================================================
+* 1. ESPELHO DE CORRENTE BJT SIMPLES
+* ============================================================================
+*
+* TOPOLOGIA:
+*           Vcc
+*            |
+*        Iref|     Iout
+*            |      |
+*           Q1--+--Q2
+*           |\ | /|
+*           | \|/ |
+*         Rref  |  Rload
+*            |  |  |
+*           GND GND GND
+*
+* PRINCIPIO:
+* - Q1 e Q2 com bases conectadas (mesma Vbe)
+* - Q1 diode-connected (base = coletor)
+* - Se Q1 e Q2 casados: Iout ≈ Iref
+*
+* RELACAO:
+*   Iout / Iref ≈ (Is2/Is1) × (β2/β1) / ((β2+1)/(β1+1))
+*   Para transistores idênticos: Iout ≈ Iref × (β/(β+1))
+*   Com β >> 1: Iout ≈ Iref
+*
+* ERRO:
+*   - Early effect: diferença de Vce causa erro (~1-5%)
+*   - Descasamento: diferentes Is, β
+*   - Erro de corrente de base: ~2/β
+*
+* ============================================================================
+* 2. ESPELHO WILSON (BJT)
+* ============================================================================
+* Melhora precisão e resistência de saída
+*
+*           Vcc
+*            |
+*        Iref|     Iout
+*            |      |
+*           Q1--+--Q3
+*           |\  | /|
+*           | \ |/ |
+*         Rref Q2  Rload
+*            | |   |
+*           GND|  GND
+*              GND
+*
+* VANTAGENS:
+*   - Erro de corrente de base reduzido: ~2/β²
+*   - Alta resistência de saída: Rout ≈ β×ro
+*   - Melhor precisão
+*
+* ============================================================================
+* 3. ESPELHO DE CORRENTE JFET
+* ============================================================================
+*
+*          Vdd
+*           |
+*       Iref|      Iout
+*           |       |
+*          J1---+--J2
+*          |G  |  |D
+*          |   |
+*        Rref  |  Rload
+*           |  |   |
+*          Vss Vss Vss
+*
+* PRINCIPIO:
+* - Gates conectados (mesma Vgs)
+* - J1 com gate-source curto (Vgs = 0 ou Vgs < Vp)
+* - Iout = Iref se J1 e J2 casados
+*
+* RELACAO:
+*   Id = Idss × (1 - Vgs/Vp)²
+*   Para Vgs igual: Iout/Iref = Idss2/Idss1
+*
+* VANTAGENS:
+*   - Muito alta impedância de entrada
+*   - Baixo ruído
+*   - Boa estabilidade térmica
+*
+* ============================================================================
+* 4. ESPELHO DE CORRENTE MOSFET
+* ============================================================================
+*
+*          Vdd
+*           |
+*       Iref|      Iout
+*           |       |
+*          M1---+--M2
+*          |G  |  |D
+*          |   |
+*        Rref  |  Rload
+*           |  |   |
+*          Vss Vss Vss
+*
+* PRINCIPIO:
+* - Gates conectados (mesma Vgs)
+* - M1 com gate-drain curto (saturação)
+* - Iout = Iref × (W2/L2)/(W1/L1)
+*
+* RELACAO (região de saturação):
+*   Id = (μnCox/2) × (W/L) × (Vgs - Vth)²
+*   Iout/Iref = (W2/L2)/(W1/L1)
+*
+* VANTAGENS:
+*   - Razão de corrente controlável por geometria (W/L)
+*   - Alta impedância de entrada
+*   - Integração fácil (CMOS)
+*
+* ============================================================================
+* APLICACOES:
+* -----------
+* - Polarização de amplificadores
+* - Cargas ativas (substitui resistores)
+* - Referências de corrente
+* - Conversores D/A
+* - Multiplicadores de corrente
+*
+* AUTOR: Leonardo Araujo
+* DATA: 2025-12-17
+* ============================================================================
+
+.title Espelhos de Corrente - BJT, JFET e MOSFET
+
+* ============================================================================
+* OPCOES DE SIMULACAO
+* ============================================================================
+.options POST RELTOL=1e-4
+
+* ============================================================================
+* ALIMENTACAO
+* ============================================================================
+Vcc vcc 0 DC 12
+Vdd vdd 0 DC 12
+Vss vss 0 DC -12
+
+* ============================================================================
+* 1. ESPELHO DE CORRENTE BJT SIMPLES (Iref = 1mA)
+* ============================================================================
+
+* Corrente de referência
+Rref_bjt vcc n_ref_bjt 11k  ; (12V - 0.7V) / 11k ≈ 1mA
+
+* Transistores (Q1 = diode-connected, Q2 = mirror)
+Q1_bjt n_ref_bjt n_ref_bjt 0 NPN_MODEL
+Q2_bjt n_out_bjt n_ref_bjt 0 NPN_MODEL
+
+* Carga (variável para testar regulação)
+Rload_bjt n_out_bjt 0 6k  ; Vce ≈ 6V
+
+* ============================================================================
+* 2. ESPELHO WILSON BJT (Melhor precisão)
+* ============================================================================
+
+* Corrente de referência
+Rref_wilson vcc n_ref_wilson 11k
+
+* Espelho Wilson (3 transistores)
+Q1_wilson n_ref_wilson n_ref_wilson n_e_wilson NPN_MODEL
+Q2_wilson n_b_wilson n_ref_wilson 0 NPN_MODEL
+Q3_wilson n_out_wilson n_b_wilson n_e_wilson NPN_MODEL
+
+* Conexão do emissor de Q1 à base de Q3
+Vconnect n_e_wilson n_b_wilson 0
+
+* Carga
+Rload_wilson n_out_wilson 0 6k
+
+* ============================================================================
+* 3. ESPELHO DE CORRENTE JFET (Iref = 1mA)
+* ============================================================================
+
+* Corrente de referência (ajustada para JFET)
+Rref_jfet vdd n_ref_jfet 10k  ; Iref depende de Vgs
+
+* JFETs (J1 = diode-connected, J2 = mirror)
+J1_jfet n_ref_jfet n_ref_jfet vss JFET_N_MODEL
+J2_jfet n_out_jfet n_ref_jfet vss JFET_N_MODEL
+
+* Carga
+Rload_jfet n_out_jfet vss 10k
+
+* ============================================================================
+* 4. ESPELHO DE CORRENTE MOSFET (Iref = 100µA)
+* ============================================================================
+
+* Corrente de referência
+Rref_mos vdd n_ref_mos 100k  ; Iref ≈ 100µA
+
+* MOSFETs (M1 = diode-connected, M2 = mirror)
+M1_mos n_ref_mos n_ref_mos vss vss NMOS_MODEL W=10u L=2u
+M2_mos n_out_mos n_ref_mos vss vss NMOS_MODEL W=10u L=2u
+
+* Carga
+Rload_mos n_out_mos vss 50k
+
+* ============================================================================
+* 5. ESPELHO MOSFET COM RAZAO (2:1)
+* ============================================================================
+* M2 com W=2×W1 para Iout = 2×Iref
+
+Rref_mos2 vdd n_ref_mos2 100k
+
+M1_mos2 n_ref_mos2 n_ref_mos2 vss vss NMOS_MODEL W=10u L=2u
+M2_mos2 n_out_mos2 n_ref_mos2 vss vss NMOS_MODEL W=20u L=2u  ; 2x W
+
+Rload_mos2 n_out_mos2 vss 50k
+
+* ============================================================================
+* MODELOS
+* ============================================================================
+
+* BJT NPN (BC547-like)
+.model NPN_MODEL NPN(
++ IS=1e-14 BF=200 VAF=100
++ IKF=0.3 NE=2
++ BR=5 VAR=20
++ RE=0.5 RC=1 RB=10
++ )
+
+* JFET canal N (2N5457-like)
+.model JFET_N_MODEL NJF(
++ VTO=-3
++ BETA=0.7m
++ LAMBDA=0.01
++ IS=1e-14
++ )
+
+* MOSFET NMOS (genérico)
+.model NMOS_MODEL NMOS(
++ LEVEL=1
++ VTO=1.0        ; Tensão de threshold
++ KP=200u        ; Parâmetro de transcondutância
++ GAMMA=0.4
++ PHI=0.7
++ LAMBDA=0.02    ; Modulação de canal
++ TOX=20n
++ )
+
+* ============================================================================
+* ANALISE DC
+* ============================================================================
+.op
+
+* ============================================================================
+* ANALISE DC SWEEP (Variar tensão de saída)
+* ============================================================================
+* Sweep Vload para ver regulação
+.dc Rload_bjt 1k 20k 1k
+
+* ============================================================================
+* ANALISE TRANSIENTE
+* ============================================================================
+.tran 0.1m 10m
+
+* ============================================================================
+* MEDICOES
+* ============================================================================
+
+* Correntes DC
+.measure dc Iref_bjt FIND i(Rref_bjt) AT=0
+.measure dc Iout_bjt FIND i(Rload_bjt) AT=0
+.measure dc error_bjt PARAM='100*(Iout_bjt - Iref_bjt)/Iref_bjt'
+
+.measure dc Iref_wilson FIND i(Rref_wilson) AT=0
+.measure dc Iout_wilson FIND i(Rload_wilson) AT=0
+.measure dc error_wilson PARAM='100*(Iout_wilson - Iref_wilson)/Iref_wilson'
+
+.measure dc Iref_jfet FIND i(Rref_jfet) AT=0
+.measure dc Iout_jfet FIND i(Rload_jfet) AT=0
+
+.measure dc Iref_mos FIND i(Rref_mos) AT=0
+.measure dc Iout_mos FIND i(Rload_mos) AT=0
+
+.measure dc Iref_mos2 FIND i(Rref_mos2) AT=0
+.measure dc Iout_mos2 FIND i(Rload_mos2) AT=0
+.measure dc ratio_mos2 PARAM='Iout_mos2/Iref_mos2'
+
+* ============================================================================
+* PLOTS E ANALISE
+* ============================================================================
+.control
+run
+
+* Plot 1: Correntes BJT
+print Iref_bjt Iout_bjt error_bjt
+
+* Plot 2: Regulação de corrente vs tensão de carga (DC sweep)
+dc Rload_bjt 1k 20k 1k
+plot i(Rload_bjt) i(Rload_wilson)
++ title "Regulacao de Corrente: BJT Simples vs Wilson" xlabel "Rload (Ohms)" ylabel "Iout (A)"
+
+* Plot 3: Comparação de todas as correntes de saída
+print Iout_bjt Iout_wilson Iout_jfet Iout_mos Iout_mos2
+
+echo ""
+echo "============================================================================"
+echo "RESULTADOS DOS ESPELHOS DE CORRENTE"
+echo "============================================================================"
+echo ""
+echo "1. ESPELHO BJT SIMPLES:"
+echo "  Iref =" Iref_bjt "A"
+echo "  Iout =" Iout_bjt "A"
+echo "  Erro =" error_bjt "%"
+echo ""
+echo "2. ESPELHO WILSON (BJT):"
+echo "  Iref =" Iref_wilson "A"
+echo "  Iout =" Iout_wilson "A"
+echo "  Erro =" error_wilson "% (melhor que simples)"
+echo ""
+echo "3. ESPELHO JFET:"
+echo "  Iref =" Iref_jfet "A"
+echo "  Iout =" Iout_jfet "A"
+echo ""
+echo "4. ESPELHO MOSFET (1:1):"
+echo "  Iref =" Iref_mos "A"
+echo "  Iout =" Iout_mos "A"
+echo ""
+echo "5. ESPELHO MOSFET (1:2 - W2=2×W1):"
+echo "  Iref =" Iref_mos2 "A"
+echo "  Iout =" Iout_mos2 "A"
+echo "  Razao Iout/Iref =" ratio_mos2 "(deve ser ~2)"
+echo ""
+echo "COMPARACAO:"
+echo "  - BJT simples: facil, erro ~2/β"
+echo "  - Wilson: melhor precisao, erro ~2/β²"
+echo "  - JFET: alta Zin, boa estabilidade termica"
+echo "  - MOSFET: razao controlavel por W/L, facil integracao"
+echo "============================================================================"
+echo ""
+
+* Exportar dados para CSV
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+wrdata circuits/13_espelhos_corrente/espelhos_corrente_dc.csv i(Rload_bjt) i(Rload_wilson) i(Rload_jfet) i(Rload_mos)
+
+quit
+.endc
+
+.end
