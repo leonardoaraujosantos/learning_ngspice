@@ -74,10 +74,11 @@ def expand_subcircuit(instance, subckt_defs, depth=0):
     """Expande uma instancia em componentes planos."""
     if depth > 8:
         return []
-    if instance.subckt not in subckt_defs:
+    subckt_key = instance.subckt.upper()
+    if subckt_key not in subckt_defs:
         return []
 
-    sub = subckt_defs[instance.subckt]
+    sub = subckt_defs[subckt_key]
     pin_map = {}
     for pin, node in zip(sub.pins, instance.nodes):
         pin_map[pin] = normalize_node(node)
@@ -115,6 +116,46 @@ def parse_value(value_str):
     return value_str
 
 
+def _strip_inline_comment(line):
+    """Remove comentarios inline usando ; ou $."""
+    if not line:
+        return line
+    indices = []
+    for marker in (';', '$'):
+        idx = line.find(marker)
+        if idx != -1:
+            indices.append(idx)
+    if indices:
+        line = line[:min(indices)]
+    return line.strip()
+
+
+def _split_subckt_pins(tokens):
+    """Separa lista de pinos ignorando parametros."""
+    pins = []
+    for tok in tokens:
+        upper = tok.upper()
+        if upper.startswith('PARAMS') or '=' in tok:
+            break
+        pins.append(tok)
+    return pins
+
+
+def _split_subckt_instance(tokens):
+    """Separa nos e nome do subcircuito em uma instancia X."""
+    params_start = len(tokens)
+    for idx, tok in enumerate(tokens):
+        upper = tok.upper()
+        if upper.startswith('PARAMS') or '=' in tok:
+            params_start = idx
+            break
+    if params_start == 0:
+        return [], ""
+    subckt_name = tokens[params_start - 1]
+    node_list = tokens[:params_start - 1]
+    return node_list, subckt_name
+
+
 def parse_spice_file(filepath):
     """Parseia arquivo SPICE e retorna lista de componentes."""
     components = []
@@ -140,12 +181,22 @@ def parse_spice_file(filepath):
 
     for line in lines[1:]:
         line = line.rstrip()
-        if line.startswith('+'):
-            current_line += ' ' + line[1:].strip()
+        if line.lstrip().startswith('+'):
+            cont = _strip_inline_comment(line.lstrip()[1:]).strip()
+            if not cont:
+                continue
+            if current_line:
+                current_line += ' ' + cont
+            else:
+                current_line = cont
         else:
             if current_line:
                 joined_lines.append(current_line)
-            current_line = line
+            cleaned = _strip_inline_comment(line)
+            if not cleaned or cleaned.lstrip().startswith('*'):
+                current_line = ""
+                continue
+            current_line = cleaned
     if current_line:
         joined_lines.append(current_line)
 
@@ -155,24 +206,11 @@ def parse_spice_file(filepath):
         if not line or line.startswith('*'):
             continue
 
-        if ';' in line:
-            line = line[:line.index(';')].strip()
         if not line:
             continue
 
         line_upper = line.upper()
 
-        if line_upper.startswith('.SUBCKT'):
-            parts = line.split()
-            if len(parts) >= 2:
-                name = parts[1]
-                pins = parts[2:]
-                subckt_defs[name] = SubcircuitDefinition(name, pins)
-                current_subckt = name
-            continue
-        if line_upper.startswith('.ENDS'):
-            current_subckt = None
-            continue
         if line_upper.startswith('.CONTROL'):
             in_control = True
             continue
@@ -180,7 +218,22 @@ def parse_spice_file(filepath):
             in_control = False
             continue
 
-        if line.startswith('.') or current_subckt is not None and line_upper.startswith('.ENDS') or in_control:
+        if in_control:
+            continue
+
+        if line_upper.startswith('.SUBCKT'):
+            parts = line.split()
+            if len(parts) >= 2:
+                name = parts[1].upper()
+                pins = _split_subckt_pins(parts[2:])
+                subckt_defs[name] = SubcircuitDefinition(name, pins)
+                current_subckt = name
+            continue
+        if line_upper.startswith('.ENDS'):
+            current_subckt = None
+            continue
+
+        if line.startswith('.') or current_subckt is not None and line_upper.startswith('.ENDS'):
             continue
 
         parts = line.split()
@@ -244,9 +297,10 @@ def parse_spice_file(filepath):
                 target.append(SpiceComponent(name, 'I', nodes, value))
 
             elif comp_type == 'X' and len(parts) >= 3:
-                subckt_name = parts[-1]
-                node_list = parts[1:-1]
-                inst = SubcircuitInstance(name, subckt_name, node_list)
+                node_list, subckt_name = _split_subckt_instance(parts[1:])
+                if not subckt_name:
+                    continue
+                inst = SubcircuitInstance(name, subckt_name.upper(), node_list)
                 if current_subckt:
                     subckt_defs[current_subckt].instances.append(inst)
                 else:
@@ -294,6 +348,184 @@ def _label_attr_for(comp):
     if name:
         return f",l=${name_safe}$"
     return ""
+
+
+def _collect_supply_nodes(components):
+    supply_nodes = set()
+    for comp in components:
+        if comp.comp_type != 'V' or len(comp.nodes) < 2:
+            continue
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        if n1 == '0' and n2 != '0':
+            supply_nodes.add(n2)
+        elif n2 == '0' and n1 != '0':
+            supply_nodes.add(n1)
+    return supply_nodes
+
+
+def _build_adj_for_types(components, group, types):
+    adj = defaultdict(set)
+    for comp in components:
+        if comp.comp_type not in types or len(comp.nodes) < 2:
+            continue
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        if n1 == '0' or n2 == '0':
+            continue
+        if n1 in group and n2 in group:
+            adj[n1].add(n2)
+            adj[n2].add(n1)
+    return adj
+
+
+def _connected_components(adj):
+    comps = []
+    visited = set()
+    for node in adj:
+        if node in visited:
+            continue
+        stack = [node]
+        group = set()
+        while stack:
+            cur = stack.pop()
+            if cur in group:
+                continue
+            group.add(cur)
+            for nxt in adj[cur]:
+                if nxt not in group:
+                    stack.append(nxt)
+        visited |= group
+        comps.append(group)
+    return comps
+
+
+def _edge_count(adj, nodes):
+    count = 0
+    for n in nodes:
+        for m in adj.get(n, []):
+            if m in nodes:
+                count += 1
+    return count // 2
+
+
+def _transistor_pins(comp):
+    if comp.comp_type == 'Q' and len(comp.nodes) >= 3:
+        return {
+            'collector': normalize_node(comp.nodes[0]),
+            'base': normalize_node(comp.nodes[1]),
+            'emitter': normalize_node(comp.nodes[2]),
+        }
+    if comp.comp_type in ('M', 'J') and len(comp.nodes) >= 3:
+        return {
+            'drain': normalize_node(comp.nodes[0]),
+            'gate': normalize_node(comp.nodes[1]),
+            'source': normalize_node(comp.nodes[2]),
+        }
+    return {}
+
+
+def _find_tank_nodes(group, components, main_pins, control_pin):
+    reactive_adj = _build_adj_for_types(components, group, ('L', 'C'))
+    if not reactive_adj:
+        return set()
+    comps = _connected_components(reactive_adj)
+    best = set()
+    best_score = (-1, -1, -1)
+    for comp_nodes in comps:
+        if not (comp_nodes & (main_pins | {control_pin})):
+            continue
+        edge_count = _edge_count(reactive_adj, comp_nodes)
+        pin_priority = 2 if comp_nodes & main_pins else 1
+        score = (edge_count, pin_priority, len(comp_nodes))
+        if score > best_score:
+            best_score = score
+            best = comp_nodes
+    return best
+
+
+def _find_bias_nodes(group, components, control_pin, block_nodes):
+    bias_adj = _build_adj_for_types(components, group, ('R', 'C'))
+    if control_pin not in bias_adj:
+        return set()
+    visited = {control_pin}
+    stack = [control_pin]
+    while stack:
+        cur = stack.pop()
+        for nxt in bias_adj.get(cur, []):
+            if nxt in visited or nxt in block_nodes:
+                continue
+            visited.add(nxt)
+            stack.append(nxt)
+    visited.discard(control_pin)
+    return visited
+
+
+def _layout_cluster_nodes(nodes, adj, ref_node, origin, x_step, y_step, x_dir=1):
+    if not nodes:
+        return {}
+    ref = ref_node if ref_node in nodes else next(iter(nodes))
+    level = {ref: 0}
+    queue = [ref]
+    while queue:
+        cur = queue.pop(0)
+        for nxt in adj.get(cur, []):
+            if nxt in nodes and nxt not in level:
+                level[nxt] = level[cur] + 1
+                queue.append(nxt)
+    max_level = max(level.values()) if level else 0
+    for n in nodes:
+        if n not in level:
+            max_level += 1
+            level[n] = max_level
+    by_level = defaultdict(list)
+    for n, lvl in level.items():
+        if n in nodes:
+            by_level[lvl].append(n)
+    coords = {}
+    for lvl in sorted(by_level.keys()):
+        group_nodes = sorted(by_level[lvl])
+        total = len(group_nodes)
+        for i, n in enumerate(group_nodes):
+            x = origin[0] + x_dir * lvl * x_step
+            y = origin[1] + (i - (total - 1) / 2) * y_step
+            coords[n] = (x, y)
+    return coords
+
+
+def _group_layout_params(group, group_components):
+    node_count = len(group)
+    reactive_count = sum(1 for comp in group_components if comp.comp_type in ('L', 'C'))
+    bjt_count = sum(1 for comp in group_components if comp.comp_type == 'Q')
+    mos_count = sum(1 for comp in group_components if comp.comp_type == 'M')
+    jfet_count = sum(1 for comp in group_components if comp.comp_type == 'J')
+    transistor_count = bjt_count + mos_count + jfet_count
+    has_inductor = any(comp.comp_type == 'L' for comp in group_components)
+    cap_shunt_only = True
+    for comp in group_components:
+        if comp.comp_type != 'C' or len(comp.nodes) < 2:
+            continue
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        if n1 != '0' and n2 != '0':
+            cap_shunt_only = False
+            break
+
+    scale = 1.0
+    if node_count >= 10:
+        scale += 0.2
+    if reactive_count >= 6:
+        scale += 0.2
+    if transistor_count >= 2:
+        scale += 0.25
+    scale = min(scale, 1.6)
+
+    level_max_nodes = None
+    logic_like = mos_count >= 6 and not has_inductor and cap_shunt_only
+    if logic_like:
+        level_max_nodes = 4
+        scale = max(scale, 1.15)
+    return scale, level_max_nodes
 
 
 def create_netlist(components, title):
@@ -719,9 +951,11 @@ def _circuitikz_generic(components, title):
         degrees = {n: len(adj[n]) for n in group}
         return max(group, key=lambda n: (degrees.get(n, 0), n))
 
-    def layout_group(group, fixed=None):
+    def layout_group(group, fixed=None, scale=1.0, level_max_nodes=None):
         fixed = fixed or {}
         ref = next(iter(fixed.keys()), None) or choose_ref(group)
+        local_dx = dx * scale
+        local_dy = dy * scale
         level = {ref: 0}
         queue = [ref]
         while queue:
@@ -767,13 +1001,23 @@ def _circuitikz_generic(components, title):
 
                 order[lvl].sort(key=key_next)
 
+        if level_max_nodes:
+            new_order = {}
+            new_lvl = 0
+            for lvl in sorted(order.keys()):
+                nodes_in_level = order[lvl]
+                for start in range(0, len(nodes_in_level), level_max_nodes):
+                    new_order[new_lvl] = nodes_in_level[start:start + level_max_nodes]
+                    new_lvl += 1
+            order = new_order
+
         coords_local = {}
         for lvl in sorted(order.keys()):
             group_nodes = order[lvl]
             total = len(group_nodes)
             for i, n in enumerate(group_nodes):
-                y = (i - (total - 1) / 2) * dy
-                x = lvl * dx
+                y = (i - (total - 1) / 2) * local_dy
+                x = lvl * local_dx
                 coords_local[n] = (x, y)
 
         if fixed:
@@ -801,9 +1045,11 @@ def _circuitikz_generic(components, title):
     group_frame_x = 6
     group_frame_y = 4
 
-    def fixed_for_group(group):
+    supply_nodes = _collect_supply_nodes(components)
+
+    def fixed_for_group(group, group_components, scale):
         transistors = []
-        for comp in components:
+        for comp in group_components:
             if comp.comp_type not in ('Q', 'M', 'J'):
                 continue
             nodes_list = [normalize_node(n) for n in comp.nodes[:3]]
@@ -811,19 +1057,75 @@ def _circuitikz_generic(components, title):
                 transistors.append(comp)
         if len(transistors) != 1:
             return {}
+
         t = transistors[0]
-        pin_dx = 8
-        pin_dy = 6
+        pins = _transistor_pins(t)
+        if not pins:
+            return {}
+
+        pin_dx = 8 * scale
+        pin_dy = 6 * scale
+        fixed = {}
         if t.comp_type == 'Q':
-            c, b, e = [normalize_node(n) for n in t.nodes[:3]]
-            return {b: (-pin_dx, 0), c: (0, pin_dy), e: (0, -pin_dy)}
-        d, g, s = [normalize_node(n) for n in t.nodes[:3]]
-        return {g: (-pin_dx, 0), d: (0, pin_dy), s: (0, -pin_dy)}
+            control = pins['base']
+            main_pins = {pins['collector'], pins['emitter']}
+            fixed[control] = (-pin_dx, 0)
+            fixed[pins['collector']] = (0, pin_dy)
+            fixed[pins['emitter']] = (0, -pin_dy)
+        else:
+            control = pins['gate']
+            main_pins = {pins['drain'], pins['source']}
+            fixed[control] = (-pin_dx, 0)
+            fixed[pins['drain']] = (0, pin_dy)
+            fixed[pins['source']] = (0, -pin_dy)
+
+        tank_nodes = _find_tank_nodes(group, group_components, main_pins, control)
+        if tank_nodes:
+            tank_adj = _build_adj_for_types(group_components, group, ('L', 'C'))
+            tank_nodes = {n for n in tank_nodes if n not in fixed}
+            origin = (pin_dx + 6 * scale, 0)
+            tank_positions = _layout_cluster_nodes(
+                tank_nodes,
+                tank_adj,
+                next(iter(main_pins)),
+                origin,
+                x_step=6 * scale,
+                y_step=4 * scale,
+                x_dir=1,
+            )
+            fixed.update(tank_positions)
+
+        block_nodes = set(main_pins) | set(supply_nodes) | tank_nodes
+        bias_nodes = _find_bias_nodes(group, group_components, control, block_nodes)
+        if bias_nodes:
+            bias_adj = _build_adj_for_types(group_components, group, ('R', 'C'))
+            origin = (-pin_dx - 6 * scale, 0)
+            bias_positions = _layout_cluster_nodes(
+                bias_nodes,
+                bias_adj,
+                control,
+                origin,
+                x_step=5 * scale,
+                y_step=3.5 * scale,
+                x_dir=-1,
+            )
+            fixed.update(bias_positions)
+
+        supply_in_group = sorted(n for n in supply_nodes if n in group and n not in fixed)
+        for idx, node in enumerate(supply_in_group):
+            fixed[node] = (idx * 4 * scale, pin_dy + 8 * scale)
+
+        return fixed
 
     group_infos = []
     for group in components_nodes:
-        fixed = fixed_for_group(group)
-        local = layout_group(group, fixed)
+        group_components = [
+            comp for comp in components
+            if any(normalize_node(n) in group for n in comp.nodes[:4])
+        ]
+        scale, level_max_nodes = _group_layout_params(group, group_components)
+        fixed = fixed_for_group(group, group_components, scale)
+        local = layout_group(group, fixed, scale=scale, level_max_nodes=level_max_nodes)
         xs = [v[0] for v in local.values()]
         ys = [v[1] for v in local.values()]
         if not xs or not ys:

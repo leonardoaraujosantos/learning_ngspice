@@ -37,7 +37,8 @@ Runtime dependencies:
 ## High-level Flow
 
 1. Parse SPICE file(s):
-   - Read file, merge continuation lines (`+`), skip comments and `.control` blocks.
+   - Read file, merge continuation lines (`+` with optional leading whitespace),
+     strip inline comments (`;` or `$`), skip full-line comments and `.control` blocks.
    - Extract components and subcircuits.
 2. Expand subcircuits:
    - Flatten `.SUBCKT` instances into standard components with prefixed names.
@@ -79,6 +80,8 @@ Instances `X...` are expanded by:
 - Mapping instance pins to subckt pins.
 - Prefixing internal nodes with the instance name.
 - Recursively expanding nested subcircuits (depth limited to 8).
+- Ignoring instance parameters (`PARAMS` or `key=value`) and treating subckt names
+  case-insensitively.
 
 ## Schematic Generation (Circuitikz)
 
@@ -117,11 +120,25 @@ If a group has exactly one transistor:
   - MOSFET/JFET: gate left, drain up, source down.
 - The rest of the nodes are laid out around these fixed points.
 
+#### Oscillator Bias/Tank Clustering
+
+For single-transistor groups with an LC-rich subgraph:
+- A "tank" cluster is inferred from L/C connectivity touching the transistor.
+- Tank nodes are placed to the right of the transistor frame.
+- Bias nodes (R/C network off base/gate) are pulled to the left.
+- Supply nodes are nudged above the frame to shorten VCC drops.
+
 #### Group Placement and Column Layout
 
 Connected components are laid out as separate groups:
 - Each group has padding and framing margins.
 - For 3+ groups, groups are placed into 2-3 columns to avoid overly tall images.
+
+#### Adaptive Spacing (Per Group)
+
+Spacing scales up with complexity:
+- More nodes, more reactive parts, or multiple transistors -> larger dx/dy.
+- Logic-like MOSFET chains split oversized BFS levels to avoid very tall layouts.
 
 #### Local Rails (Per Group)
 
@@ -192,14 +209,15 @@ These are left in place for debugging.
 - The layout is heuristic. Complex analog designs can still have crossings.
 - The simple fan layout only applies to a limited V+R topology.
 - BJT/MOSFET/JFET symbols use basic anchoring; pin routing is naive.
+- Oscillator clustering currently targets single-transistor groups; multi-transistor
+  oscillators (ring, astable) can still be cramped.
 - The script does not (yet) parse advanced SPICE constructs like `.include` or
   behavioral sources.
 
 ## Suggested Next Steps
 
 Potential improvements:
-- Explicit tank/bias grouping for oscillators (Colpitts, Hartley, Pierce).
 - Smarter component clustering based on net roles (bias, load, coupling).
 - Avoiding crossings via segment intersection checks (wire vs wire).
-- Adaptive grid size based on group complexity.
-
+- Dedicated layouts for multi-transistor oscillators (ring, astable).
+- Further rail compaction for wide oscillator schematics.
