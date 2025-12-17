@@ -61,7 +61,13 @@ sim-osciladores:
     @echo "Concluido!"
 
 # Simula TODOS os circuitos do projeto
-sim-all: sim-fundamentos sim-filtros sim-osciladores
+sim-all:
+    @echo "Simulando TODOS os circuitos..."
+    #!/usr/bin/env bash
+    for file in circuits/*/*.spice; do \
+        echo "Simulando $file..."; \
+        {{ngspice}} -b "$file" || true; \
+    done
     @echo "Todas as simulacoes concluidas!"
 
 # =============================================================================
@@ -92,7 +98,9 @@ schematic-osciladores:
     {{python}} scripts/spice_to_schematic.py circuits/03_osciladores/
 
 # Gera TODOS os esquematicos do projeto
-schematic-all: schematic-fundamentos schematic-filtros schematic-osciladores
+schematic-all:
+    @echo "Gerando TODOS os esquematicos..."
+    {{python}} scripts/spice_to_schematic.py circuits/
     @echo "Todos os esquematicos gerados!"
 
 # =============================================================================

@@ -181,13 +181,13 @@ VEE vee 0 DC -15
 * ---------------------------------------------------------
 * Frequencia: 10Hz (periodo 100ms)
 * Amplitude: ±1V
-VIN1 input1 0 PULSE(-1 1 0 1n 1n 50m 100m)
+VIN1 input1 0 PULSE(-1 1 0 1n 1n 50m 100m) AC 1
 
 * ---------------------------------------------------------
 * Teste 2: Sinal senoidal (1kHz)
 * ---------------------------------------------------------
 * Senoide -> Cosseno (fase -90deg)
-VIN2 input2 0 SIN(0 1 1k)
+VIN2 input2 0 SIN(0 1 1k) AC 1
 
 * ---------------------------------------------------------
 * Teste 3: Integrador com reset
@@ -211,28 +211,10 @@ Rload2 out2 0 10k
 Rload3 out3 0 10k
 
 * ---------------------------------------------------------
-* MODELO LM741
+* MODELO LM741 PADRAO
 * ---------------------------------------------------------
-
-.subckt LM741 inp inn vcc vee out
-  Rin inp inn 2MEG
-  Cin inp inn 1.4p
-  E1 int 0 inp inn 200k
-  Rpole int int2 1k
-  Cpole int2 0 15.9u
-  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
-  Eout out 0 int2 1
-  Rout out out_int 75
-  Dclip_pos out_int vcc_int DCLAMP
-  Dclip_neg vee_int out_int DCLAMP
-  Vcc_int vcc_int vcc DC 2
-  Vee_int vee vee_int DC 2
-  Ibias_p inp 0 80n
-  Ibias_n inn 0 80n
-  Voffset inp inp_int DC 2m
-.ends
-
-.model DCLAMP D (IS=1e-14 N=0.01)
+* Incluindo modelo LM741 da biblioteca padrao
+.include LM741.lib
 
 * ---------------------------------------------------------
 * ANALISES
@@ -272,7 +254,7 @@ Rload3 out3 0 10k
 
   meas tran OUT1_MAX MAX v(out1) FROM=100m TO=200m
   meas tran OUT1_MIN MIN v(out1) FROM=100m TO=200m
-  meas tran OUT1_PP PARAM='OUT1_MAX-OUT1_MIN'
+  let OUT1_PP = OUT1_MAX - OUT1_MIN
 
   echo "Amplitude pico-a-pico da triangular:"
   print OUT1_PP
@@ -295,7 +277,7 @@ Rload3 out3 0 10k
   * Comparar fase
   meas tran T_IN2 WHEN v(input2)=0 RISE=1 FROM=50m
   meas tran T_OUT2 WHEN v(out2)=0 FALL=1 FROM=50m
-  meas tran PHASE_DIFF PARAM='(T_OUT2-T_IN2)*1000*360'
+  let PHASE_DIFF = (T_OUT2 - T_IN2) * 1000 * 360
 
   echo "Defasagem medida (esperado: ~-90 graus):"
   print PHASE_DIFF

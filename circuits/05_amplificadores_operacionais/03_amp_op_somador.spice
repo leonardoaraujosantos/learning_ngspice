@@ -161,9 +161,9 @@ VEE vee 0 DC -15
 * Sinais de teste para somador simples
 * ---------------------------------------------------------
 * Tres senoides de frequencias diferentes
-V1 in1 0 SIN(0 0.5 1k)    ; 1kHz
-V2 in2 0 SIN(0 0.3 2k)    ; 2kHz
-V3 in3 0 SIN(0 0.2 3k)    ; 3kHz
+V1 in1 0 SIN(0 0.5 1k) AC 0.5    ; 1kHz
+V2 in2 0 SIN(0 0.3 2k) AC 0.3    ; 2kHz
+V3 in3 0 SIN(0 0.2 3k) AC 0.2    ; 3kHz
 
 * ---------------------------------------------------------
 * Sinais para mixer de audio
@@ -201,28 +201,10 @@ Rload2 out_mixer 0 10k
 Rload3 out_dac 0 10k
 
 * ---------------------------------------------------------
-* MODELO LM741
+* MODELO LM741 PADRAO
 * ---------------------------------------------------------
-
-.subckt LM741 inp inn vcc vee out
-  Rin inp inn 2MEG
-  Cin inp inn 1.4p
-  E1 int 0 inp inn 200k
-  Rpole int int2 1k
-  Cpole int2 0 15.9u
-  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
-  Eout out 0 int2 1
-  Rout out out_int 75
-  Dclip_pos out_int vcc_int DCLAMP
-  Dclip_neg vee_int out_int DCLAMP
-  Vcc_int vcc_int vcc DC 2
-  Vee_int vee vee_int DC 2
-  Ibias_p inp 0 80n
-  Ibias_n inn 0 80n
-  Voffset inp inp_int DC 2m
-.ends
-
-.model DCLAMP D (IS=1e-14 N=0.01)
+* Incluindo modelo LM741 da biblioteca padrao
+.include LM741.lib
 
 * ---------------------------------------------------------
 * ANALISES
@@ -289,7 +271,7 @@ Rload3 out_dac 0 10k
 
   meas tran MIXER_MAX MAX v(out_mixer) FROM=2m TO=10m
   meas tran MIXER_MIN MIN v(out_mixer) FROM=2m TO=10m
-  meas tran MIXER_PP PARAM='MIXER_MAX-MIXER_MIN'
+  let MIXER_PP = MIXER_MAX - MIXER_MIN
 
   echo "Amplitude mixada:"
   print MIXER_PP

@@ -126,6 +126,22 @@
 VDD vdd 0 DC 12
 
 * ---------------------------------------------------------
+* MODELOS JFET PADRAO
+* ---------------------------------------------------------
+* Modelo 2N5457 - N-Channel JFET (Low Noise, Audio)
+.model J2N5457 NJF (
++ VTO=-2.0
++ BETA=0.75m
++ LAMBDA=0.01
++ IS=100f
++ RD=10
++ RS=10
++ CGS=4p
++ CGD=2p
++ PB=0.7
++ FC=0.5 )
+
+* ---------------------------------------------------------
 * EXEMPLO 1: Amplificador Common-Source (CS) Basico
 * ---------------------------------------------------------
 * Configuracao mais comum, similar a emissor-comum do BJT
@@ -141,7 +157,7 @@ VDD vdd 0 DC 12
   Rg gate gnd 1MEG
 
   * JFET canal N
-  J1 drain gate source JFET_2N5457
+  J1 drain gate source J2N5457
 
   * Resistor de drain (carga)
   Rd vdd drain 2.2k
@@ -171,7 +187,7 @@ VDD vdd 0 DC 12
   Rg gate gnd 1MEG
 
   * JFET: drain direto em VDD
-  J2 vdd gate source JFET_2N5457
+  J2 vdd gate source J2N5457
 
   * Carga no source (saida!)
   Rs source gnd 1k
@@ -190,7 +206,7 @@ VDD vdd 0 DC 12
 .subckt jfet_gain_control vin vout vdd gnd
   Cin vin gate 100n
   Rg gate gnd 1MEG
-  J3 drain gate source JFET_2N5457
+  J3 drain gate source J2N5457
   Rd vdd drain 2.2k
 
   * Rs dividido: parte com bypass, parte sem
@@ -210,7 +226,7 @@ VDD vdd 0 DC 12
 * ---------------------------------------------------------
 * Sinal de entrada (senoide 1kHz, 10mVpp - sinal fraco!)
 * ---------------------------------------------------------
-VIN input 0 SIN(0 5m 1k)
+VIN input 0 SIN(0 5m 1k) AC 5m
 
 * ---------------------------------------------------------
 * Instanciando os amplificadores
@@ -223,25 +239,6 @@ X3 input out3 vdd 0 jfet_gain_control
 Rload1 out1 0 10k
 Rload2 out2 0 10k
 Rload3 out3 0 10k
-
-* ---------------------------------------------------------
-* MODELO JFET 2N5457 (parametros tipicos)
-* ---------------------------------------------------------
-* JFET canal N de baixo ruido
-* Idss = 1-5mA (tipico: 3mA)
-* Vp = -0.5 a -6V (tipico: -2V)
-* gm ~ 2000 uS
-
-.model JFET_2N5457 NJF (
-+ VTO=-2.0
-+ BETA=0.75m
-+ LAMBDA=0.01
-+ IS=100f
-+ RD=10
-+ RS=10
-+ CGS=4p
-+ CGD=2p
-)
 
 * ---------------------------------------------------------
 * ANALISES
@@ -274,20 +271,20 @@ Rload3 out3 0 10k
 
   echo "=== Common-Source (X1) ==="
   echo "Corrente de drain Id:"
-  print @j1[id]
+  print @x1.j1[id]
   echo "Tensao gate-source Vgs:"
-  print @j1[vgs]
+  print @x1.j1[vgs]
   echo "Tensao drain Vd:"
   print v(x1.drain)
   echo "Transcondutancia gm:"
-  print @j1[gm]
+  print @x1.j1[gm]
   echo ""
 
   echo "=== Source Follower (X2) ==="
   echo "Corrente de drain Id:"
-  print @j2[id]
+  print @x2.j2[id]
   echo "Tensao gate-source Vgs:"
-  print @j2[vgs]
+  print @x2.j2[vgs]
   echo "Tensao source Vs:"
   print v(x2.source)
   echo ""
@@ -305,18 +302,18 @@ Rload3 out3 0 10k
 
   meas tran OUT1_MAX MAX v(out1) FROM=2m TO=10m
   meas tran OUT1_MIN MIN v(out1) FROM=2m TO=10m
-  meas tran OUT1_PP PARAM='OUT1_MAX-OUT1_MIN'
-  meas tran GAIN1 PARAM='OUT1_PP/(2*VIN_PP)'
+  let OUT1_PP = OUT1_MAX - OUT1_MIN
+  let GAIN1 = OUT1_PP / (2 * VIN_PP)
 
   meas tran OUT2_MAX MAX v(out2) FROM=2m TO=10m
   meas tran OUT2_MIN MIN v(out2) FROM=2m TO=10m
-  meas tran OUT2_PP PARAM='OUT2_MAX-OUT2_MIN'
-  meas tran GAIN2 PARAM='OUT2_PP/(2*VIN_PP)'
+  let OUT2_PP = OUT2_MAX - OUT2_MIN
+  let GAIN2 = OUT2_PP / (2 * VIN_PP)
 
   meas tran OUT3_MAX MAX v(out3) FROM=2m TO=10m
   meas tran OUT3_MIN MIN v(out3) FROM=2m TO=10m
-  meas tran OUT3_PP PARAM='OUT3_MAX-OUT3_MIN'
-  meas tran GAIN3 PARAM='OUT3_PP/(2*VIN_PP)'
+  let OUT3_PP = OUT3_MAX - OUT3_MIN
+  let GAIN3 = OUT3_PP / (2 * VIN_PP)
 
   echo "Entrada (pico): "
   print VIN_PP

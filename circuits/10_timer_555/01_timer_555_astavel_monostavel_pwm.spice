@@ -226,7 +226,7 @@ Rload_pwm out_pwm gnd_pwm 1k
 * Comparador superior: reseta quando THRESH > 2×Vcc/3
 
 * Tensão de controle (normalmente 2/3 Vcc)
-Vctrl_internal ctrl_int GND VALUE={V(CTRL) > 0.1 ? V(CTRL) : 2*V(VCC)/3}
+Bctrl_internal ctrl_int GND V={V(CTRL) > 0.1 ? V(CTRL) : 2*V(VCC)/3}
 
 * Comparador inferior (trigger)
 Ecomp_low comp_low GND VALUE={V(TRIG) < V(VCC)/3 ? 5 : 0}

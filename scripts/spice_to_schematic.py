@@ -338,11 +338,20 @@ def _safe_id(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', str(text))
 
 
-def _label_attr_for(comp):
+def _label_attr_for(comp, value_only=False):
+    """Gera atributos de label para componentes circuitikz.
+
+    Args:
+        comp: Componente
+        value_only: Se True, mostra apenas o valor (útil para evitar sobreposição)
+    """
     name = comp.name or ""
     value = comp.value or comp.model or ""
     name_safe = str(name).replace('_', '\\_')
     value_safe = str(value).replace('_', '\\_')
+
+    if value_only and value:
+        return f",l=${value_safe}$"
     if name and value:
         return f",l=${name_safe}$,l_=${value_safe}$"
     if name:
@@ -711,6 +720,74 @@ def create_netlist(components, title):
     return '\n'.join(lines)
 
 
+def _is_simple_current_divider(components):
+    """Detecta múltiplas fontes de corrente + resistores em paralelo."""
+    current_sources = [c for c in components if c.comp_type == 'I']
+    if len(current_sources) == 0:
+        return False
+    # Verificar se há pelo menos resistores
+    resistors = [c for c in components if c.comp_type == 'R']
+    if len(resistors) == 0:
+        return False
+    # Aceitar I, R, V (para VCC opcional), D (para LEDs opcionais)
+    allowed = {'I', 'R', 'V', 'D'}
+    if any(c.comp_type not in allowed for c in components):
+        return False
+    # Verificar que há pelo menos uma fonte de corrente conectada entre 0 e outro nó
+    has_valid_i = False
+    for i_src in current_sources:
+        n1, n2 = normalize_node(i_src.nodes[0]), normalize_node(i_src.nodes[1])
+        if '0' in (n1, n2):
+            has_valid_i = True
+            break
+    return has_valid_i
+
+
+def _extract_current_divider_groups(components):
+    """Extrai grupos de fontes de corrente com seus resistores em paralelo.
+
+    Retorna lista de grupos, cada grupo é:
+    (current_source, hub_node, parallel_components)
+    onde parallel_components são componentes (R ou D+R) conectados de hub para ground.
+    """
+    current_sources = [c for c in components if c.comp_type == 'I']
+    groups = []
+
+    for i_src in current_sources:
+        n1, n2 = normalize_node(i_src.nodes[0]), normalize_node(i_src.nodes[1])
+        if n1 == '0':
+            hub = n2
+        elif n2 == '0':
+            hub = n1
+        else:
+            continue  # Fonte não conectada a ground
+
+        # Encontrar componentes paralelos: R ou D entre hub e ground
+        parallel = []
+        for comp in components:
+            if comp.name == i_src.name:
+                continue
+            if comp.comp_type in ('R', 'D'):
+                cn1, cn2 = normalize_node(comp.nodes[0]), normalize_node(comp.nodes[1])
+                # Resistor direto hub-ground
+                if comp.comp_type == 'R' and set([cn1, cn2]) == set([hub, '0']):
+                    parallel.append([comp])
+                # Diodo que conecta hub a um nó intermediário
+                elif comp.comp_type == 'D' and hub in (cn1, cn2):
+                    other = cn2 if cn1 == hub else cn1
+                    # Procurar resistor desse nó intermediário para ground
+                    for r in components:
+                        if r.comp_type == 'R':
+                            rn1, rn2 = normalize_node(r.nodes[0]), normalize_node(r.nodes[1])
+                            if set([rn1, rn2]) == set([other, '0']):
+                                parallel.append([comp, r])
+                                break
+
+        if parallel:
+            groups.append((i_src, hub, parallel))
+
+    return groups
+
 def _is_simple_voltage_fan(components):
     """Detecta 1 fonte de tensao + resistores com ground presente."""
     vs = [c for c in components if c.comp_type == 'V']
@@ -845,51 +922,175 @@ def _extract_fan_branches(components):
 
 
 def _circuitikz_simple_fan(components, title):
-    """Gera codigo circuitikz para um fan simples."""
+    """Gera codigo circuitikz para divisores de tensao em serie."""
     hub, gnd, vval, branches = _extract_fan_branches(components)
     v = next(c for c in components if c.comp_type == 'V')
 
     lines = []
     lines.append("\\begin{circuitikz}[american voltages]")
-    # Coordenadas
-    lines.append("\\coordinate (hub) at (0,0);")
-    lines.append("\\coordinate (gnd) at (0,-3);")
-    v_label = _label_attr_for(v)
-    lines.append(f"\\draw (hub) to[V{v_label}, invert] (gnd);")
 
-    # Posicoes fixas para ramos: direita, cima, esquerda, baixo
-    dir_vectors = [(3, 0), (0, 3), (-3, 0), (0, -3)]
+    # MELHORADO: Layout compacto para múltiplos divisores
+    # Se há múltiplos ramos (divisores), colocá-los lado a lado
+    n_branches = len(branches)
 
-    for idx, (chain, end_node) in enumerate(branches):
-        dx, dy = dir_vectors[idx % len(dir_vectors)]
-        start = f"b{idx}_0"
-        lines.append(f"\\draw (hub) to[short] ++({dx},{dy}) coordinate ({start});")
-        current = start
-        for j, r in enumerate(chain):
-            is_last = (j == len(chain) - 1)
-            end_norm = normalize_node(end_node)
-            label_attr = _label_attr_for(r)
+    if n_branches <= 2:
+        # Layout tradicional em fan para 1-2 ramos
+        lines.append("\\coordinate (hub) at (0,0);")
+        lines.append("\\coordinate (gnd) at (0,-3);")
+        v_label = _label_attr_for(v)
+        lines.append(f"\\draw (hub) to[V{v_label}, invert] (gnd);")
 
-            if dx != 0:
+        dir_vectors = [(3, 0), (-3, 0)]  # Apenas direita e esquerda
+        for idx, (chain, end_node) in enumerate(branches):
+            dx, dy = dir_vectors[idx % len(dir_vectors)]
+            start = f"b{idx}_0"
+            lines.append(f"\\draw (hub) to[short] ++({dx},{dy}) coordinate ({start});")
+            current = start
+            for j, r in enumerate(chain):
+                is_last = (j == len(chain) - 1)
+                end_norm = normalize_node(end_node)
+                label_attr = _label_attr_for(r)
                 step_x, step_y = (2 if dx > 0 else -2), 0
-            else:
-                step_x, step_y = 0, (2 if dy > 0 else -2)
 
-            if is_last and end_norm == '0':
-                lines.append(f"\\draw ({current}) to[R{label_attr}] ++({step_x},{step_y}) to[short] ++(0,-2) node[ground]{{}};")
+                if is_last and end_norm == '0':
+                    lines.append(f"\\draw ({current}) to[R{label_attr}] ++({step_x},{step_y}) to[short] ++(0,-2) node[ground]{{}};")
+                else:
+                    nxt = f"b{idx}_{j+1}"
+                    lines.append(f"\\draw ({current}) to[R{label_attr}] ++({step_x},{step_y}) coordinate ({nxt});")
+                    current = nxt
+    else:
+        # Layout em colunas para 3+ divisores (mais compacto)
+        spacing = 5
+        start_x = -(n_branches - 1) * spacing / 2
+
+        # Fonte centralizada
+        lines.append(f"\\coordinate (vcc) at (0,0);")
+        lines.append(f"\\coordinate (gnd) at (0,-8);")
+        v_label = _label_attr_for(v)
+        lines.append(f"\\draw (vcc) to[V{v_label}, invert] (gnd);")
+
+        # Barra de VCC
+        left_x = start_x - 1
+        right_x = start_x + (n_branches - 1) * spacing + 1
+        lines.append(f"\\draw ({left_x},0) -- ({right_x},0);")
+
+        # Cada divisor em uma coluna
+        for idx, (chain, end_node) in enumerate(branches):
+            x_pos = start_x + idx * spacing
+            lines.append(f"\\coordinate (div{idx}_top) at ({x_pos},0);")
+
+            current = f"div{idx}_top"
+            y_offset = 0
+            for j, r in enumerate(chain):
+                is_last = (j == len(chain) - 1)
+                end_norm = normalize_node(end_node)
+                label_attr = _label_attr_for(r)
+
+                if is_last and end_norm == '0':
+                    lines.append(f"\\draw ({current}) to[R{label_attr}] ++(0,-2.5) node[ground]{{}};")
+                else:
+                    nxt = f"div{idx}_{j+1}"
+                    lines.append(f"\\draw ({current}) to[R{label_attr}] ++(0,-2.5) coordinate ({nxt});")
+                    current = nxt
+
+    lines.append("\\end{circuitikz}")
+    return "\n".join(lines)
+
+
+def _circuitikz_current_divider(components, title):
+    """Gera código circuitikz para divisores de corrente com layout compacto."""
+    groups = _extract_current_divider_groups(components)
+    if not groups:
+        return None
+
+    lines = []
+    lines.append("\\begin{circuitikz}[american voltages]")
+
+    # Layout compacto: colocar grupos lado a lado
+    n_groups = len(groups)
+    spacing = 8  # Aumentado de 6 para evitar sobreposição
+    start_x = -(n_groups - 1) * spacing / 2
+
+    # Barra de ground (comum a todos os grupos) - com margens maiores
+    left_x = start_x - 3.5  # Aumentado de 2 para 3.5
+    right_x = start_x + (n_groups - 1) * spacing + 3.5  # Aumentado de 2 para 3.5
+    lines.append(f"\\draw ({left_x},-6) -- ({right_x},-6);")
+
+    # Desenhar cada grupo (fonte de corrente + resistores paralelos)
+    for group_idx, (i_src, hub, parallel_comps) in enumerate(groups):
+        x_pos = start_x + group_idx * spacing
+
+        # Resistores/diodos em paralelo de hub para ground
+        n_parallel = len(parallel_comps)
+        if n_parallel == 1:
+            # Apenas um resistor: colocar ao lado da fonte
+            branch = parallel_comps[0]
+            # Fonte à esquerda, resistor à direita com mais espaçamento
+            i_label = _label_attr_for(i_src, value_only=True)
+            lines.append(f"\\coordinate (grp{group_idx}_gnd) at ({x_pos - 1.8},-6);")
+            lines.append(f"\\coordinate (grp{group_idx}_hub) at ({x_pos - 1.8},0);")
+            lines.append(f"\\draw (grp{group_idx}_gnd) to[I{i_label}] (grp{group_idx}_hub);")
+
+            if len(branch) == 1:
+                # Resistor com mais distância
+                r_label = _label_attr_for(branch[0])
+                lines.append(f"\\coordinate (r{group_idx}) at ({x_pos + 1.8},0);")
+                lines.append(f"\\draw (grp{group_idx}_hub) to[short] (r{group_idx});")
+                lines.append(f"\\draw (r{group_idx}) to[R{r_label}] ++(0,-6) -- ({x_pos + 1.8},-6);")
             else:
-                nxt = f"b{idx}_{j+1}"
-                lines.append(f"\\draw ({current}) to[R{label_attr}] ++({step_x},{step_y}) coordinate ({nxt});")
-                current = nxt
+                # Diodo + resistor
+                d_label = _label_attr_for(branch[0])
+                r_label = _label_attr_for(branch[1])
+                lines.append(f"\\coordinate (r{group_idx}) at ({x_pos + 1.8},0);")
+                lines.append(f"\\draw (grp{group_idx}_hub) to[short] (r{group_idx});")
+                lines.append(f"\\draw (r{group_idx}) to[D{d_label}] ++(0,-2) coordinate (tmp);")
+                lines.append(f"\\draw (tmp) to[R{r_label}] ++(0,-4) -- ({x_pos + 1.8},-6);")
+        else:
+            # Múltiplos resistores: todos à DIREITA da fonte (não no centro)
+            # Fonte à esquerda
+            lines.append(f"\\coordinate (grp{group_idx}_gnd) at ({x_pos - 2.5},-6);")
+            lines.append(f"\\coordinate (grp{group_idx}_hub) at ({x_pos - 2.5},0);")
+            i_label = _label_attr_for(i_src, value_only=True)
+            lines.append(f"\\draw (grp{group_idx}_gnd) to[I{i_label}] (grp{group_idx}_hub);")
+
+            # Distribuir resistores à direita da fonte
+            par_spacing = 2.5
+            par_start_x = x_pos - (n_parallel - 1) * par_spacing / 2
+
+            # Barra horizontal conectando fonte aos resistores
+            bar_left = x_pos - 2.5  # posição da fonte
+            bar_right = par_start_x + (n_parallel - 1) * par_spacing + 0.5
+            lines.append(f"\\draw ({bar_left},0) -- ({bar_right},0);")
+
+            for par_idx, branch in enumerate(parallel_comps):
+                par_x = par_start_x + par_idx * par_spacing
+                lines.append(f"\\coordinate (par{group_idx}_{par_idx}) at ({par_x},0);")
+
+                if len(branch) == 1:
+                    # Apenas resistor
+                    r_label = _label_attr_for(branch[0])
+                    lines.append(f"\\draw (par{group_idx}_{par_idx}) to[R{r_label}] ++(0,-6) -- ({par_x},-6);")
+                else:
+                    # Diodo + resistor
+                    d_label = _label_attr_for(branch[0])
+                    r_label = _label_attr_for(branch[1])
+                    lines.append(f"\\draw (par{group_idx}_{par_idx}) to[D{d_label}] ++(0,-2) coordinate (tmp{group_idx}_{par_idx});")
+                    lines.append(f"\\draw (tmp{group_idx}_{par_idx}) to[R{r_label}] ++(0,-4) -- ({par_x},-6);")
+
+    # Adicionar símbolos de ground na barra
+    for group_idx in range(n_groups):
+        x_pos = start_x + group_idx * spacing
+        lines.append(f"\\draw ({x_pos},-6) node[ground]{{}};")
 
     lines.append("\\end{circuitikz}")
     return "\n".join(lines)
 
 
 def _circuitikz_generic(components, title):
-    """Gera circuito circuitikz com layout simples em grade."""
+    """Gera circuito circuitikz com layout hierarquico."""
     bipoles = {'R', 'C', 'L', 'V', 'I', 'D'}
-    dx, dy = 8, 5
+    # Espaçamento reduzido para circuitos mais compactos
+    dx, dy = 7, 4.5  # Reduzido de 10,6 para tornar schematics menores
     nodes = set()
     for comp in components:
         for node in comp.nodes[:4]:
@@ -953,11 +1154,32 @@ def _circuitikz_generic(components, title):
 
     def layout_group(group, fixed=None, scale=1.0, level_max_nodes=None):
         fixed = fixed or {}
-        ref = next(iter(fixed.keys()), None) or choose_ref(group)
         local_dx = dx * scale
         local_dy = dy * scale
-        level = {ref: 0}
-        queue = [ref]
+
+        # MELHORADO: Atribuição hierárquica de camadas (VCC -> componentes -> GND)
+        level = {}
+
+        # Identificar nós de supply (conectados a VCC via fonte)
+        supply_in_group = set(supply_nodes) & group
+
+        # Estratégia hierárquica: começar de nós fixed ou supply nodes
+        if fixed:
+            # Se há nós fixos, usá-los como raiz
+            for n in fixed:
+                if n in group:
+                    level[n] = 0
+        elif supply_in_group:
+            # Começar dos nós de alimentação (topo da hierarquia)
+            for n in supply_in_group:
+                level[n] = 0
+        else:
+            # Fallback: escolher nó de referência
+            ref = choose_ref(group)
+            level[ref] = 0
+
+        # BFS para atribuir camadas
+        queue = list(level.keys())
         while queue:
             cur = queue.pop(0)
             for nxt in adj[cur]:
@@ -965,12 +1187,14 @@ def _circuitikz_generic(components, title):
                     level[nxt] = level[cur] + 1
                     queue.append(nxt)
 
+        # Nós não alcançados
         max_level = max(level.values()) if level else 0
         for n in group:
             if n not in level:
                 max_level += 1
                 level[n] = max_level
 
+        # Agrupar nós por camada
         by_level = defaultdict(list)
         for n, lvl in level.items():
             by_level[lvl].append(n)
@@ -979,25 +1203,33 @@ def _circuitikz_generic(components, title):
         for lvl, group_nodes in by_level.items():
             order[lvl] = sorted(group_nodes)
 
+        # MELHORADO: Crossing reduction com mais iterações (barycenter heuristic)
         max_lvl = max(order.keys()) if order else 0
-        for _ in range(2):
+        for iteration in range(5):  # Aumentado de 2 para 5 iterações
+            # Forward pass: ordenar baseado em camada anterior
             for lvl in range(1, max_lvl + 1):
                 prev = order.get(lvl - 1, [])
                 prev_idx = {n: i for i, n in enumerate(prev)}
 
                 def key_prev(n):
                     indices = [prev_idx[p] for p in adj[n] if p in prev_idx]
-                    return sum(indices) / len(indices) if indices else len(prev) / 2
+                    if not indices:
+                        return len(prev) / 2
+                    # Barycenter: média das posições dos vizinhos
+                    return sum(indices) / len(indices)
 
                 order[lvl].sort(key=key_prev)
 
+            # Backward pass: ordenar baseado em camada seguinte
             for lvl in range(max_lvl - 1, -1, -1):
                 nxt = order.get(lvl + 1, [])
                 nxt_idx = {n: i for i, n in enumerate(nxt)}
 
                 def key_next(n):
                     indices = [nxt_idx[p] for p in adj[n] if p in nxt_idx]
-                    return sum(indices) / len(indices) if indices else len(nxt) / 2
+                    if not indices:
+                        return len(nxt) / 2
+                    return sum(indices) / len(indices)
 
                 order[lvl].sort(key=key_next)
 
@@ -1221,8 +1453,10 @@ def _circuitikz_generic(components, title):
         elif n2 == '0' and n1 in coords:
             supply_nodes_by_group[group_of[n1]].append(n1)
 
+    # MELHORADO: Detectar TODOS os componentes conectados a ground
     has_ground_by_group = defaultdict(bool)
     for comp in components:
+        # Bipolos (R, C, L, V, I, D) com pelo menos 1 nó em ground
         if comp.comp_type in bipoles and len(comp.nodes) >= 2:
             n1 = normalize_node(comp.nodes[0])
             n2 = normalize_node(comp.nodes[1])
@@ -1230,7 +1464,8 @@ def _circuitikz_generic(components, title):
                 other = n2 if n1 == '0' else n1
                 if other in coords:
                     has_ground_by_group[group_of[other]] = True
-        if comp.comp_type in ('Q', 'M', 'J') and len(comp.nodes) >= 3:
+        # Transistores com emitter/source em ground
+        elif comp.comp_type in ('Q', 'M', 'J') and len(comp.nodes) >= 3:
             if normalize_node(comp.nodes[2]) == '0':
                 for n in comp.nodes[:3]:
                     nn = normalize_node(n)
@@ -1353,6 +1588,27 @@ def _circuitikz_generic(components, title):
     bus_segments = list(bus_lines)
     bend_offset = route_grid
 
+    # Mapear componentes bipolares para detectar cruzamentos
+    component_segments = []
+    for comp in components:
+        if comp.comp_type not in bipoles or len(comp.nodes) < 2:
+            continue
+        n1 = normalize_node(comp.nodes[0])
+        n2 = normalize_node(comp.nodes[1])
+        # Ignorar componentes conectados a ground (sao verticais)
+        if n1 == '0' or n2 == '0':
+            continue
+        if n1 in coords and n2 in coords:
+            x1, y1 = coords[n1]
+            x2, y2 = coords[n2]
+            component_segments.append((x1, y1, x2, y2, comp.name))
+
+    # DEBUG: Imprimir componentes mapeados
+    if False:  # Ativar para debug
+        print(f"DEBUG: {len(component_segments)} componentes mapeados para deteccao")
+        for x1, y1, x2, y2, name in component_segments[:5]:
+            print(f"  {name}: ({x1},{y1}) -> ({x2},{y2})")
+
     def segment_hits_nodes(x1, y1, x2, y2, ignore):
         hits = 0
         if x1 == x2:
@@ -1369,6 +1625,54 @@ def _circuitikz_generic(components, title):
                     continue
                 if abs(ny - y1) < 0.01 and xmin < nx < xmax:
                     hits += 1
+        return hits
+
+    def segment_hits_components(x1, y1, x2, y2, ignore_comps=set()):
+        """Detecta se um segmento cruza sobre componentes bipolares."""
+        hits = 0
+
+        if abs(x1 - x2) < 0.01 and abs(y1 - y2) < 0.01:
+            return hits
+
+        for cx1, cy1, cx2, cy2, cname in component_segments:
+            if cname in ignore_comps:
+                continue
+
+            # Normalizar coordenadas dos segmentos
+            sx1, sy1, sx2, sy2 = x1, y1, x2, y2
+
+            # Segmento de teste é vertical (x constante)
+            if abs(sx1 - sx2) < 0.1:
+                x_seg = sx1
+                y_seg_min, y_seg_max = sorted([sy1, sy2])
+
+                # Componente é horizontal (y constante)
+                if abs(cy1 - cy2) < 0.1:
+                    x_comp_min, x_comp_max = sorted([cx1, cx2])
+                    y_comp = cy1
+
+                    # Verificar cruzamento: segmento vertical passa por y_comp
+                    # e componente horizontal passa por x_seg
+                    if (x_comp_min - route_grid) < x_seg < (x_comp_max + route_grid):
+                        if (y_seg_min - route_grid) < y_comp < (y_seg_max + route_grid):
+                            hits += 10  # Penalidade MUITO alta para cruzamento direto
+
+            # Segmento de teste é horizontal (y constante)
+            elif abs(sy1 - sy2) < 0.1:
+                y_seg = sy1
+                x_seg_min, x_seg_max = sorted([sx1, sx2])
+
+                # Componente é vertical (x constante)
+                if abs(cx1 - cx2) < 0.1:
+                    y_comp_min, y_comp_max = sorted([cy1, cy2])
+                    x_comp = cx1
+
+                    # Verificar cruzamento: segmento horizontal passa por x_comp
+                    # e componente vertical passa por y_seg
+                    if (y_comp_min - route_grid) < y_seg < (y_comp_max + route_grid):
+                        if (x_seg_min - route_grid) < x_comp < (x_seg_max + route_grid):
+                            hits += 10  # Penalidade MUITO alta para cruzamento direto
+
         return hits
 
     def segment_hits_bus(x1, y1, x2, y2):
@@ -1393,6 +1697,9 @@ def _circuitikz_generic(components, title):
         hits += segment_hits_nodes(bx, by, x2, y2, ignore)
         hits += segment_hits_bus(x1, y1, bx, by)
         hits += segment_hits_bus(bx, by, x2, y2)
+        # NOVO: Penalizar cruzamentos com componentes
+        hits += segment_hits_components(x1, y1, bx, by)
+        hits += segment_hits_components(bx, by, x2, y2)
         length = abs(x1 - bx) + abs(y1 - by) + abs(x2 - bx) + abs(y2 - by)
         return hits, length
 
@@ -1710,7 +2017,11 @@ def create_schematic(components, title, output_path):
 
 
 def run_cmd(cmd, cwd):
-    proc = subprocess.run(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    env = os.environ.copy()
+    # Adicionar LaTeX ao PATH (macOS)
+    if '/Library/TeX/texbin' not in env.get('PATH', ''):
+        env['PATH'] = f"/Library/TeX/texbin:{env.get('PATH', '')}"
+    proc = subprocess.run(cmd, shell=True, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return proc.returncode, proc.stdout, proc.stderr
 
 
@@ -1721,6 +2032,8 @@ def create_schematic_circuitikz(components, title, output_path):
 
     if _is_simple_voltage_fan(components):
         tex_body = _circuitikz_simple_fan(components, title)
+    elif _is_simple_current_divider(components):
+        tex_body = _circuitikz_current_divider(components, title)
     else:
         tex_body = _circuitikz_generic(components, title)
 

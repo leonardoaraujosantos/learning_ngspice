@@ -188,7 +188,7 @@ VEE vee 0 DC -15
 * Sinal de teste: rampa lenta (0 a 5V em 10ms)
 * ---------------------------------------------------------
 VIN input 0 PWL(
-+ 0m 0  10m 5  20m 0  30m 5  40m 0)
++ 0m 0  10m 5  20m 0  30m 5  40m 0) AC 1
 
 * ---------------------------------------------------------
 * Referencia fixa para comparador simples
@@ -204,7 +204,7 @@ VHIGH vhigh 0 DC 3.0
 * ---------------------------------------------------------
 * Sinal AC para zero-crossing
 * ---------------------------------------------------------
-VAC input_ac 0 SIN(0 3 50)
+VAC input_ac 0 SIN(0 3 50) AC 3
 
 * ---------------------------------------------------------
 * Instanciando os comparadores
@@ -243,28 +243,10 @@ Rload5 out_window 0 10k
 Rload6 out_zc 0 10k
 
 * ---------------------------------------------------------
-* MODELO LM741 (amp-op usado como comparador)
+* MODELO LM741 PADRAO
 * ---------------------------------------------------------
-
-.subckt LM741 inp inn vcc vee out
-  Rin inp inn 2MEG
-  Cin inp inn 1.4p
-  E1 int 0 inp inn 200k
-  Rpole int int2 1k
-  Cpole int2 0 15.9u
-  Gslew 0 int2 VALUE={LIMIT(V(int2)*1e-6, -0.5e-6, 0.5e-6)}
-  Eout out 0 int2 1
-  Rout out out_int 75
-  Dclip_pos out_int vcc_int DCLAMP
-  Dclip_neg vee_int out_int DCLAMP
-  Vcc_int vcc_int vcc DC 2
-  Vee_int vee vee_int DC 2
-  Ibias_p inp 0 80n
-  Ibias_n inn 0 80n
-  Voffset inp inp_int DC 2m
-.ends
-
-.model DCLAMP D (IS=1e-14 N=0.01)
+* Incluindo modelo LM741 da biblioteca padrao
+.include LM741.lib
 
 * ---------------------------------------------------------
 * ANALISES
@@ -323,7 +305,7 @@ Rload6 out_zc 0 10k
   meas tran V_THR_FALL FIND v(input) AT=T_SCHMITT_FALL
 
   * Histerese
-  meas tran HISTERESE PARAM='V_THR_RISE-V_THR_FALL'
+  let HISTERESE = V_THR_RISE - V_THR_FALL
 
   echo "Threshold subida:"
   print V_THR_RISE
@@ -342,7 +324,7 @@ Rload6 out_zc 0 10k
   * Quando entra na janela
   meas tran T_ENTER_WINDOW WHEN v(input)=2.0 RISE=1
   meas tran T_EXIT_WINDOW WHEN v(input)=3.0 RISE=1
-  meas tran WINDOW_TIME PARAM='T_EXIT_WINDOW-T_ENTER_WINDOW'
+  let WINDOW_TIME = T_EXIT_WINDOW - T_ENTER_WINDOW
 
   echo "Tempo na janela:"
   print WINDOW_TIME

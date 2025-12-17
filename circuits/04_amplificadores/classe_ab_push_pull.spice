@@ -115,7 +115,7 @@ RB1 vcc base_driver 47k
 RB2 base_driver vee 47k
 
 * Transistor driver (buffer)
-Q_driver collector_driver base_driver emitter_driver BC548
+Q_driver collector_driver base_driver emitter_driver QBC548
 
 * Carga ativa do driver
 RC collector_driver vcc 2.2k
@@ -147,8 +147,8 @@ RB_pnp base_pnp base_pnp_int 100
 * Q1 (NPN): conduz semiciclo positivo
 * Q2 (PNP): conduz semiciclo negativo
 
-Q1 vcc base_npn_int emit_out BC548
-Q2 vee base_pnp_int emit_out BC558
+Q1 vcc base_npn_int emit_out QBC548
+Q2 vee base_pnp_int emit_out QBC558
 
 * ---------------------------------------------------------
 * RESISTORES DE EMISSOR (ESTABILIZACAO)
@@ -179,26 +179,70 @@ CDEC2 vee 0 100u
 * ---------------------------------------------------------
 * MODELOS DE COMPONENTES
 * ---------------------------------------------------------
+* BC548 - NPN General Purpose
+.model QBC548 NPN (
++ IS=1e-14
++ BF=200
++ NF=1.0
++ VAF=100
++ IKF=0.1
++ ISE=1e-13
++ NE=1.5
++ BR=5
++ NR=1.0
++ VAR=20
++ IKR=0.1
++ ISC=1e-13
++ NC=1.5
++ RB=100
++ RE=0.5
++ RC=10
++ CJE=25p
++ VJE=0.7
++ MJE=0.33
++ CJC=10p
++ VJC=0.5
++ MJC=0.33
++ TF=500p
++ TR=100n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
 
-.model BC548 NPN (
-+ IS=1e-14 BF=200 VAF=100
-+ CJE=8p CJC=3p
-+ TF=0.3n TR=50n
-+ RB=100 RE=1 RC=10
-)
-
-.model BC558 PNP (
-+ IS=1e-14 BF=150 VAF=80
-+ CJE=8p CJC=3p
-+ TF=0.5n TR=80n
-+ RB=100 RE=1 RC=10
-)
+* BC558 - PNP General Purpose
+.model QBC558 PNP (
++ IS=1e-14
++ BF=200
++ NF=1.0
++ VAF=100
++ IKF=0.1
++ ISE=1e-13
++ NE=1.5
++ BR=5
++ NR=1.0
++ VAR=20
++ IKR=0.1
++ ISC=1e-13
++ NC=1.5
++ RB=100
++ RE=0.5
++ RC=10
++ CJE=25p
++ VJE=0.7
++ MJE=0.33
++ CJC=10p
++ VJC=0.5
++ MJC=0.33
++ TF=500p
++ TR=100n
++ XTB=1.5
++ EG=1.11
++ XTI=3 )
 
 .model DIODE_BIAS D (
 + IS=1e-14
 + N=1.0
-+ RS=10
-)
++ RS=10 )
 
 * ---------------------------------------------------------
 * ANALISES

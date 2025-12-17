@@ -107,13 +107,14 @@ VDD vdd 0 DC 5
 * Entradas digitais (0V = LOW, 5V = HIGH)
 
 * Sinal A: onda quadrada lenta (periodo 40us)
-VA ina 0 PULSE(0 5 0 1n 1n 20u 40u)
+* Rise/fall time aumentado para evitar problemas de convergencia
+VA ina 0 PULSE(0 5 0 100n 100n 20u 40u)
 
 * Sinal B: onda quadrada media (periodo 20us)
-VB inb 0 PULSE(0 5 0 1n 1n 10u 20u)
+VB inb 0 PULSE(0 5 0 100n 100n 10u 20u)
 
 * Sinal C: onda quadrada rapida (periodo 10us)
-VC inc 0 PULSE(0 5 0 1n 1n 5u 10u)
+VC inc 0 PULSE(0 5 0 100n 100n 5u 10u)
 
 * ---------------------------------------------------------
 * PORTA 1: NOT (INVERSOR)
@@ -181,6 +182,9 @@ VC inc 0 PULSE(0 5 0 1n 1n 5u 10u)
   MN1 out a n1 gnd NMOS_5V W=2u L=1u
   MN2 n1 b gnd gnd NMOS_5V W=2u L=1u
 
+  * Resistencia para estabilizar n1 (evita nó flutuante)
+  Rn1 n1 gnd 10MEG
+
   * Carga
   Cload out gnd 10f
 .ends
@@ -218,6 +222,9 @@ VC inc 0 PULSE(0 5 0 1n 1n 5u 10u)
   * Pull-down: NMOS em paralelo (A OR B)
   MN1 out a gnd gnd NMOS_5V W=1u L=1u
   MN2 out b gnd gnd NMOS_5V W=1u L=1u
+
+  * Resistencia para estabilizar n1
+  Rn1 n1 vdd 10MEG
 
   * Carga
   Cload out gnd 10f
@@ -340,45 +347,33 @@ Rload_xnor out_xnor 0 100k
 * MODELOS MOSFET
 * ---------------------------------------------------------
 
-* NMOS (canal N)
-* VDD=5V, tecnologia antiga (similar 74HC)
+* NMOS (canal N) - MODELO SIMPLIFICADO para convergencia
+* VDD=5V, apenas parametros essenciais
 .model NMOS_5V NMOS (
 + LEVEL=1
 + VTO=0.7
 + KP=200u
-+ GAMMA=0.4
-+ PHI=0.7
-+ LAMBDA=0.01
-+ TOX=20n
-+ CJ=0.5m
-+ CJSW=0.3n
-+ MJ=0.5
-+ MJSW=0.3
-+ PB=0.8
-)
++ LAMBDA=0.01 )
 
-* PMOS (canal P)
+* PMOS (canal P) - MODELO SIMPLIFICADO
 .model PMOS_5V PMOS (
 + LEVEL=1
 + VTO=-0.7
 + KP=80u
-+ GAMMA=0.4
-+ PHI=0.7
-+ LAMBDA=0.02
-+ TOX=20n
-+ CJ=0.5m
-+ CJSW=0.3n
-+ MJ=0.5
-+ MJSW=0.3
-+ PB=0.8
-)
++ LAMBDA=0.02 )
 
 * ---------------------------------------------------------
 * ANALISES
 * ---------------------------------------------------------
 
+* Opcoes para melhorar convergencia
+.options reltol=1e-2 abstol=1e-8 vntol=1e-3
+.options method=gear trtol=10
+.options itl1=500 itl2=200 itl4=100
+
 * Transiente: periodo completo de A (40us)
-.tran 10n 80u
+* UIC = Use Initial Conditions (evita problemas de convergencia)
+.tran 100n 80u UIC
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -405,7 +400,8 @@ Rload_xnor out_xnor 0 100k
   echo "  7. XNOR"
   echo ""
 
-  run
+  * Executar simulacao transiente
+  tran 10n 80u
 
   * ---------------------------------------------------------
   * Tabelas Verdade (verificacao)

@@ -62,8 +62,7 @@ RLOAD out 0 10k
 + IS=1e-14 BF=200 VAF=100
 + CJE=8p CJC=3p
 + TF=0.35n TR=50n
-+ RB=50 RE=0.5 RC=1
-)
++ RB=50 RE=0.5 RC=1 )
 
 * ---------- Análise Transiente ----------
 * uic: pula OP e usa IC= para startup (bom para osciladores)
