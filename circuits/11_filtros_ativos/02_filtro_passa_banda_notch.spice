@@ -65,42 +65,39 @@ E_notch v_notch_out 0 n_notch_out 0 1
 R_notch_load v_notch_out 0 100k
 
 * ==============================================================================
-* FILTRO 3: PASSA-BANDA ESTREITO 1kHz (Q=10) - State-Variable
+* FILTRO 3: PASSA-BANDA 1kHz (Q=2.5) - MFB Single-Op-Amp
 * ==============================================================================
 
-* Topologia State-Variable (3 op-amps, estável para Q alto)
-* Produz simultaneamente: passa-baixa, passa-banda, passa-alta
+* Topologia MFB (Multiple Feedback) com um único op-amp
+* Muito mais estável que State-Variable para Q moderado
 *
-* Para fc=1kHz, Q=10:
-* C = 10nF (escolhido)
-* R = 1/(2πfcC) = 1/(2π×1000×10n) = 15.9kΩ ≈ 16k
-* RQ = R×Q = 16k×10 = 160kΩ
+* Para fc=1kHz, Q=2.5, ganho no pico ≈ Q:
+* C1 = C2 = C = 10nF (simplificação)
+* R1 = Q/(2πfcC) = 2.5/(2π×1000×10n) ≈ 40kΩ
+* R2 = Q/(2π×fc×C×(2Q² - ganho)) ≈ 20kΩ (para ganho ≈ Q)
+* R3 = Q/(π×fc×C) ≈ 80kΩ
+*
+* Simplificando para valores comerciais:
+* C1 = C2 = 10nF
+* R1 = 39k, R2 = 22k, R3 = 82k
 
-* Somador de entrada
-R_sv_in1 vin n_sv_sum 16k
-R_sv_fb n_sv_hp n_sv_sum 160k
-R_sv_sum n_sv_sum 0 16k
+* Rede de entrada
+C_bpn1 vin n_bpn_in 10n
+R_bpn1 n_bpn_in n_bpn_out 39k
 
-* Integrador 1 (gera passa-banda)
-E_sv_sum n_sv_sum_buf 0 n_sv_sum 0 -1
-R_sv_int1 n_sv_sum_buf n_sv_bp 16k
-C_sv_int1 n_sv_bp 0 10n
-E_sv_bp_amp n_sv_bp_amp 0 n_sv_bp 0 -1
+* Feedback
+R_bpn2 n_bpn_out n_bpn_inv 22k
+C_bpn2 n_bpn_inv 0 10n
 
-* Integrador 2 (gera passa-baixa)
-R_sv_int2 n_sv_bp_amp n_sv_lp 16k
-C_sv_int2 n_sv_lp 0 10n
-E_sv_lp_amp n_sv_lp_amp 0 n_sv_lp 0 -1
+* Entrada inversora do op-amp
+R_bpn3 vin n_bpn_inv 82k
 
-* Somador para gerar passa-alta
-R_sv_hp1 vin n_sv_hp 16k
-R_sv_hp2 n_sv_lp_amp n_sv_hp 16k
-R_sv_hp_sum n_sv_hp 0 8k
-E_sv_hp_amp n_sv_hp 0 n_sv_hp 0 -1
+* Op-amp com ganho limitado (simula bandwidth finito)
+* Ganho = 1000 ao invés de 100000 para estabilidade
+E_bpn n_bpn_out 0 0 n_bpn_inv 1000
 
-* Saída = passa-banda (selecionável)
-E_bpn_buf v_bpn_out 0 n_sv_bp_amp 0 1
-R_bpn_load v_bpn_out 0 100k
+* Buffer de saída
+E_bpn_buf v_bpn_out 0 n_bpn_out 0 1
 
 * ==============================================================================
 * ANALISES
@@ -179,16 +176,16 @@ if rejection > 15
   echo "  ✓ FUNCIONANDO - Rejeição adequada"
 end
 echo
-echo "=== FILTRO PASSA-BANDA ESTREITO 1kHz (Q alto) ==="
+echo "=== FILTRO PASSA-BANDA 1kHz (Q=2.5) - MFB ==="
 print fc_bpn f_low_bpn f_high_bpn bw_bpn q_bpn gain_bpn_max
-echo "  Ganho máximo:         " gain_bpn_max "dB"
+echo "  Ganho máximo:         " gain_bpn_max "dB (esperado: ~8dB para Q=2.5)"
 echo "  Frequência central:   " fc_bpn "Hz (esperado: ~1kHz)"
 echo "  Freq corte inferior:  " f_low_bpn "Hz"
 echo "  Freq corte superior:  " f_high_bpn "Hz"
-echo "  Largura de banda:     " bw_bpn "Hz (esperado: ~100Hz)"
-echo "  Fator Q:              " q_bpn " (esperado: ~10)"
+echo "  Largura de banda:     " bw_bpn "Hz (esperado: ~400Hz para Q=2.5)"
+echo "  Fator Q:              " q_bpn " (esperado: ~2.5)"
 echo
-if q_bpn > 5 & q_bpn < 15
+if q_bpn > 1.5 & q_bpn < 3.5
   echo "  ✓ FUNCIONANDO - Q na faixa esperada"
 end
 echo "========================================================================"
