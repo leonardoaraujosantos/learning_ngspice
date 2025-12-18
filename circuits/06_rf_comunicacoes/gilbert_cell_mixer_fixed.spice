@@ -1,0 +1,173 @@
+* ==============================================================================
+* GILBERT CELL MIXER - VERSÃO FUNCIONAL (Multiplicador Analógico)
+* ==============================================================================
+*
+* Esta versão usa um multiplicador analógico ideal para demonstrar o conceito
+* de mixing/multiplicação de sinais, que é a essência do Gilbert Cell.
+*
+* PRINCÍPIO: V_out = k × V_RF × V_LO
+*
+* Produtos de mistura esperados:
+* - f_RF - f_LO = 1MHz - 100Hz = 999.9kHz (downconversion)
+* - f_RF + f_LO = 1MHz + 100Hz = 1.0001MHz (upconversion)
+*
+* NOTA: Em um Gilbert Cell real com transistores, a implementação é complexa
+* e requer polarização precisa. Esta versão demonstra o CONCEITO de mixing.
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* ALIMENTACAO
+* ------------------------------------------------------------------------------
+Vcc vcc 0 DC 12
+Vee vee 0 DC -12
+
+* ------------------------------------------------------------------------------
+* SINAIS DE ENTRADA
+* ------------------------------------------------------------------------------
+
+* Sinal RF: 1MHz, 200mVpp (100mV amplitude)
+V_rf v_rf 0 SIN(0 100m 1Meg 0 0)
+
+* Sinal LO (Local Oscillator): 100Hz, 400mVpp (200mV amplitude)
+V_lo v_lo 0 SIN(0 200m 100 0 0)
+
+* ------------------------------------------------------------------------------
+* MULTIPLICADOR ANALOGICO (representa a função do Gilbert Cell)
+* ------------------------------------------------------------------------------
+*
+* O Gilbert Cell real faz: I_out ∝ V_RF × V_LO através de transistores
+* Aqui usamos B-source (behavioral source) para demonstrar:
+*
+* Ganho de conversão típico: 10 (20dB)
+* V_out = 10 × V_RF × V_LO
+*
+B_mult v_mult 0 V = 10 * V(v_rf) * V(v_lo)
+
+* Saída direta (sem filtro para ver todos os produtos de mistura)
+* Em aplicação real, usaria filtro para selecionar IF desejada
+E_out v_out 0 v_mult 0 1
+R_out v_out 0 100k
+
+* ------------------------------------------------------------------------------
+* SAÍDAS DE REFERÊNCIA (para monitoramento)
+* ------------------------------------------------------------------------------
+E_rf_mon v_rf_mon 0 v_rf 0 1
+R_rf_mon v_rf_mon 0 100k
+
+E_lo_mon v_lo_mon 0 v_lo 0 1
+R_lo_mon v_lo_mon 0 100k
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+* Análise transiente: 0.1s (10 ciclos de 100Hz) com alta taxa de amostragem
+* Usa 0.1us de time step para capturar 1MHz (Nyquist = 5MHz)
+.tran 0.1u 0.1 0 0.1u
+
+.control
+run
+
+set curplot = tran1
+
+* === MEDICOES ===
+meas tran V_rf_pk MAX v(v_rf_mon)
+meas tran V_lo_pk MAX v(v_lo_mon)
+meas tran V_out_pk MAX v(v_out)
+meas tran V_out_min MIN v(v_out)
+let V_out_pp = V_out_pk - V_out_min
+
+* === EXPORTAR DADOS TEMPORAIS (antes do FFT) ===
+wrdata circuits/06_rf_comunicacoes/gilbert_fixed_time.csv time v(v_rf_mon) v(v_lo_mon) v(v_out)
+
+* === FFT ===
+linearize v(v_out) v(v_rf_mon) v(v_lo_mon)
+fft v(v_out)
+
+let v_out_fft_mag = mag(v(v_out))
+let v_out_fft_db = db(v_out_fft_mag)
+let v_out_fft_freq = frequency
+
+* Encontrar picos principais (resolução de FFT = 10Hz)
+* DC component
+meas sp dc_level FIND v_out_fft_db AT=10
+
+* LO leakage (100Hz)
+meas sp lo_leak FIND v_out_fft_db AT=100
+
+* Produto de diferença (999.9kHz = 1MHz - 100Hz)
+meas sp diff_prod MAX v_out_fft_db FROM=999800 TO=999950
+
+* RF carrier (1MHz) - buscar pico em 1MHz exato
+meas sp rf_leak MAX v_out_fft_db FROM=999950 TO=1000050
+
+* Produto de soma (1.0001MHz = 1MHz + 100Hz)
+meas sp sum_prod MAX v_out_fft_db FROM=1000050 TO=1000200
+
+* === EXPORTAR DADOS FFT ===
+wrdata circuits/06_rf_comunicacoes/gilbert_fixed_fft.csv v_out_fft_freq v_out_fft_db v_out_fft_mag
+
+* === RELATORIO ===
+echo
+echo "============================================================================"
+echo "              GILBERT CELL MIXER (VERSÃO FUNCIONAL) - RESULTADOS"
+echo "============================================================================"
+echo
+echo "=== SINAIS DE ENTRADA ==="
+print V_rf_pk V_lo_pk
+echo "  RF: 1MHz, amplitude = " V_rf_pk "V (esperado: 100mV)"
+echo "  LO: 100Hz, amplitude = " V_lo_pk "V (esperado: 200mV)"
+echo
+echo "=== SAÍDA DO MIXER ==="
+print V_out_pp
+echo "  Amplitude p-p: " V_out_pp "V"
+echo "  Produto teórico: k × Vrf × Vlo = 10 × 0.1 × 0.2 = 0.2V"
+echo
+echo "=== COMPONENTES ESPECTRAIS (FFT) ==="
+print dc_level lo_leak rf_leak diff_prod sum_prod
+echo "  DC (0Hz):              " dc_level "dB"
+echo "  LO leakage (100Hz):    " lo_leak "dB"
+echo "  RF carrier (1MHz):     " rf_leak "dB"
+echo "  Produto f_RF-f_LO:     " diff_prod "dB  <- 999.9kHz (downconversion)"
+echo "  Produto f_RF+f_LO:     " sum_prod "dB  <- 1.0001MHz (upconversion)"
+echo
+echo "=== ANÁLISE DE FUNCIONAMENTO ==="
+echo
+if diff_prod > -50 & sum_prod > -50
+  echo "  ✅ MIXER FUNCIONANDO CORRETAMENTE!"
+  echo "     Produtos de mistura detectados em:"
+  echo "     - 999.9kHz (diferença)"
+  echo "     - 1.0001MHz (soma)"
+else
+  echo "  ⚠ Produtos de mistura fracos"
+end
+echo
+echo "=== APLICAÇÕES DO MIXER ==="
+echo "  1. Receptor super-heteródino: RF → IF (downconversion)"
+echo "  2. Transmissor: Baseband → RF (upconversion)"
+echo "  3. Demodulação: Recuperação de sinal modulado"
+echo "  4. PLL: Detector de fase"
+echo
+echo "=== NOTA SOBRE O GILBERT CELL REAL ==="
+echo "  Esta simulação usa multiplicador ideal para demonstrar o conceito."
+echo "  Um Gilbert Cell real usa 6 transistores (par diferencial + quad):"
+echo "    - Par diferencial inferior: recebe sinal RF"
+echo "    - Quad de chaveamento superior: recebe sinal LO"
+echo "    - Fonte de corrente: polarização"
+echo
+echo "  VANTAGENS DO GILBERT CELL REAL:"
+echo "    + Linearidade excelente"
+echo "    + Rejeição de modo comum"
+echo "    + Isolamento LO-RF"
+echo "    + Operação em larga faixa"
+echo
+echo "  IMPLEMENTAÇÃO REAL requer:"
+echo "    - Casamento preciso de transistores"
+echo "    - Polarização DC cuidadosa"
+echo "    - Projeto de fonte de corrente estável"
+echo "============================================================================"
+
+.endc
+
+.end

@@ -65,31 +65,41 @@ E_notch v_notch_out 0 n_notch_out 0 1
 R_notch_load v_notch_out 0 100k
 
 * ==============================================================================
-* FILTRO 3: PASSA-BANDA ESTREITO 1kHz - Ressonante RLC
+* FILTRO 3: PASSA-BANDA ESTREITO 1kHz (Q=10) - State-Variable
 * ==============================================================================
 
-* Filtro ressonante série com amplificação
-* f0 = 1/(2*pi*sqrt(LC))
-* Q = (1/R)*sqrt(L/C)
+* Topologia State-Variable (3 op-amps, estável para Q alto)
+* Produz simultaneamente: passa-baixa, passa-banda, passa-alta
 *
-* Para f0=1kHz, Q=10:
-* Escolhendo C=100nF:
-* L = 1/(4*pi²*f0²*C) = 253µH
-* R = sqrt(L/C)/Q = 50Ω
+* Para fc=1kHz, Q=10:
+* C = 10nF (escolhido)
+* R = 1/(2πfcC) = 1/(2π×1000×10n) = 15.9kΩ ≈ 16k
+* RQ = R×Q = 16k×10 = 160kΩ
 
-* Fonte com resistência de saída baixa
-R_src vin n_src 50
+* Somador de entrada
+R_sv_in1 vin n_sv_sum 16k
+R_sv_fb n_sv_hp n_sv_sum 160k
+R_sv_sum n_sv_sum 0 16k
 
-* Circuito RLC série
-L_rlc n_src n_rlc 253u
-C_rlc n_rlc 0 100n
-R_rlc n_rlc n_rlc_out 50
+* Integrador 1 (gera passa-banda)
+E_sv_sum n_sv_sum_buf 0 n_sv_sum 0 -1
+R_sv_int1 n_sv_sum_buf n_sv_bp 16k
+C_sv_int1 n_sv_bp 0 10n
+E_sv_bp_amp n_sv_bp_amp 0 n_sv_bp 0 -1
 
-* Amplificador com ganho 10 para compensar atenuação
-E_rlc n_bpn_amp 0 n_rlc_out 0 10
+* Integrador 2 (gera passa-baixa)
+R_sv_int2 n_sv_bp_amp n_sv_lp 16k
+C_sv_int2 n_sv_lp 0 10n
+E_sv_lp_amp n_sv_lp_amp 0 n_sv_lp 0 -1
 
-* Buffer de saída
-E_bpn v_bpn_out 0 n_bpn_amp 0 1
+* Somador para gerar passa-alta
+R_sv_hp1 vin n_sv_hp 16k
+R_sv_hp2 n_sv_lp_amp n_sv_hp 16k
+R_sv_hp_sum n_sv_hp 0 8k
+E_sv_hp_amp n_sv_hp 0 n_sv_hp 0 -1
+
+* Saída = passa-banda (selecionável)
+E_bpn_buf v_bpn_out 0 n_sv_bp_amp 0 1
 R_bpn_load v_bpn_out 0 100k
 
 * ==============================================================================
