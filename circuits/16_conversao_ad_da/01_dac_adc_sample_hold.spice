@@ -88,21 +88,22 @@ R_dac_out_load v_dac_out 0 100k
 * ------------------------------------------------------------------------------
 * BLOCO 2: SAMPLE & HOLD
 * ------------------------------------------------------------------------------
-* Sinal de entrada para S&H (senoide 500Hz)
+* Sinal de entrada para S&H (senoide 500Hz, 0.5V a 4.5V)
 Vin_sh vin_sh 0 SIN(2.5 2 500 0 0)
 
-* Clock de amostragem (1kHz, duty 10%)
-* Clock positivo abre chave, negativo fecha
-V_clk_sh clk_sh 0 PULSE(0 5 0 1n 1n 100u 1m)
+* Clock de amostragem (1kHz, duty 50% para melhor tracking)
+* Clock HIGH = sample, clock LOW = hold
+V_clk_sh clk_sh 0 PULSE(0 5 0 1n 1n 500u 1m)
 
 * Chave voltage-controlled (sample quando clock=5V, hold quando clock=0V)
 S_sh vin_sh n_sh_cap clk_sh 0 SSH
 
-* Capacitor de armazenamento (hold) - 100nF
-C_sh n_sh_cap 0 100n
+* Capacitor de armazenamento (hold) - 10nF (menor para carregar mais rápido)
+* Condição inicial = 2.5V (centro da faixa de entrada)
+C_sh n_sh_cap 0 10n IC=2.5
 
-* Resistor de descarga (simulando leakage) - 10MΩ
-R_sh_leak n_sh_cap 0 10Meg
+* Resistor de descarga (simulando leakage) - 100MΩ (maior para menos droop)
+R_sh_leak n_sh_cap 0 100Meg
 
 * Buffer de saída (alta impedância)
 E_sh_out v_sh_out 0 n_sh_cap 0 1
@@ -127,76 +128,50 @@ R_ref5 n_ref3 n_ref2 1k
 R_ref6 n_ref2 n_ref1 1k
 R_ref7 n_ref1 0 1k
 
+* Buffers de isolamento para as referências (evita loading dos B-sources)
+E_ref1_buf ref1_buf 0 n_ref1 0 1
+E_ref2_buf ref2_buf 0 n_ref2 0 1
+E_ref3_buf ref3_buf 0 n_ref3 0 1
+E_ref4_buf ref4_buf 0 n_ref4 0 1
+E_ref5_buf ref5_buf 0 n_ref5 0 1
+E_ref6_buf ref6_buf 0 n_ref6 0 1
+E_ref7_buf ref7_buf 0 n_ref7 0 1
+
 * Comparadores (7 comparadores para 3 bits = 8 níveis)
-* Comparador 7: Vin > 4.375V → bit 111
-E_comp7 comp7 0 vin_adc n_ref7 100000
-* Comparador 6: Vin > 3.75V
-E_comp6 comp6 0 vin_adc n_ref6 100000
-* Comparador 5: Vin > 3.125V
-E_comp5 comp5 0 vin_adc n_ref5 100000
-* Comparador 4: Vin > 2.5V
-E_comp4 comp4 0 vin_adc n_ref4 100000
-* Comparador 3: Vin > 1.875V
-E_comp3 comp3 0 vin_adc n_ref3 100000
-* Comparador 2: Vin > 1.25V
-E_comp2 comp2 0 vin_adc n_ref2 100000
-* Comparador 1: Vin > 0.625V
-E_comp1 comp1 0 vin_adc n_ref1 100000
-
-* Limitadores (convertem ±15V em 0/5V digital)
-D_comp1_low 0 comp1_limited DCLAMP
-D_comp1_high comp1_limited vcc_adc DCLAMP
-R_comp1 comp1 comp1_limited 1k
-R_comp1_load comp1_limited 0 10k
-
-D_comp2_low 0 comp2_limited DCLAMP
-D_comp2_high comp2_limited vcc_adc DCLAMP
-R_comp2 comp2 comp2_limited 1k
-R_comp2_load comp2_limited 0 10k
-
-D_comp3_low 0 comp3_limited DCLAMP
-D_comp3_high comp3_limited vcc_adc DCLAMP
-R_comp3 comp3 comp3_limited 1k
-R_comp3_load comp3_limited 0 10k
-
-D_comp4_low 0 comp4_limited DCLAMP
-D_comp4_high comp4_limited vcc_adc DCLAMP
-R_comp4 comp4 comp4_limited 1k
-R_comp4_load comp4_limited 0 10k
-
-D_comp5_low 0 comp5_limited DCLAMP
-D_comp5_high comp5_limited vcc_adc DCLAMP
-R_comp5 comp5 comp5_limited 1k
-R_comp5_load comp5_limited 0 10k
-
-D_comp6_low 0 comp6_limited DCLAMP
-D_comp6_high comp6_limited vcc_adc DCLAMP
-R_comp6 comp6 comp6_limited 1k
-R_comp6_load comp6_limited 0 10k
-
-D_comp7_low 0 comp7_limited DCLAMP
-D_comp7_high comp7_limited vcc_adc DCLAMP
-R_comp7 comp7 comp7_limited 1k
-R_comp7_load comp7_limited 0 10k
-
-Vcc_adc vcc_adc 0 DC 5
-
-* Codificador de prioridade (Thermometer → Binary) SIMPLIFICADO
-* Tabela de verdade para 3 bits (8 níveis):
-* Comparadores ativos -> Código binário
-* 0 comp: 000, 1 comp: 001, 2 comp: 010, 3 comp: 011
-* 4 comp: 100, 5 comp: 101, 6 comp: 110, 7 comp: 111
+* Usando B-sources com comparação e limitação direta (0V ou 5V)
+* Muito mais simples e confiável que VCVS + diodos
 *
-* Contar quantos comparadores estão ativos
-B_count count 0 V = (V(comp1_limited)>2.5) + (V(comp2_limited)>2.5) + (V(comp3_limited)>2.5) + (V(comp4_limited)>2.5) + (V(comp5_limited)>2.5) + (V(comp6_limited)>2.5) + (V(comp7_limited)>2.5)
-R_count count 0 1G
+* Comparador 1: Vin > 0.625V (nível 1/8)
+B_comp1 comp1_limited 0 V = (V(vin_adc) > V(ref1_buf) ? 5 : 0)
+* Comparador 2: Vin > 1.25V (nível 2/8)
+B_comp2 comp2_limited 0 V = (V(vin_adc) > V(ref2_buf) ? 5 : 0)
+* Comparador 3: Vin > 1.875V (nível 3/8)
+B_comp3 comp3_limited 0 V = (V(vin_adc) > V(ref3_buf) ? 5 : 0)
+* Comparador 4: Vin > 2.5V (nível 4/8)
+B_comp4 comp4_limited 0 V = (V(vin_adc) > V(ref4_buf) ? 5 : 0)
+* Comparador 5: Vin > 3.125V (nível 5/8)
+B_comp5 comp5_limited 0 V = (V(vin_adc) > V(ref5_buf) ? 5 : 0)
+* Comparador 6: Vin > 3.75V (nível 6/8)
+B_comp6 comp6_limited 0 V = (V(vin_adc) > V(ref6_buf) ? 5 : 0)
+* Comparador 7: Vin > 4.375V (nível 7/8)
+B_comp7 comp7_limited 0 V = (V(vin_adc) > V(ref7_buf) ? 5 : 0)
 
-* Bit 2 (MSB): HIGH se count >= 4
-B_adc_b2 adc_b2 0 V = (V(count) >= 4 ? 5 : 0)
-* Bit 1: HIGH se count é 2,3,6,7
-B_adc_b1 adc_b1 0 V = (floor(V(count)/2) == floor(floor(V(count)/2)/2)*2+1 ? 5 : 0)
-* Bit 0 (LSB): HIGH se count é ímpar
-B_adc_b0 adc_b0 0 V = (floor(V(count)) != floor(V(count)/2)*2 ? 5 : 0)
+* Conversão DIRETA de tensão para binário usando APENAS comparações
+* 8 níveis (000 a 111) mapeados de 0-5V
+*
+* Thresholds: 0.625, 1.25, 1.875, 2.5, 3.125, 3.75, 4.375V
+*
+* Bit 2 (MSB): HIGH se Vin >= 2.5V
+B_adc_b2 adc_b2 0 V = (V(vin_adc) >= 2.5 ? 5 : 0)
+
+* Bit 1: HIGH se Vin está em [1.25-2.5) ou [3.75-5.0)
+B_adc_b1 adc_b1 0 V = (((V(vin_adc) >= 1.25) && (V(vin_adc) < 2.5)) || ((V(vin_adc) >= 3.75) && (V(vin_adc) < 5.0)) ? 5 : 0)
+
+* Bit 0 (LSB): HIGH se Vin está em [0.625-1.25) ou [1.875-2.5) ou [3.125-3.75) ou [4.375-5.0)
+B_adc_b0 adc_b0 0 V = (((V(vin_adc) >= 0.625) && (V(vin_adc) < 1.25)) || ((V(vin_adc) >= 1.875) && (V(vin_adc) < 2.5)) || ((V(vin_adc) >= 3.125) && (V(vin_adc) < 3.75)) || ((V(vin_adc) >= 4.375) && (V(vin_adc) < 5.0)) ? 5 : 0)
+
+* Debug: converter bits para nível decimal
+B_count count 0 V = (V(adc_b2)/5)*4 + (V(adc_b1)/5)*2 + (V(adc_b0)/5)*1
 
 * ------------------------------------------------------------------------------
 * MODELOS
@@ -235,7 +210,7 @@ B_adc_b0 adc_b0 0 V = (floor(V(count)) != floor(V(count)/2)*2 ? 5 : 0)
 * ANALISES
 * ------------------------------------------------------------------------------
 
-.tran 10u 32m 0 10u
+.tran 10u 32m 0 10u UIC
 
 .control
 run
@@ -275,10 +250,13 @@ wrdata circuits/16_conversao_ad_da/dac_output.csv time v(d3) v(d2) v(d1) v(d0) v
 wrdata circuits/16_conversao_ad_da/sample_hold.csv time v(vin_sh) v(clk_sh) v(v_sh_out)
 
 * ADC: entrada analógica e bits de saída
-wrdata circuits/16_conversao_ad_da/adc_conversion.csv time v(vin_adc) v(adc_b2) v(adc_b1) v(adc_b0)
+wrdata circuits/16_conversao_ad_da/adc_conversion.csv time v(vin_adc) v(count) v(adc_b2) v(adc_b1) v(adc_b0)
 
 * ADC: comparadores (termômetro)
 wrdata circuits/16_conversao_ad_da/adc_comparators.csv time v(vin_adc) v(comp1_limited) v(comp2_limited) v(comp3_limited) v(comp4_limited) v(comp5_limited) v(comp6_limited) v(comp7_limited)
+
+* ADC: referências de tensão (debug)
+wrdata circuits/16_conversao_ad_da/adc_references.csv time v(n_ref1) v(n_ref2) v(n_ref3) v(n_ref4) v(n_ref5) v(n_ref6) v(n_ref7)
 
 * Sistema completo: DAC → S&H → ADC (conceitual)
 wrdata circuits/16_conversao_ad_da/system_overview.csv time v(v_dac_out) v(vin_sh) v(v_sh_out) v(vin_adc)
