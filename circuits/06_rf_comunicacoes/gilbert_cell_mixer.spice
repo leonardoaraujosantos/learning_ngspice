@@ -1,0 +1,271 @@
+* ==============================================================================
+* GILBERT CELL MIXER (Multiplicador Analógico)
+* ==============================================================================
+*
+* Este circuito demonstra a célula de Gilbert, um mixer multiplicador
+* fundamental em sistemas de RF e comunicações.
+*
+* PRINCIPIO DE OPERACAO:
+*   - Multiplica dois sinais: RF (1MHz) e LO (100Hz)
+*   - Saída contem: f_RF ± f_LO
+*   - Produtos: 1.0001MHz (soma) e 999.9kHz (diferença)
+*
+* ESTRUTURA:
+*   - Par diferencial inferior (recebe RF)
+*   - Quad de chaveamento superior (recebe LO)
+*   - Fonte de corrente constante
+*   - Carga resistiva
+*
+* APLICACOES:
+*   - Mixers de RF (upconversion/downconversion)
+*   - Moduladores balanceados (supressão de portadora)
+*   - Multiplicadores analógicos
+*   - Detectores de fase (PLL)
+*
+* DIAGRAMA:
+*
+*    Vcc
+*     |
+*    R_L    R_L
+*     |      |
+*     +------+------ V_out
+*     |      |
+*    Q3     Q4   <- Quad de chaveamento
+*   /  \   /  \     (controlado por LO)
+*  Q5  Q6 Q7  Q8
+*   \  /   \  /
+*    Q1     Q2    <- Par diferencial
+*     \     /        (recebe RF)
+*      \   /
+*       \ /
+*        |
+*      I_tail
+*        |
+*       GND
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* ALIMENTACAO
+* ------------------------------------------------------------------------------
+Vcc vcc 0 DC 15
+Vee vee 0 DC -15
+
+* ------------------------------------------------------------------------------
+* SINAIS DE ENTRADA
+* ------------------------------------------------------------------------------
+
+* Sinal RF: 1MHz, 200mVpp diferencial (100mV cada lado)
+V_rf_p rf_p 0 SIN(0 100m 1Meg 0 0)
+V_rf_n rf_n 0 SIN(0 100m 1Meg 0 0 180)
+
+* Sinal LO (Local Oscillator): 100Hz, 400mVpp diferencial (200mV cada lado)
+V_lo_p lo_p 0 SIN(0 200m 100 0 0)
+V_lo_n lo_n 0 SIN(0 200m 100 0 0 180)
+
+* ------------------------------------------------------------------------------
+* GILBERT CELL - PAR DIFERENCIAL INFERIOR (Recebe RF)
+* ------------------------------------------------------------------------------
+
+* Q1 e Q2: Par diferencial que recebe o sinal RF
+* Transcondutância controlada pelo sinal RF
+Q1 n_c1 rf_p n_tail BC547
+Q2 n_c2 rf_n n_tail BC547
+
+* Fonte de corrente constante (tail current) - 2mA
+* Usando resistor simples para estabilidade
+R_tail n_tail vee 6.5k
+* Bias: Vee=-15V, Vbe~0.7V, Vtail~-0.7V -> (15-0.7)/6.5k = 2.2mA
+
+* ------------------------------------------------------------------------------
+* GILBERT CELL - QUAD DE CHAVEAMENTO SUPERIOR (Recebe LO)
+* ------------------------------------------------------------------------------
+
+* Q3, Q4: Chaveamento do lado esquerdo (conectados a Q1)
+Q3 vout_p lo_p n_c1 BC547
+Q4 vout_n lo_n n_c1 BC547
+
+* Q5, Q6: Chaveamento do lado direito (conectados a Q2)
+Q5 vout_n lo_p n_c2 BC547
+Q6 vout_p lo_n n_c2 BC547
+
+* ------------------------------------------------------------------------------
+* CARGAS RESISTIVAS
+* ------------------------------------------------------------------------------
+R_load_p vcc vout_p 1k
+R_load_n vcc vout_n 1k
+
+* ------------------------------------------------------------------------------
+* SAIDA DIFERENCIAL
+* ------------------------------------------------------------------------------
+* Saída diferencial: V_out = V_out_p - V_out_n
+E_out v_out 0 vout_p vout_n 1
+R_out v_out 0 100k
+
+* ------------------------------------------------------------------------------
+* SAIDA DE REFERENCIA (RF e LO para comparacao)
+* ------------------------------------------------------------------------------
+E_rf_ref v_rf_ref 0 rf_p rf_n 1
+R_rf_ref v_rf_ref 0 100k
+
+E_lo_ref v_lo_ref 0 lo_p lo_n 1
+R_lo_ref v_lo_ref 0 100k
+
+* ------------------------------------------------------------------------------
+* MODELO DE TRANSISTOR BJT (BC547 - NPN)
+* ------------------------------------------------------------------------------
+.model BC547 NPN (
++ IS=1.8e-14
++ BF=400
++ VAF=80
++ IKF=0.15
++ ISE=5e-14
++ NE=1.46
++ BR=4
++ NR=1
++ VAR=18
++ IKR=0.12
++ RE=0.6
++ RB=5
++ RC=0.5
++ CJE=13p
++ VJE=0.7
++ MJE=0.33
++ CJC=4p
++ VJC=0.5
++ MJC=0.33
++ TF=0.5n
++ TR=10n
+)
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+* Análise transiente: 1 segundo (100 ciclos de 100Hz)
+* Para FFT, precisamos de muitos pontos
+.tran 1u 1 0 1u
+
+.control
+run
+
+set curplot = tran1
+
+* === MEDICOES NO TEMPO ===
+meas tran V_rf_pk MAX v(v_rf_ref)
+meas tran V_lo_pk MAX v(v_lo_ref)
+meas tran V_out_pk MAX v(v_out)
+meas tran V_out_min MIN v(v_out)
+let V_out_pp = V_out_pk - V_out_min
+
+* === EXPORTAR DADOS NO TEMPO ===
+
+* Sinal no tempo completo (1 segundo = 100 ciclos de 100Hz)
+wrdata circuits/06_rf_comunicacoes/gilbert_time_full.csv time v(v_rf_ref) v(v_lo_ref) v(v_out)
+
+* === ANALISE FFT ===
+* FFT da saída (produtos de mistura)
+* Usar dados linearizados para FFT uniforme
+linearize v(v_out) v(v_rf_ref) v(v_lo_ref)
+fft v(v_out)
+
+* O resultado do FFT fica no mesmo plot com sufixo
+* Criar vetores de magnitude
+let v_out_fft_mag = mag(v(v_out))
+let v_out_fft_db = db(v_out_fft_mag)
+let v_out_fft_freq = frequency
+
+* Exportar FFT
+wrdata circuits/06_rf_comunicacoes/gilbert_fft.csv v_out_fft_freq v_out_fft_db v_out_fft_mag
+
+* === RELATORIO ===
+set curplot = tran1
+echo
+echo "============================================================================"
+echo "                    GILBERT CELL MIXER - RESULTADOS"
+echo "============================================================================"
+echo
+echo "=== SINAIS DE ENTRADA ==="
+print V_rf_pk V_lo_pk
+echo "  Sinal RF:  1 MHz, amplitude = " V_rf_pk "V (esperado: 50mV)"
+echo "  Sinal LO:  100 Hz, amplitude = " V_lo_pk "V (esperado: 100mV)"
+echo
+echo "=== SAIDA DO MIXER ==="
+print V_out_pp
+echo "  Amplitude pico-a-pico: " V_out_pp "V"
+echo
+echo "=== PRODUTOS DE MISTURA (ESPERADOS) ==="
+echo "  1. Componente DC (produto médio)"
+echo "  2. f_LO = 100 Hz (vazamento)"
+echo "  3. f_RF = 1 MHz (vazamento)"
+echo "  4. f_DIFF = |f_RF - f_LO| = 999.9 kHz  <- Downconversion"
+echo "  5. f_SUM  = f_RF + f_LO = 1.0001 MHz   <- Upconversion"
+echo "  6. Harmônicos (2f, 3f, etc.)"
+echo
+echo "=== OPERACAO DO GILBERT CELL ==="
+echo
+echo "  MULTIPLICACAO DE SINAIS:"
+echo "    V_out ∝ V_RF × V_LO"
+echo "    V_out ∝ sin(2π·f_RF·t) × sin(2π·f_LO·t)"
+echo
+echo "  Usando identidade trigonométrica:"
+echo "    sin(A) × sin(B) = 0.5[cos(A-B) - cos(A+B)]"
+echo
+echo "  Portanto:"
+echo "    V_out ∝ cos(2π(f_RF - f_LO)t) - cos(2π(f_RF + f_LO)t)"
+echo "    V_out contém: (f_RF - f_LO) e (f_RF + f_LO)"
+echo
+echo "=== APLICACOES PRATICAS ==="
+echo
+echo "  1. DOWNCONVERSION (receptor super-heteródino):"
+echo "     RF alta freq → IF baixa freq para processamento"
+echo "     Exemplo: 1GHz RF + 1.01GHz LO → 10MHz IF"
+echo
+echo "  2. UPCONVERSION (transmissor):"
+echo "     Baseband → RF para transmissão"
+echo "     Exemplo: 1kHz audio + 100MHz carrier → 100.001MHz"
+echo
+echo "  3. MODULADOR BALANCEADO:"
+echo "     Suprime portadora (LO), transmite apenas sidebands"
+echo "     DSB-SC (Double Sideband Suppressed Carrier)"
+echo
+echo "  4. DETECTOR DE FASE (PLL):"
+echo "     Multiplica sinal de referência com VCO"
+echo "     Saída DC proporcional à diferença de fase"
+echo
+echo "=== VANTAGENS DA CELULA DE GILBERT ==="
+echo "  + Linearidade excelente"
+echo "  + Rejeição de modo comum"
+echo "  + Isolamento LO-RF e LO-IF"
+echo "  + Opera em larga faixa de frequências"
+echo "  + Baixa distorção"
+echo
+echo "=== PARAMETROS IMPORTANTES ==="
+echo "  - Corrente de cauda (I_tail): define transcondutância"
+echo "  - Casamento dos transistores: crucial para cancelamento"
+echo "  - Potência LO: determina eficiência do chaveamento"
+echo "  - Impedância de carga: afeta ganho e bandwidth"
+echo
+echo "=== ANALISE FFT ==="
+echo "  Verifique os arquivos CSV:"
+echo "    - gilbert_fft_full.csv: Espectro completo"
+echo "    - gilbert_fft_lowfreq.csv: DC a 1kHz (vê o 100Hz)"
+echo "    - gilbert_fft_1mhz.csv: Zoom em 1MHz (vê produtos 999.9k e 1.0001M)"
+echo
+echo "  PICOS ESPERADOS:"
+echo "    ~0 Hz:     DC component"
+echo "    ~100 Hz:   LO leakage"
+echo "    ~1 MHz:    RF leakage (pequeno se balanceado)"
+echo "    ~999.9kHz: Diferença (f_RF - f_LO)  <- Principal produto útil"
+echo "    ~1.0001MHz: Soma (f_RF + f_LO)"
+echo "============================================================================"
+
+set curplot = fft1
+echo
+echo "=== COMPONENTES ESPECTRAIS (FFT) ==="
+echo "  Procurando por picos principais..."
+* Nota: medições específicas de picos FFT dependem da resolução
+
+.endc
+
+.end

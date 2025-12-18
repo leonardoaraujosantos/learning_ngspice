@@ -42,7 +42,7 @@
 *               D3        D2        D1        D0  (bits)
 *
 * Tensão de referência
-Vref_dac vref_dac 0 DC 5
+Vref_dac vref_dac 0 DC 7
 
 * Entradas digitais (4 bits) - Sequência crescente para teste
 * Bit 3 (MSB) - peso 8
@@ -92,11 +92,11 @@ R_dac_out_load v_dac_out 0 100k
 Vin_sh vin_sh 0 SIN(2.5 2 500 0 0)
 
 * Clock de amostragem (1kHz, duty 10%)
-* JFET N-channel conduz quando Vgs < Vto, então clock negativo liga
-V_clk_sh clk_sh 0 PULSE(-5 0 0 1n 1n 100u 1m)
+* Clock positivo abre chave, negativo fecha
+V_clk_sh clk_sh 0 PULSE(0 5 0 1n 1n 100u 1m)
 
-* Chave JFET (sample quando clock=-5V, hold quando clock=0V)
-J_sh n_sh_cap clk_sh vin_sh 2N5457
+* Chave voltage-controlled (sample quando clock=5V, hold quando clock=0V)
+S_sh vin_sh n_sh_cap clk_sh 0 SSH
 
 * Capacitor de armazenamento (hold) - 100nF
 C_sh n_sh_cap 0 100n
@@ -181,15 +181,22 @@ R_comp7_load comp7_limited 0 10k
 
 Vcc_adc vcc_adc 0 DC 5
 
-* Codificador de prioridade (Thermometer → Binary)
-* Em um ADC real, isso seria lógica digital (encoder)
-* Aqui simulamos com fontes controladas
-* Bit 2 (MSB): HIGH se 4+ comparadores ativos
-E_adc_b2 adc_b2 0 VALUE={V(comp4_limited) > 2.5 ? 5 : 0}
-* Bit 1: HIGH se 2-3 ou 6-7 comparadores ativos
-E_adc_b1 adc_b1 0 VALUE={((V(comp2_limited) > 2.5) && (V(comp4_limited) < 2.5)) || (V(comp6_limited) > 2.5) ? 5 : 0}
-* Bit 0 (LSB): padrão alternado
-E_adc_b0 adc_b0 0 VALUE={((V(comp1_limited) > 2.5) && (V(comp2_limited) < 2.5)) || ((V(comp3_limited) > 2.5) && (V(comp4_limited) < 2.5)) || ((V(comp5_limited) > 2.5) && (V(comp6_limited) < 2.5)) || (V(comp7_limited) > 2.5) ? 5 : 0}
+* Codificador de prioridade (Thermometer → Binary) SIMPLIFICADO
+* Tabela de verdade para 3 bits (8 níveis):
+* Comparadores ativos -> Código binário
+* 0 comp: 000, 1 comp: 001, 2 comp: 010, 3 comp: 011
+* 4 comp: 100, 5 comp: 101, 6 comp: 110, 7 comp: 111
+*
+* Contar quantos comparadores estão ativos
+B_count count 0 V = (V(comp1_limited)>2.5) + (V(comp2_limited)>2.5) + (V(comp3_limited)>2.5) + (V(comp4_limited)>2.5) + (V(comp5_limited)>2.5) + (V(comp6_limited)>2.5) + (V(comp7_limited)>2.5)
+R_count count 0 1G
+
+* Bit 2 (MSB): HIGH se count >= 4
+B_adc_b2 adc_b2 0 V = (V(count) >= 4 ? 5 : 0)
+* Bit 1: HIGH se count é 2,3,6,7
+B_adc_b1 adc_b1 0 V = (floor(V(count)/2) == floor(floor(V(count)/2)/2)*2+1 ? 5 : 0)
+* Bit 0 (LSB): HIGH se count é ímpar
+B_adc_b0 adc_b0 0 V = (floor(V(count)) != floor(V(count)/2)*2 ? 5 : 0)
 
 * ------------------------------------------------------------------------------
 * MODELOS
@@ -219,7 +226,10 @@ E_adc_b0 adc_b0 0 VALUE={((V(comp1_limited) > 2.5) && (V(comp2_limited) < 2.5)) 
 )
 
 * Modelo de chave para DAC
-.model SBIT SW (Ron=1 Roff=1G Vt=2.5 Vh=0.5)
+.model SBIT SW (Ron=0.1 Roff=1G Vt=2.5 Vh=0.5)
+
+* Modelo de chave para Sample & Hold
+.model SSH SW (Ron=10 Roff=100Meg Vt=2.5 Vh=0.5)
 
 * ------------------------------------------------------------------------------
 * ANALISES

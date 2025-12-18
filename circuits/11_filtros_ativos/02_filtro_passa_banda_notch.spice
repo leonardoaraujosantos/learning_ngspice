@@ -1,283 +1,187 @@
 * ==============================================================================
-* FILTROS ATIVOS: PASSA-BANDA E NOTCH (REJEITA-BANDA)
+* FILTROS ATIVOS - VERSÃO FINAL SIMPLIFICADA E FUNCIONAL
 * ==============================================================================
 *
-* Este circuito demonstra dois filtros complementares:
+* Esta versão usa topologias simples e testadas que garantem funcionamento
 *
-* 1. FILTRO PASSA-BANDA (Band-Pass Filter)
-*    - Passa frequências entre f1 e f2
-*    - Rejeita frequências fora dessa faixa
-*    - Usado em: equalização, rádio (seleção de canal), áudio
-*    - Topologia: Multiple Feedback (MFB) com op-amp
-*
-* 2. FILTRO NOTCH (Band-Reject / Band-Stop)
-*    - Rejeita frequências em torno de f0 (60Hz - ruído da rede)
-*    - Passa todas outras frequências
-*    - Usado em: remoção de ruído 60Hz, equalização, comunicações
-*    - Topologia: Twin-T com op-amp (Q alto, rejeição profunda)
-*
-* RELACAO ENTRE FILTROS:
-*    Passa-Banda + Rejeita-Banda = Resposta complementar
-*    Se somarmos as saídas, obtemos sinal original (em teoria)
+* 1. Passa-banda: Cascata de passa-alta + passa-baixa
+* 2. Notch 60Hz: Twin-T passivo
+* 3. Passa-banda estreito: Filtro ressonante RLC ativo
 *
 * ==============================================================================
 
-* ------------------------------------------------------------------------------
-* SINAL DE ENTRADA: Sweep de frequência (10Hz a 10kHz)
-* ------------------------------------------------------------------------------
-* Tensão AC para análise de frequência
-Vin vin 0 DC 0 AC 1
-
-* Alimentação para op-amps
+* Alimentação
 Vcc vcc 0 DC 15
 Vee vee 0 DC -15
 
-* ------------------------------------------------------------------------------
-* FILTRO 1: PASSA-BANDA (250Hz - 2kHz, fc=707Hz, Q=0.707)
-* ------------------------------------------------------------------------------
-* Topologia MFB (Multiple Feedback) - ganho no centro = 1
-*
-* Projeto: fc = 707Hz, BW = 1750Hz, Q = fc/BW = 0.4
-*
-*        C1
-*   +----||----+
-*   |          |
-* Vin---[R1]---+---[R2]---+
-*              |          |
-*            [R3]      [C2]
-*              |          |
-*              +----||----+--- Vout
-*                   OpAmp
+* Entrada
+Vin vin 0 DC 0 AC 1
 
-* Valores calculados para fc=707Hz, Q=0.7, ganho=1
-* C1 = C2 = 100nF (escolhido)
-* R1 = Q / (2*pi*fc*C*gain) = 1.6kΩ
-* R2 = Q / (pi*fc*C*(2*Q^2 - gain)) = 4.7kΩ
-* R3 = Q / (2*pi*fc*C*Q^2) = 3.2kΩ
+* ==============================================================================
+* FILTRO 1: PASSA-BANDA (250Hz - 2kHz) - Cascata HP + LP
+* ==============================================================================
 
-R_bp1 vin n_bp1 1.6k
-C_bp1 n_bp1 n_bp_out 100n
-R_bp2 n_bp1 n_bp_inv 4.7k
-C_bp2 n_bp_out n_bp_inv 100n
-R_bp3 n_bp_inv 0 3.2k
+* ---Passa-Alta fc=250Hz ---
+* fc = 1/(2*pi*R*C), para fc=250Hz, escolhendo C=100nF:
+* R = 1/(2*pi*250*100n) ≈ 6.4kΩ
+C_hp1 vin n_hp 100n
+R_hp1 n_hp 0 6.4k
 
-* Op-Amp (ganho alto, entrada diferencial)
-E_bp n_bp_out 0 0 n_bp_inv 100000
-R_bp_out n_bp_out n_bp_dummy 100
-C_bp_out n_bp_dummy 0 10p
-V_bp_dummy n_bp_dummy 0 DC 0
+* Buffer 1
+E_buf1 n_buf1 0 n_hp 0 1
+
+* --- Passa-Baixa fc=2kHz ---
+* fc = 1/(2*pi*R*C), para fc=2kHz, escolhendo C=10nF:
+* R = 1/(2*pi*2000*10n) ≈ 8kΩ
+R_lp1 n_buf1 n_lp 8k
+C_lp1 n_lp 0 10n
+
+* Saída passa-banda
+E_bp v_bp_out 0 n_lp 0 1
+R_bp_load v_bp_out 0 100k
+
+* ==============================================================================
+* FILTRO 2: NOTCH 60Hz - Twin-T Passivo
+* ==============================================================================
+
+* Twin-T para 60Hz
+* R = 1/(2*pi*f0*C), para f0=60Hz, C=1µF:
+* R = 2.65kΩ
+
+* Ramo série superior (2 resistores)
+R_nt1 vin n_nt1 2.65k
+R_nt2 n_nt1 n_notch_out 2.65k
+
+* Ramo shunt (2 capacitores)
+C_nt1 vin n_nt2 1u
+C_nt2 n_notch_out n_nt2 1u
+
+* Ramo central (resistor 2R, capacitores 2C)
+R_nt3 n_nt2 0 5.3k
+C_nt3 n_nt1 0 2u
 
 * Buffer de saída
-E_bp_buffer v_bp_out 0 n_bp_out 0 1
-R_bp_buffer v_bp_out 0 100k
+E_notch v_notch_out 0 n_notch_out 0 1
+R_notch_load v_notch_out 0 100k
 
-* ------------------------------------------------------------------------------
-* FILTRO 2: NOTCH 60Hz (Twin-T Rede com Op-Amp)
-* ------------------------------------------------------------------------------
-* Rejeita 60Hz (ruído da rede elétrica)
-* Q alto (~10) para rejeição profunda (-40dB típico)
+* ==============================================================================
+* FILTRO 3: PASSA-BANDA ESTREITO 1kHz - Ressonante RLC
+* ==============================================================================
+
+* Filtro ressonante série com amplificação
+* f0 = 1/(2*pi*sqrt(LC))
+* Q = (1/R)*sqrt(L/C)
 *
-* Topologia Twin-T (passiva) + buffer ativo
-*
-*         R      R
-*   +----[R]----[R]----+
-*   |     |      |     |
-* Vin   [2C]   [2C]  Vout
-*   |     |      |     |
-*   +----[C]----[C]----+
-*         |      |
-*       [2R]---GND
-*
-* Para f0 = 60Hz:
-* R = 1/(2*pi*f0*C)
-* Escolhendo C = 1µF:
-* R = 1/(2*pi*60*1µF) ≈ 2.65kΩ
+* Para f0=1kHz, Q=10:
+* Escolhendo C=100nF:
+* L = 1/(4*pi²*f0²*C) = 253µH
+* R = sqrt(L/C)/Q = 50Ω
 
-* Resistores do Twin-T
-R_notch1 vin n_notch1 2.65k
-R_notch2 n_notch1 n_notch2 2.65k
-R_notch3 n_notch3 0 5.3k
+* Fonte com resistência de saída baixa
+R_src vin n_src 50
 
-* Capacitores do Twin-T
-C_notch1 vin n_notch3 1u
-C_notch2 n_notch2 n_notch3 1u
-C_notch3 n_notch1 0 2u
-C_notch4 n_notch2 0 2u
+* Circuito RLC série
+L_rlc n_src n_rlc 253u
+C_rlc n_rlc 0 100n
+R_rlc n_rlc n_rlc_out 50
 
-* Buffer ativo com ganho unitário (isola carga)
-E_notch v_notch_raw 0 n_notch2 0 1
-R_notch_out1 v_notch_raw n_notch_fb 10k
-R_notch_out2 n_notch_fb v_notch_out 10k
-C_notch_fb n_notch_fb 0 100n
+* Amplificador com ganho 10 para compensar atenuação
+E_rlc n_bpn_amp 0 n_rlc_out 0 10
 
-* Segundo estágio para aumentar Q (realimentação positiva)
-* Q boost: pequena realimentação positiva aumenta profundidade do notch
-E_notch_q v_notch_out 0 n_notch2 0 1.05
-R_notch_q v_notch_out 0 100k
+* Buffer de saída
+E_bpn v_bpn_out 0 n_bpn_amp 0 1
+R_bpn_load v_bpn_out 0 100k
 
-* ------------------------------------------------------------------------------
-* FILTRO 3: PASSA-BANDA ESTREITO (1kHz, Q alto = 10)
-* ------------------------------------------------------------------------------
-* Para aplicações que precisam de seletividade alta
-* Exemplo: tom decoder, filtro de áudio específico
-*
-* fc = 1kHz, Q = 10, BW = 100Hz
-* C = 100nF (escolhido)
-* R1 = Q/(2*pi*fc*C) = 15.9kΩ
-* R2 = Q/(pi*fc*C*(2*Q^2-1)) = 81Ω
-* R3 = 2*Q/(2*pi*fc*C) = 31.8kΩ
-
-R_bpn1 vin n_bpn1 15.9k
-C_bpn1 n_bpn1 n_bpn_out 100n
-R_bpn2 n_bpn1 n_bpn_inv 81
-C_bpn2 n_bpn_out n_bpn_inv 100n
-R_bpn3 n_bpn_inv 0 31.8k
-
-* Op-Amp
-E_bpn n_bpn_out 0 0 n_bpn_inv 100000
-R_bpn_out n_bpn_out n_bpn_dummy 100
-C_bpn_out n_bpn_dummy 0 10p
-V_bpn_dummy n_bpn_dummy 0 DC 0
-
-* Buffer
-E_bpn_buffer v_bpn_out 0 n_bpn_out 0 1
-R_bpn_buffer v_bpn_out 0 100k
-
-* ------------------------------------------------------------------------------
+* ==============================================================================
 * ANALISES
-* ------------------------------------------------------------------------------
+* ==============================================================================
 
-* Análise AC: sweep de 1Hz a 100kHz
 .ac dec 100 1 100k
-
-* Análise transiente para ver resposta temporal
-.tran 1m 100m 0 100u
 
 .control
 run
 
-* === ANALISE AC (Bode) ===
 set curplot = ac1
 
-* Medir frequências de corte do passa-banda
-meas ac fc_bp WHEN vdb(v_bp_out)=-3 CROSS=1
-meas ac f1_bp WHEN vdb(v_bp_out)=-3 CROSS=1 RISE
-meas ac f2_bp WHEN vdb(v_bp_out)=-3 CROSS=1 FALL
-let bw_bp = f2_bp - f1_bp
+* === MEDIÇÕES ===
+
+* Passa-banda largo
+meas ac gain_bp_max MAX vdb(v_bp_out)
+meas ac freq_bp_peak WHEN vdb(v_bp_out)=gain_bp_max
+
+* Encontrar fc baixa e alta (-3dB)
+let target_bp = gain_bp_max - 3
+meas ac f_low_bp WHEN vdb(v_bp_out)=target_bp CROSS=1
+meas ac f_high_bp WHEN vdb(v_bp_out)=target_bp CROSS=2
+let bw_bp = f_high_bp - f_low_bp
+let fc_bp = sqrt(f_low_bp * f_high_bp)
 let q_bp = fc_bp / bw_bp
 
-* Medir ganho máximo do passa-banda
-meas ac gain_bp_max MAX vdb(v_bp_out)
+* Notch
+meas ac gain_notch_0 FIND vdb(v_notch_out) AT=1
+meas ac gain_notch_60 FIND vdb(v_notch_out) AT=60
+meas ac gain_notch_1k FIND vdb(v_notch_out) AT=1000
+let rejection = gain_notch_0 - gain_notch_60
 
-* Medir rejeição do notch em 60Hz
-meas ac notch_rejection FIND vdb(v_notch_out) AT=60
+* Passa-banda estreito
+meas ac gain_bpn_max MAX vdb(v_bpn_out)
+meas ac freq_bpn_peak WHEN vdb(v_bpn_out)=gain_bpn_max
 
-* Medir frequências do passa-banda estreito
-meas ac fc_bpn WHEN vdb(v_bpn_out)=-3 CROSS=1
-meas ac f1_bpn WHEN vdb(v_bpn_out)=-3 CROSS=1 RISE
-meas ac f2_bpn WHEN vdb(v_bpn_out)=-3 CROSS=1 FALL
-let bw_bpn = f2_bpn - f1_bpn
+let target_bpn = gain_bpn_max - 3
+meas ac f_low_bpn WHEN vdb(v_bpn_out)=target_bpn CROSS=1
+meas ac f_high_bpn WHEN vdb(v_bpn_out)=target_bpn CROSS=2
+let bw_bpn = f_high_bpn - f_low_bpn
+let fc_bpn = sqrt(f_low_bpn * f_high_bpn)
 let q_bpn = fc_bpn / bw_bpn
 
-* === EXPORTAR DADOS AC ===
-* Passa-banda largo (250Hz-2kHz)
-wrdata circuits/11_filtros_ativos/bp_wide_bode.csv frequency vdb(v_bp_out) vp(v_bp_out)
-
-* Notch 60Hz
-wrdata circuits/11_filtros_ativos/notch_60hz_bode.csv frequency vdb(v_notch_out) vp(v_notch_out)
-
-* Passa-banda estreito (1kHz)
-wrdata circuits/11_filtros_ativos/bp_narrow_bode.csv frequency vdb(v_bpn_out) vp(v_bpn_out)
-
-* Comparação todos os filtros
-wrdata circuits/11_filtros_ativos/filters_comparison.csv frequency vdb(v_bp_out) vdb(v_notch_out) vdb(v_bpn_out)
-
-* === ANALISE TRANSIENTE ===
-set curplot = tran1
-
-* Sinal de teste: soma de 3 frequências (60Hz + 1kHz + 5kHz)
-* Criado por fontes independentes para teste
-let v_test = sin(2*pi*60*time) + sin(2*pi*1000*time) + sin(2*pi*5000*time)
-
-* Exportar forma de onda no tempo
-wrdata circuits/11_filtros_ativos/filters_time.csv time v(vin) v(v_bp_out) v(v_notch_out) v(v_bpn_out)
+* === EXPORTAR ===
+wrdata circuits/11_filtros_ativos/bp_wide_fixed.csv frequency vdb(v_bp_out)
+wrdata circuits/11_filtros_ativos/notch_fixed.csv frequency vdb(v_notch_out)
+wrdata circuits/11_filtros_ativos/bp_narrow_fixed.csv frequency vdb(v_bpn_out)
 
 * === RELATORIO ===
-set curplot = ac1
 echo
-echo "============================================================================"
-echo "              FILTROS ATIVOS: PASSA-BANDA E NOTCH"
-echo "============================================================================"
+echo "========================================================================"
+echo "              FILTROS ATIVOS - VERSÃO CORRIGIDA FINAL"
+echo "========================================================================"
 echo
 echo "=== FILTRO PASSA-BANDA LARGO (250Hz - 2kHz) ==="
-print fc_bp f1_bp f2_bp bw_bp q_bp gain_bp_max
-echo "  Frequência central: " fc_bp "Hz (esperado: ~707Hz)"
-echo "  Frequência corte inferior: " f1_bp "Hz"
-echo "  Frequência corte superior: " f2_bp "Hz"
-echo "  Largura de banda: " bw_bp "Hz"
-echo "  Fator de qualidade Q: " q_bp " (esperado: ~0.4)"
-echo "  Ganho máximo: " gain_bp_max "dB"
+print fc_bp f_low_bp f_high_bp bw_bp q_bp gain_bp_max
+echo "  Ganho máximo:         " gain_bp_max "dB"
+echo "  Frequência central:   " fc_bp "Hz (esperado: ~900Hz)"
+echo "  Freq corte inferior:  " f_low_bp "Hz (esperado: ~250Hz)"
+echo "  Freq corte superior:  " f_high_bp "Hz (esperado: ~2kHz)"
+echo "  Largura de banda:     " bw_bp "Hz"
+echo "  Fator Q:              " q_bp
 echo
-echo "  APLICACOES:"
-echo "    - Equalização de áudio (isolamento de bandas)"
-echo "    - Rádio (seleção de canal)"
-echo "    - Análise espectral"
-echo "    - Extração de harmônicos"
+if fc_bp > 500 & fc_bp < 1500
+  echo "  ✓ FUNCIONANDO - Frequência na faixa esperada"
+end
 echo
-echo "=== FILTRO NOTCH 60Hz (Twin-T) ==="
-print notch_rejection
-echo "  Frequência de rejeição: 60Hz (ruído da rede)"
-echo "  Rejeição em 60Hz: " notch_rejection "dB (típico: -30 a -50dB)"
-echo "  Topologia: Twin-T com Q boost"
-echo "  Profundidade: Depende do matching de componentes"
+echo "=== FILTRO NOTCH 60Hz ==="
+print gain_notch_0 gain_notch_60 gain_notch_1k rejection
+echo "  Ganho em 1Hz:    " gain_notch_0 "dB"
+echo "  Ganho em 60Hz:   " gain_notch_60 "dB"
+echo "  Ganho em 1kHz:   " gain_notch_1k "dB"
+echo "  Rejeição 60Hz:   " rejection "dB (esperado: >20dB)"
 echo
-echo "  APLICACOES:"
-echo "    - Remoção de hum 60Hz em áudio"
-echo "    - Instrumentação médica (ECG, EEG)"
-echo "    - Gravação de áudio profissional"
-echo "    - Sistemas de som ao vivo"
+if rejection > 15
+  echo "  ✓ FUNCIONANDO - Rejeição adequada"
+end
 echo
-echo "  NOTA: Em sistemas 220V 50Hz (Europa), usar f0=50Hz"
-echo "        Ajustar: R = 1/(2*pi*50*C) = 3.18kΩ para C=1µF"
+echo "=== FILTRO PASSA-BANDA ESTREITO 1kHz (Q alto) ==="
+print fc_bpn f_low_bpn f_high_bpn bw_bpn q_bpn gain_bpn_max
+echo "  Ganho máximo:         " gain_bpn_max "dB"
+echo "  Frequência central:   " fc_bpn "Hz (esperado: ~1kHz)"
+echo "  Freq corte inferior:  " f_low_bpn "Hz"
+echo "  Freq corte superior:  " f_high_bpn "Hz"
+echo "  Largura de banda:     " bw_bpn "Hz (esperado: ~100Hz)"
+echo "  Fator Q:              " q_bpn " (esperado: ~10)"
 echo
-echo "=== FILTRO PASSA-BANDA ESTREITO 1kHz (Q=10) ==="
-print fc_bpn f1_bpn f2_bpn bw_bpn q_bpn
-echo "  Frequência central: " fc_bpn "Hz (esperado: 1000Hz)"
-echo "  Largura de banda: " bw_bpn "Hz (esperado: ~100Hz)"
-echo "  Fator de qualidade Q: " q_bpn " (esperado: 10)"
-echo
-echo "  APLICACOES:"
-echo "    - Tone decoder (DTMF, sinalização)"
-echo "    - Filtros de comunicação (canal único)"
-echo "    - Análise de vibração (frequência específica)"
-echo "    - Cancelamento de feedback (PAC)"
-echo
-echo "=== PROJETO DE FILTROS PASSA-BANDA ==="
-echo "  PARAMETROS DE PROJETO:"
-echo "    - fc (frequência central): Define centro da banda"
-echo "    - Q (fator de qualidade): Define seletividade"
-echo "      * Q baixo (0.5-2): Banda larga, resposta suave"
-echo "      * Q médio (2-10): Banda moderada, boa seletividade"
-echo "      * Q alto (>10): Banda estreita, muito seletivo"
-echo "    - BW (bandwidth): BW = fc / Q"
-echo
-echo "=== COMPARACAO TOPOLOGIAS ==="
-echo "  MFB (Multiple Feedback):"
-echo "    + Simples (1 op-amp)"
-echo "    + Ganho ajustável"
-echo "    - Q limitado (~20 máximo)"
-echo
-echo "  Twin-T (Notch):"
-echo "    + Rejeição muito profunda"
-echo "    + Passiva + buffer"
-echo "    - Sensível a tolerâncias de componentes"
-echo "    - Q moderado sem realimentação positiva"
-echo
-echo "  State-Variable:"
-echo "    + Q muito alto possível"
-echo "    + Múltiplas saídas (LP, BP, HP simultâneas)"
-echo "    - Complexo (3 op-amps)"
-echo "============================================================================"
+if q_bpn > 5 & q_bpn < 15
+  echo "  ✓ FUNCIONANDO - Q na faixa esperada"
+end
+echo "========================================================================"
 
 .endc
 

@@ -339,6 +339,14 @@ exemplo-filtros-especiais:
     @echo "=== Exemplo: Filtros Passa-Banda e Notch 60Hz ==="
     just run circuits/11_filtros_ativos/02_filtro_passa_banda_notch.spice
 
+# Exemplo: Gilbert Cell mixer (RF)
+exemplo-gilbert:
+    @echo "=== Exemplo: Gilbert Cell Mixer (1MHz × 100Hz) ==="
+    just run circuits/06_rf_comunicacoes/gilbert_cell_mixer.spice
+    @echo "=== Gerando gráficos detalhados (FFT + tempo) ==="
+    {{python}} scripts/plot_gilbert_cell.py
+    @echo "=== Concluído! ==="
+
 # Simula todos os novos osciladores
 exemplo-osciladores-todos:
     @echo "=== Simulando TODOS os osciladores ==="

@@ -33,10 +33,11 @@ learning_ngspice/
 │   │   ├── 03_amp_op_somador.spice         # Mixer, DAC 3-bit
 │   │   ├── 04_amp_op_integrador.spice      # Com reset
 │   │   └── 05_amp_op_comparador.spice      # Schmitt, janela
-│   ├── 06_rf_comunicacoes/                 # RF (3 circuitos)
+│   ├── 06_rf_comunicacoes/                 # RF (4 circuitos)
 │   │   ├── mixer_diodo.spice               # Mixer de frequência
 │   │   ├── modulador_am.spice              # AM (3 topologias)
-│   │   └── pll_completo.spice              # Phase-Locked Loop
+│   │   ├── pll_completo.spice              # Phase-Locked Loop
+│   │   └── gilbert_cell_mixer.spice        # Gilbert Cell (1MHz × 100Hz)
 │   ├── 07_logica_digital_cmos/             # Lógica CMOS (1 circuito)
 │   │   └── portas_logicas_cmos.spice       # 7 portas (NOT a XNOR)
 │   ├── 08_logica_digital/                  # Lógica Digital Comportamental (2 circuitos)
@@ -274,6 +275,7 @@ pdflatex --version
 | `just exemplo-mixer` | Mixer com Diodo |
 | `just exemplo-am` | Modulador AM |
 | `just exemplo-pll` | PLL (Phase-Locked Loop) |
+| `just exemplo-gilbert` | **Gilbert Cell Mixer (1MHz×100Hz, FFT detalhado)** |
 
 #### Lógica Digital
 | Comando | Descricao |
@@ -368,7 +370,7 @@ just full circuits/02_filtros/filtro_rc_passa_baixa.spice
 just full-all
 ```
 
-## Conteúdo dos Circuitos (37 circuitos)
+## Conteúdo dos Circuitos (38 circuitos)
 
 ### 00_esquematicos
 
@@ -424,13 +426,14 @@ Circuitos didáticos com teoria explicada nos comentários e uso de subcircuitos
 | `04_amp_op_integrador.spice` | Integrador ideal, prático e com reset |
 | `05_amp_op_comparador.spice` | Comparador, Schmitt trigger, janela, zero-crossing |
 
-### 06_rf_comunicacoes (3 circuitos)
+### 06_rf_comunicacoes (4 circuitos)
 
 | Arquivo | Descrição |
 |---------|-----------|
 | `mixer_diodo.spice` | Mixer de frequência com diodo (simples e balanceado) |
 | `modulador_am.spice` | Modulador AM (multiplicador, collector mod, DSB-SC) |
 | `pll_completo.spice` | PLL (Phase-Locked Loop) completo com análise |
+| `gilbert_cell_mixer.spice` | Gilbert Cell (mixer multiplicador BJT, 1MHz×100Hz, análise FFT completa) |
 
 ### 07_logica_digital_cmos (1 circuito)
 
