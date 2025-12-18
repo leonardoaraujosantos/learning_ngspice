@@ -319,6 +319,16 @@ exemplo-espelhos:
     @echo "=== Exemplo: Espelhos de Corrente (BJT, JFET, MOSFET) ==="
     just run circuits/13_espelhos_corrente/01_espelhos_corrente_bjt_jfet_mosfet.spice
 
+# Exemplo: conversores DC-DC Buck e Boost
+exemplo-buck-boost:
+    @echo "=== Exemplo: Conversores DC-DC (Buck 12V→5V e Boost 5V→12V) ==="
+    just run circuits/14_conversores_dcdc/01_buck_boost_conversores.spice
+
+# Exemplo: modulação e demodulação PWM
+exemplo-pwm:
+    @echo "=== Exemplo: Modulação e Demodulação PWM (AmpOp e JFET) ==="
+    just run circuits/15_pwm_modulacao/01_pwm_modulador_demodulador.spice
+
 # Simula todos os novos osciladores
 exemplo-osciladores-todos:
     @echo "=== Simulando TODOS os osciladores ==="

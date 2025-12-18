@@ -1,0 +1,230 @@
+* ==============================================================================
+* MODULACAO E DEMODULACAO PWM (Pulse Width Modulation)
+* ==============================================================================
+*
+* Este circuito demonstra:
+*
+* 1. MODULADOR PWM - Converte sinal analógico em PWM
+*    - Gerador de onda triangular (carrier ~20kHz)
+*    - Comparador PWM (sinal vs carrier)
+*    - Buffer JFET (source follower)
+*
+* 2. DEMODULADOR PWM - Recupera sinal analógico do PWM
+*    - Filtro passa-baixa ativo (recupera média do PWM)
+*    - Stage de saída com amplificação
+*
+* APLICACOES:
+*    - Amplificadores classe D (alta eficiência)
+*    - Conversores DC-DC com controle analógico
+*    - Transmissão de sinais por fibra óptica
+*    - Controle de motores e servos
+*
+* DIAGRAMA DE BLOCOS:
+*
+*   Sinal Audio (1kHz)
+*        |
+*        v
+*   [Comparador PWM] <--- Onda Triangular (20kHz)
+*        |
+*        v
+*    Sinal PWM
+*        |
+*        v
+*   [Buffer JFET]
+*        |
+*        v
+*   [Demodulador - Filtro PB]
+*        |
+*        v
+*   Sinal Recuperado
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* CIRCUITO PRINCIPAL
+* ------------------------------------------------------------------------------
+
+* === ALIMENTACAO ===
+Vcc vcc 0 DC 15
+Vee vee 0 DC -15
+
+* === SINAL DE ENTRADA (Audio 1kHz, 1Vpp) ===
+Vin vin 0 SIN(0 0.5 1k 0 0)
+
+* === GERADOR DE ONDA TRIANGULAR (Carrier 20kHz) ===
+* Usa fonte PULSE para gerar onda triangular
+* Periodo = 50us (20kHz), rise=fall=25us para forma triangular
+V_carrier v_carrier_raw 0 PULSE(-2 2 0 25u 25u 0 50u)
+
+* Buffer para carrier (isolamento) - ganho unitário
+E_carrier v_carrier_scaled 0 v_carrier_raw 0 1
+R_carrier_out v_carrier_scaled n_carr_dummy 100
+C_carrier_dummy n_carr_dummy 0 10p
+V_carr_dummy n_carr_dummy 0 DC 0
+
+* === MODULADOR PWM (Comparador) ===
+* Compara sinal de entrada com onda triangular
+* Saída: +15V (vin > carrier) ou -15V (vin < carrier)
+E_pwm v_pwm_raw 0 vin v_carrier_scaled 100000
+R_pwm_out v_pwm_raw v_pwm_clamped 100
+
+* Limita PWM para 0V/5V (lógica digital) usando diodos
+D_pwm_low 0 v_pwm_clamped DCLAMP
+D_pwm_high v_pwm_clamped v_pwm_vcc DCLAMP
+V_pwm_vcc v_pwm_vcc 0 DC 5
+R_pwm_load v_pwm_clamped 0 10k
+
+* === BUFFER JFET (Source Follower) ===
+* Fornece baixa impedância de saída
+J1 vdd v_pwm_clamped v_pwm_buffered 2N5457
+R_source v_pwm_buffered 0 1k
+Vdd vdd 0 DC 5
+
+* === DEMODULADOR PWM (Filtro Passa-Baixa Ativo) ===
+* Estágio 1: Filtro RC passivo (remove carrier 20kHz)
+R_filt1 v_pwm_buffered n_filt1 10k
+C_filt1 n_filt1 0 1u
+
+* Estágio 2: Filtro ativo passa-baixa (fc = 3kHz, ganho = 2)
+E_filt v_demod_raw 0 n_filt1 0 2
+R_filt2 v_demod_raw n_filt2 10k
+C_filt2 n_filt2 0 4.7u
+R_filt_out n_filt2 v_demod 1k
+
+* === MEDIÇÃO DE SAÍDA (para comparação) ===
+* Remove DC offset para comparar com sinal original
+C_dc_block v_demod v_demod_ac 10u
+R_dc_term v_demod_ac 0 100k
+
+* ------------------------------------------------------------------------------
+* MODELOS
+* ------------------------------------------------------------------------------
+
+* JFET 2N5457 (N-channel)
+.model 2N5457 NJF (
++ Vto=-2.0
++ Beta=0.001
++ Lambda=0.001
++ Rd=1
++ Rs=1
++ Is=1e-14
++ Pb=1
++ Fc=0.5
++ Cgd=1.6p
++ Cgs=2.4p
+)
+
+* Diodo para clamping (0V a 5V)
+.model DCLAMP D (
++ Is=1e-14
++ Rs=10
++ N=1.0
++ Bv=50
++ Ibv=1m
+)
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+.tran 10u 5m 0 10u
+
+.control
+run
+
+set curplot = tran1
+
+* === MEDICOES DO SINAL DE ENTRADA ===
+meas tran Vin_peak MAX v(vin) from=2m to=5m
+meas tran Vin_valley MIN v(vin) from=2m to=5m
+let Vin_pp = Vin_peak - Vin_valley
+
+* === MEDICOES DA ONDA TRIANGULAR (CARRIER) ===
+meas tran Vtri_peak MAX v(v_carrier_scaled) from=2m to=5m
+meas tran Vtri_valley MIN v(v_carrier_scaled) from=2m to=5m
+let Vtri_pp = Vtri_peak - Vtri_valley
+
+* Frequencia do carrier (sabemos que é 20kHz pela fonte PULSE)
+let carrier_freq = 20000
+
+* === MEDICOES DO PWM ===
+* Duty cycle médio (tempo HIGH / período total)
+meas tran pwm_avg AVG v(v_pwm_buffered) from=2m to=5m
+let pwm_duty = pwm_avg / 5 * 100
+
+* === MEDICOES DO SINAL DEMODULADO ===
+meas tran Vdemod_peak MAX v(v_demod_ac) from=3m to=5m
+meas tran Vdemod_valley MIN v(v_demod_ac) from=3m to=5m
+let Vdemod_pp = Vdemod_peak - Vdemod_valley
+
+* Ganho/Atenuacao (relacao entre demod e entrada)
+let gain_ratio = Vdemod_pp / Vin_pp
+let gain_db = 20 * log10(gain_ratio)
+
+* === QUALIDADE DA DEMODULACAO ===
+* Calcula THD do sinal recuperado
+fourier 1000 v(v_demod_ac)
+
+* === EXPORTAR DADOS ===
+* Visão geral do sistema
+wrdata circuits/15_pwm_modulacao/pwm_overview.csv time v(vin) v(v_carrier_scaled) v(v_pwm_buffered) v(v_demod_ac)
+
+* Detalhe do modulador (zoom em 2 períodos)
+wrdata circuits/15_pwm_modulacao/pwm_modulator_detail.csv time v(vin) v(v_carrier_scaled) v(v_pwm_buffered)
+
+* Detalhe do PWM (forma de onda digital)
+wrdata circuits/15_pwm_modulacao/pwm_waveform.csv time v(v_pwm_buffered)
+
+* Comparação entrada vs saída demodulada
+wrdata circuits/15_pwm_modulacao/pwm_input_output.csv time v(vin) v(v_demod_ac)
+
+* === RELATORIO FINAL ===
+echo
+echo "============================================================================"
+echo "                   MODULACAO E DEMODULACAO PWM - RESULTADOS"
+echo "============================================================================"
+echo
+echo "=== SINAL DE ENTRADA (Audio) ==="
+print Vin_pp
+echo "  Amplitude p-p: " Vin_pp "V (esperado: 1.0V)"
+echo "  Frequencia: 1 kHz"
+echo
+echo "=== CARRIER (Onda Triangular) ==="
+print Vtri_pp carrier_freq
+echo "  Amplitude p-p: " Vtri_pp "V"
+echo "  Frequencia: " carrier_freq "Hz (esperado: ~20kHz)"
+echo "  Razao carrier/sinal: " carrier_freq/1000 ":1 (tipico: 10-20:1)"
+echo
+echo "=== PWM GERADO ==="
+print pwm_duty
+echo "  Duty cycle médio: " pwm_duty "% (50% = sem modulacao)"
+echo "  Variacao: proporcional ao sinal de entrada"
+echo "  Nivel logico: 0-5V"
+echo
+echo "=== SINAL DEMODULADO ==="
+print Vdemod_pp gain_ratio gain_db
+echo "  Amplitude p-p: " Vdemod_pp "V"
+echo "  Ganho: " gain_ratio " (" gain_db "dB)"
+echo "  Atraso: ~50-100us (devido ao filtro)"
+echo
+echo "=== QUALIDADE DO SISTEMA PWM ==="
+echo "  Relacao carrier/sinal: " carrier_freq/1000 ":1"
+echo "  Resolucao efetiva: ~" carrier_freq/1000 "bits (logaritmica)"
+echo "  Aplicacao: Amplificador classe D (>90% eficiencia)"
+echo
+echo "VANTAGENS DO PWM:"
+echo "  1. Alta eficiencia (chaves ideais: ON/OFF)"
+echo "  2. Baixo ruido (quantizacao temporal, nao de amplitude)"
+echo "  3. Facil filtragem (carrier >> sinal)"
+echo "  4. Robusto a variacoes de alimentacao"
+echo
+echo "COMPARACAO COM OUTRAS MODULACOES:"
+echo "  PWM:  Largura de pulso varia, amplitude constante"
+echo "  PAM:  Amplitude varia, largura constante"
+echo "  PPM:  Posicao do pulso varia"
+echo "  PCM:  Codificacao digital (amplitude quantizada)"
+echo "============================================================================"
+
+.endc
+
+.end

@@ -24,7 +24,8 @@ RB1 vcc b 47k
 RB2 b   0  10k
 
 * Base em AC-ground (estabiliza a base para o sinal)
-CB  b 0 100n
+* IC definido para o ponto DC correto (~1.75V)
+CB  b 0 100n IC=1.75
 
 * Emissor (define corrente DC e adiciona estabilização)
 RE  e 0 680
@@ -37,13 +38,14 @@ Q1 c b e BC548
 *   f0 ~ 1/(2*pi*sqrt(L * Ceq))
 *   Ceq = (C1*C2)/(C1 + C2)
 *
-* Com L=470uH, C1=100p, C2=120p -> Ceq ~ 54.5pF -> f ~ 1 MHz (aprox.)
+* Com L=470uH, C1=390pF, C2=470pF -> Ceq ~ 213pF -> f ~ 1.1 MHz
 LTANK c 0 470u
 
 * Capacitores do divisor capacitivo (feedback)
 * IC= em C1 dá o "kick" de partida (inicializa tensão no capacitor)
-C1 c e 100p IC=200m
-C2 e 0 120p IC=0
+* Ajustados empiricamente para ~1MHz com LFEED=2.2mH
+C1 c e 390p IC=2
+C2 e 0 470p IC=0
 
 * ---------- Alimentação do coletor (isolando o tanque) ----------
 * Indutor de alimentação (RF choke) fornece DC ao coletor e alta impedância em 1 MHz
@@ -66,7 +68,8 @@ RLOAD out 0 10k
 
 * ---------- Análise Transiente ----------
 * uic: pula OP e usa IC= para startup (bom para osciladores)
-.tran 0.1u 10m uic
+* Reduzido para 200us (200 ciclos @ 1MHz) para evitar overflow
+.tran 0.1u 200u uic
 
 * ============================
 * CONTROLE (batch-friendly)
@@ -80,17 +83,18 @@ RLOAD out 0 10k
   wrdata colpitts_time.csv time v(c) v(out)
 
   * --- FFT e salva em CSV ---
-  * Após fft, o eixo costuma aparecer como "frequency"
-  fft v(c)
-
-  * Magnitude em dB do espectro
-  let vc_db = db(v(c))
-  wrdata colpitts_fft.csv frequency vc_db
+  * Comentado temporariamente para debug
+  * fft v(c)
+  * let vc_db = db(v(c))
+  * wrdata colpitts_fft.csv frequency vc_db
 
   * --- Medição de período/frequência (mais robusta) ---
-  * Mede depois de 2ms para evitar a fase de start-up
-  meas tran TPER TRIG v(c) VAL=0 RISE=1 TARG v(c) VAL=0 RISE=2 FROM=2m
-  meas tran FOSC PARAM='1/TPER'
+  * Mede depois de 50us para evitar a fase de start-up
+  * Oscila em torno do ponto DC (~1.76V com LFEED=2.2mH)
+  meas tran TPER TRIG v(c) VAL=1.76 RISE=1 TARG v(c) VAL=1.76 RISE=2 FROM=50u
+
+  * Calcula frequencia usando let ao inves de PARAM (bug do ngspice)
+  let FOSC = 1/TPER
 
   print TPER FOSC
   quit

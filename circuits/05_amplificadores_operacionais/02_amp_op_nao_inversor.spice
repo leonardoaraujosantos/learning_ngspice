@@ -174,9 +174,6 @@ Rload3 out3 0 10k
 * ANALISES
 * ---------------------------------------------------------
 
-.op
-.tran 10u 10m
-.ac dec 20 1 10MEG
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -271,16 +268,16 @@ Rload3 out3 0 10k
   * ---------------------------------------------------------
   * Salvando Resultados
   * ---------------------------------------------------------
-  set hcopydevtype=png
-  hardcopy amp_op_nao_inversor_time.png v(input) v(out1) v(out2) v(out3)
+  * set hcopydevtype=png
+  * hardcopy amp_op_nao_inversor_time.png v(input) v(out1) v(out2) v(out3)
 
-  setplot ac1
-  hardcopy amp_op_nao_inversor_freq.png gain1_db gain2_db gain3_db xlog
+  set curplot = ac1
+  * hardcopy amp_op_nao_inversor_freq.png gain1_db gain2_db gain3_db xlog
 
-  setplot tran1
+  set curplot = tran1
   wrdata amp_op_nao_inversor_time.csv time v(input) v(out1) v(out2) v(out3)
 
-  setplot ac1
+  set curplot = ac1
   wrdata amp_op_nao_inversor_freq.csv frequency gain1_db gain2_db phase1
 
   echo "Arquivos gerados:"

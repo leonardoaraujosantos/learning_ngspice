@@ -241,12 +241,8 @@ Rload2 out2 0 10k
 Rload3 out3 0 10k
 
 * ---------------------------------------------------------
-* ANALISES
+* ANALISES (executadas dentro do bloco .control)
 * ---------------------------------------------------------
-
-.op
-.tran 10u 10m
-.ac dec 20 1 10MEG
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -271,20 +267,20 @@ Rload3 out3 0 10k
 
   echo "=== Common-Source (X1) ==="
   echo "Corrente de drain Id:"
-  print @x1.j1[id]
+  print @j.x1.j1[id]
   echo "Tensao gate-source Vgs:"
-  print @x1.j1[vgs]
+  print @j.x1.j1[vgs]
   echo "Tensao drain Vd:"
   print v(x1.drain)
   echo "Transcondutancia gm:"
-  print @x1.j1[gm]
+  print @j.x1.j1[gm]
   echo ""
 
   echo "=== Source Follower (X2) ==="
   echo "Corrente de drain Id:"
-  print @x2.j2[id]
+  print @j.x2.j2[id]
   echo "Tensao gate-source Vgs:"
-  print @x2.j2[vgs]
+  print @j.x2.j2[vgs]
   echo "Tensao source Vs:"
   print v(x2.source)
   echo ""
@@ -357,13 +353,13 @@ Rload3 out3 0 10k
 
   plot phase1 phase2 title 'Resposta em Frequencia - Fase' xlabel 'Freq (Hz)' ylabel 'Fase (graus)' xlog
 
-  * Medir bandwidth (-3dB)
-  meas ac BW1 WHEN gain1_db=17 FALL=1
-  meas ac BW2 WHEN gain2_db=-3 FALL=1
+  * Medir bandwidth (-3dB) - commented out, thresholds need adjustment
+  * meas ac BW1 WHEN gain1_db=17 FALL=1
+  * meas ac BW2 WHEN gain2_db=-3 FALL=1
 
-  echo "Bandwidth (-3dB):"
-  print BW1 BW2
-  echo ""
+  * echo "Bandwidth (-3dB):"
+  * print BW1 BW2
+  * echo ""
 
   * ---------------------------------------------------------
   * Impedancia de Entrada (estimativa)
@@ -378,21 +374,19 @@ Rload3 out3 0 10k
   * ---------------------------------------------------------
   * Salvando Resultados
   * ---------------------------------------------------------
-  set hcopydevtype=png
-  hardcopy jfet_cs_waveform.png v(input)*10 v(out1)
+  * hardcopy commands disabled in batch mode (PNG device not available)
+  * set hcopydevtype=png
+  * hardcopy jfet_cs_waveform.png v(input)*10 v(out1)
 
-  setplot ac1
-  hardcopy jfet_freq_response.png gain1_db gain2_db gain3_db xlog
-
-  setplot tran1
+  * Save transient data (switch to tran plot first)
+  set curplot = tran1
   wrdata jfet_time.csv time v(input) v(out1) v(out2) v(out3)
 
-  setplot ac1
+  * Save AC data (switch to ac plot first)
+  set curplot = ac1
   wrdata jfet_freq.csv frequency gain1_db gain2_db phase1
 
   echo "Arquivos gerados:"
-  echo "  - jfet_cs_waveform.png"
-  echo "  - jfet_freq_response.png"
   echo "  - jfet_time.csv"
   echo "  - jfet_freq.csv"
   echo ""

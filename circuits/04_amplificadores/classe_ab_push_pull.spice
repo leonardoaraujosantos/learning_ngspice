@@ -245,14 +245,8 @@ CDEC2 vee 0 100u
 + RS=10 )
 
 * ---------------------------------------------------------
-* ANALISES
+* ANALISES (executadas dentro do bloco .control)
 * ---------------------------------------------------------
-
-* Analise DC (ponto de operacao)
-.op
-
-* Analise transiente (10 ciclos de 1kHz = 10ms)
-.tran 10u 10m
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -283,8 +277,8 @@ CDEC2 vee 0 100u
 
   * Corrente de quiescencia (importante!)
   echo "Corrente de quiescencia estimada:"
-  print @Q1[ic]
-  print @Q2[ic]
+  print @q1[ic]
+  print @q2[ic]
   echo ""
 
   * ---------------------------------------------------------
@@ -298,15 +292,15 @@ CDEC2 vee 0 100u
   * Medidas de amplitude
   meas tran VIN_MAX MAX v(input)
   meas tran VIN_MIN MIN v(input)
-  meas tran VIN_PP PARAM='VIN_MAX-VIN_MIN'
+  let VIN_PP = VIN_MAX - VIN_MIN
 
   meas tran VOUT_MAX MAX v(load) FROM=2m TO=10m
   meas tran VOUT_MIN MIN v(load) FROM=2m TO=10m
-  meas tran VOUT_PP PARAM='VOUT_MAX-VOUT_MIN'
+  let VOUT_PP = VOUT_MAX - VOUT_MIN
 
   * Ganho de tensao
-  meas tran GANHO PARAM='VOUT_PP/VIN_PP'
-  meas tran GANHO_DB PARAM='20*log10(GANHO)'
+  let GANHO = VOUT_PP / VIN_PP
+  let GANHO_DB = 20 * log10(GANHO)
 
   echo "Entrada: "
   print VIN_PP
@@ -334,7 +328,7 @@ CDEC2 vee 0 100u
   plot v(input) v(load) xlimit 2m 3m title 'Detalhe: 1 Ciclo' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
 
   * Correntes nos transistores
-  plot @Q1[ic] @Q2[ic] title 'Correntes de Coletor' xlabel 'Tempo (s)' ylabel 'Corrente (A)'
+  plot @q1[ic] @q2[ic] title 'Correntes de Coletor' xlabel 'Tempo (s)' ylabel 'Corrente (A)'
 
   * ---------------------------------------------------------
   * FFT - Analise de Distorcao
@@ -353,13 +347,14 @@ CDEC2 vee 0 100u
   * ---------------------------------------------------------
   * Salvando resultados
   * ---------------------------------------------------------
-  set hcopydevtype=png
-  hardcopy classe_ab_waveform.png v(input) v(load)
+  * hardcopy commands disabled in batch mode (PNG device not available)
+  * set hcopydevtype=png
+  * hardcopy classe_ab_waveform.png v(input) v(load)
 
-  wrdata classe_ab_time.csv time v(input) v(load) @Q1[ic] @Q2[ic]
+  set curplot = tran1
+  wrdata classe_ab_time.csv time v(input) v(load) @q1[ic] @q2[ic]
 
   echo "Arquivos gerados:"
-  echo "  - classe_ab_waveform.png"
   echo "  - classe_ab_time.csv"
   echo ""
 

@@ -52,8 +52,12 @@ learning_ngspice/
 │   ├── 12_amplificadores_diferenciais/     # Amplificadores Diferenciais (2 circuitos)
 │   │   ├── 01_par_diferencial_bjt.spice    # Par diferencial BJT
 │   │   └── 02_par_diferencial_jfet.spice   # Par diferencial JFET
-│   └── 13_espelhos_corrente/               # Espelhos de Corrente (1 circuito)
-│       └── 01_espelhos_corrente_bjt_jfet_mosfet.spice  # BJT, JFET, MOSFET
+│   ├── 13_espelhos_corrente/               # Espelhos de Corrente (1 circuito)
+│   │   └── 01_espelhos_corrente_bjt_jfet_mosfet.spice  # BJT, JFET, MOSFET
+│   ├── 14_conversores_dcdc/                # Conversores DC-DC (1 circuito)
+│   │   └── 01_buck_boost_conversores.spice # Buck (12V→5V) e Boost (5V→12V)
+│   └── 15_pwm_modulacao/                   # Modulação PWM (1 circuito)
+│       └── 01_pwm_modulador_demodulador.spice # Modulador e demodulador PWM
 ├── docs/
 │   ├── tutorial_spice.md                   # Tutorial completo SPICE
 │   └── circuitikzmanual.pdf                # Manual CircuiTikZ
@@ -302,6 +306,16 @@ pdflatex --version
 |---------|-----------|
 | `just exemplo-espelhos` | Espelhos de Corrente (BJT, JFET, MOSFET) |
 
+#### Conversores DC-DC
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-buck-boost` | Conversores Buck (12V→5V) e Boost (5V→12V) |
+
+#### Modulação PWM
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-pwm` | Modulador e Demodulador PWM (com AmpOp e JFET) |
+
 ### Limpeza
 
 | Comando | Descricao |
@@ -462,6 +476,22 @@ Espelhos de corrente - replicação precisa de correntes.
 |---------|-----------|
 | `01_espelhos_corrente_bjt_jfet_mosfet.spice` | Espelhos simples e Wilson (BJT), JFET e MOSFET com razões |
 
+### 14_conversores_dcdc (1 circuito)
+
+Conversores DC-DC fundamentais para regulação de tensão.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_buck_boost_conversores.spice` | Buck (12V→5V step-down) e Boost (5V→12V step-up) com análise de eficiência |
+
+### 15_pwm_modulacao (1 circuito)
+
+Modulação e demodulação PWM (Pulse Width Modulation) para amplificadores classe D.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_pwm_modulador_demodulador.spice` | Modulador PWM com comparador e carrier 20kHz, buffer JFET, demodulador com filtro ativo |
+
 ## Scripts
 
 ### csv_to_png.py
@@ -491,6 +521,7 @@ Componentes suportados:
 ## Documentacao
 
 - [Tutorial SPICE](docs/tutorial_spice.md) - Tutorial completo da linguagem SPICE
+- [Guia de Troubleshooting](docs/troubleshooting.md) - Solucoes para erros comuns no ngspice
 
 ## Referencias
 

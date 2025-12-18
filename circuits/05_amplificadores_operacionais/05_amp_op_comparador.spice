@@ -252,8 +252,6 @@ Rload6 out_zc 0 10k
 * ANALISES
 * ---------------------------------------------------------
 
-.op
-.tran 100u 50m
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -353,11 +351,11 @@ Rload6 out_zc 0 10k
   * ---------------------------------------------------------
   * Salvando Resultados
   * ---------------------------------------------------------
-  set hcopydevtype=png
-  hardcopy comparador_simples.png v(input) v(ref1) v(out_comp)
-  hardcopy schmitt_trigger.png v(input) v(out_schmitt)
-  hardcopy comparador_janela.png v(input) v(vlow) v(vhigh) v(out_window)
-  hardcopy zero_crossing.png v(input_ac) v(out_zc)
+  * set hcopydevtype=png
+  * hardcopy comparador_simples.png v(input) v(ref1) v(out_comp)
+  * hardcopy schmitt_trigger.png v(input) v(out_schmitt)
+  * hardcopy comparador_janela.png v(input) v(vlow) v(vhigh) v(out_window)
+  * hardcopy zero_crossing.png v(input_ac) v(out_zc)
 
   wrdata comparador_time.csv time v(input) v(out_comp) v(out_schmitt) v(out_window)
   wrdata zero_crossing.csv time v(input_ac) v(out_zc)

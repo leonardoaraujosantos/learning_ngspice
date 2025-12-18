@@ -236,7 +236,7 @@ plot vp(vo1,vo2) xlog
 + title "Fase Diferencial vs Frequencia" xlabel "Frequencia (Hz)" ylabel "Fase (graus)"
 
 * Plot 5: Comparação das três configurações
-tran 0.01m 5m
+* (usando dados do tran já executado pelo run)
 plot v(vo1,vo2) v(vo1_deg,vo2_deg)
 + title "Comparacao: Basico vs Com Degeneracao" xlabel "Tempo (ms)" ylabel "Tensao (V)"
 
@@ -244,7 +244,13 @@ plot v(vo1,vo2) v(vo1_deg,vo2_deg)
 set wr_singlescale
 set wr_vecnames
 option numdgt=7
+
+* Switch to transient plot for time-domain data
+set curplot = tran1
 wrdata circuits/12_amplificadores_diferenciais/diff_bjt_transiente.csv v(vin1) v(vin2) v(vo1) v(vo2)
+
+* Switch to AC plot for frequency-domain data
+set curplot = ac1
 wrdata circuits/12_amplificadores_diferenciais/diff_bjt_bode.csv frequency vdb(vo1,vo2) vp(vo1,vo2)
 
 echo ""

@@ -241,7 +241,13 @@ plot v(vo1_jfet,vo2_jfet) v(vo1_sr,vo2_sr) v(vo1_ca)
 set wr_singlescale
 set wr_vecnames
 option numdgt=7
+
+* Switch to transient plot for time-domain data
+set curplot = tran1
 wrdata circuits/12_amplificadores_diferenciais/diff_jfet_transiente.csv v(vin1_jfet) v(vin2_jfet) v(vo1_jfet) v(vo2_jfet)
+
+* Switch to AC plot for frequency-domain data
+set curplot = ac1
 wrdata circuits/12_amplificadores_diferenciais/diff_jfet_bode.csv frequency vdb(vo1_jfet,vo2_jfet) vp(vo1_jfet,vo2_jfet)
 
 echo ""

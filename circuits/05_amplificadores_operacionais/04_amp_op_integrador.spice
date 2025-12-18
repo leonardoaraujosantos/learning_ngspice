@@ -170,7 +170,7 @@ VEE vee 0 DC -15
   Rg v_plus 0 100k
 .ends
 
-.model SWMOD VSWITCH (RON=10 ROFF=10MEG VON=2.5 VOFF=0.5)
+.model SWMOD SW (RON=10 ROFF=10MEG VON=2.5 VOFF=0.5)
 
 * =========================================================
 * CIRCUITO DE TESTE
@@ -220,8 +220,6 @@ Rload3 out3 0 10k
 * ANALISES
 * ---------------------------------------------------------
 
-.op
-.tran 100u 200m uic
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -319,10 +317,10 @@ Rload3 out3 0 10k
   * ---------------------------------------------------------
   * Salvando Resultados
   * ---------------------------------------------------------
-  set hcopydevtype=png
-  hardcopy integrador_triangular.png v(input1) v(out1) xlimit 0 200m
-  hardcopy integrador_senoide.png v(input2) v(out2) xlimit 50m 52m
-  hardcopy integrador_reset.png v(input3) v(out3) v(reset_sig)
+  * set hcopydevtype=png
+  * hardcopy integrador_triangular.png v(input1) v(out1) xlimit 0 200m
+  * hardcopy integrador_senoide.png v(input2) v(out2) xlimit 50m 52m
+  * hardcopy integrador_reset.png v(input3) v(out3) v(reset_sig)
 
   wrdata integrador_time.csv time v(input1) v(out1) v(input2) v(out2) v(input3) v(out3)
 

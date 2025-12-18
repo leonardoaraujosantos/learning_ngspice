@@ -108,13 +108,14 @@ VDD vdd 0 DC 5
 
 * Sinal A: onda quadrada lenta (periodo 40us)
 * Rise/fall time aumentado para evitar problemas de convergencia
-VA ina 0 PULSE(0 5 0 100n 100n 20u 40u)
+* Delay de 500ns para comecar em LOW (0V)
+VA ina 0 PULSE(0 5 500n 100n 100n 20u 40u)
 
 * Sinal B: onda quadrada media (periodo 20us)
-VB inb 0 PULSE(0 5 0 100n 100n 10u 20u)
+VB inb 0 PULSE(0 5 500n 100n 100n 10u 20u)
 
 * Sinal C: onda quadrada rapida (periodo 10us)
-VC inc 0 PULSE(0 5 0 100n 100n 5u 10u)
+VC inc 0 PULSE(0 5 500n 100n 100n 5u 10u)
 
 * ---------------------------------------------------------
 * PORTA 1: NOT (INVERSOR)
@@ -280,13 +281,13 @@ VC inc 0 PULSE(0 5 0 100n 100n 5u 10u)
   Xinv_a a na vdd gnd inversor
   Xinv_b b nb vdd gnd inversor
 
-  * NAND(A, B)
-  Xnand1 a b n1 vdd gnd nand
+  * NAND(A, !B)
+  Xnand1 a nb n1 vdd gnd nand
 
-  * NAND(!A, !B)
-  Xnand2 na nb n2 vdd gnd nand
+  * NAND(!A, B)
+  Xnand2 na b n2 vdd gnd nand
 
-  * NAND final
+  * NAND final: (A NAND !B) NAND (!A NAND B)
   Xnand3 n1 n2 out vdd gnd nand
 .ends
 
@@ -409,14 +410,27 @@ Rload_xnor out_xnor 0 100k
   echo "--- Verificacao das Tabelas Verdade ---"
   echo ""
 
-  * Encontrar pontos onde A=0, B=0
-  meas tran V_NOT_00 FIND v(out_not) AT=1u
-  meas tran V_NAND_00 FIND v(out_nand) AT=1u
-  meas tran V_NOR_00 FIND v(out_nor) AT=1u
-  meas tran V_AND_00 FIND v(out_and) AT=1u
-  meas tran V_OR_00 FIND v(out_or) AT=1u
-  meas tran V_XOR_00 FIND v(out_xor) AT=1u
-  meas tran V_XNOR_00 FIND v(out_xnor) AT=1u
+  * Verificar valores dos inputs nos tempos de teste
+  meas tran INA_AT_35U FIND v(ina) AT=35u
+  meas tran INB_AT_35U FIND v(inb) AT=35u
+  echo "Input values at 35us (should be A=0, B=0):"
+  print INA_AT_35U INB_AT_35U
+  echo ""
+
+  meas tran INA_AT_1U FIND v(ina) AT=1u
+  meas tran INB_AT_1U FIND v(inb) AT=1u
+  echo "Input values at 1us (should be A=1, B=1):"
+  print INA_AT_1U INB_AT_1U
+  echo ""
+
+  * Encontrar pontos onde A=0, B=0 (em 35us)
+  meas tran V_NOT_00 FIND v(out_not) AT=35u
+  meas tran V_NAND_00 FIND v(out_nand) AT=35u
+  meas tran V_NOR_00 FIND v(out_nor) AT=35u
+  meas tran V_AND_00 FIND v(out_and) AT=35u
+  meas tran V_OR_00 FIND v(out_or) AT=35u
+  meas tran V_XOR_00 FIND v(out_xor) AT=35u
+  meas tran V_XNOR_00 FIND v(out_xnor) AT=35u
 
   echo "=== Tabela Verdade (A=0, B=0) ==="
   echo "NOT(0):"
@@ -435,14 +449,14 @@ Rload_xnor out_xnor 0 100k
   print V_XNOR_00
   echo ""
 
-  * A=1, B=1 (em 25us)
-  meas tran V_NOT_11 FIND v(out_not) AT=25u
-  meas tran V_NAND_11 FIND v(out_nand) AT=25u
-  meas tran V_NOR_11 FIND v(out_nor) AT=25u
-  meas tran V_AND_11 FIND v(out_and) AT=25u
-  meas tran V_OR_11 FIND v(out_or) AT=25u
-  meas tran V_XOR_11 FIND v(out_xor) AT=25u
-  meas tran V_XNOR_11 FIND v(out_xnor) AT=25u
+  * A=1, B=1 (em 1us)
+  meas tran V_NOT_11 FIND v(out_not) AT=1u
+  meas tran V_NAND_11 FIND v(out_nand) AT=1u
+  meas tran V_NOR_11 FIND v(out_nor) AT=1u
+  meas tran V_AND_11 FIND v(out_and) AT=1u
+  meas tran V_OR_11 FIND v(out_or) AT=1u
+  meas tran V_XOR_11 FIND v(out_xor) AT=1u
+  meas tran V_XNOR_11 FIND v(out_xnor) AT=1u
 
   echo "=== Tabela Verdade (A=1, B=1) ==="
   echo "NOT(1):"

@@ -210,8 +210,6 @@ Rload3 out_dac 0 10k
 * ANALISES
 * ---------------------------------------------------------
 
-.op
-.tran 10u 10m
 
 * =========================================================
 * CONTROLE E MEDIDAS
@@ -333,10 +331,10 @@ Rload3 out_dac 0 10k
   * ---------------------------------------------------------
   * Salvando Resultados
   * ---------------------------------------------------------
-  set hcopydevtype=png
-  hardcopy somador_simples.png v(in1) v(in2) v(in3) v(out_simples)
-  hardcopy mixer_audio.png v(out_mixer)
-  hardcopy dac_3bit.png v(bit2) v(bit1) v(bit0) v(out_dac)
+  * set hcopydevtype=png
+  * hardcopy somador_simples.png v(in1) v(in2) v(in3) v(out_simples)
+  * hardcopy mixer_audio.png v(out_mixer)
+  * hardcopy dac_3bit.png v(bit2) v(bit1) v(bit0) v(out_dac)
 
   wrdata somador_time.csv time v(in1) v(in2) v(in3) v(out_simples)
   wrdata mixer_time.csv time v(musica) v(audio) v(efeito) v(out_mixer)

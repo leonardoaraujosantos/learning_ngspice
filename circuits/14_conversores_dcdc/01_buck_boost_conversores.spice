@@ -1,0 +1,300 @@
+* ==============================================================================
+* CONVERSORES DC-DC: BUCK E BOOST COM MOSFET
+* ==============================================================================
+*
+* Este circuito demonstra os dois conversores DC-DC fundamentais:
+*
+* 1. BUCK CONVERTER (Step-Down: 12V → 5V)
+*    - Reduz tensão de entrada
+*    - Duty cycle D < 50% (Vout = D × Vin)
+*    - MOSFET high-side + diodo de roda livre
+*    - Usado em: reguladores de tensão, fontes de alimentação
+*
+* 2. BOOST CONVERTER (Step-Up: 5V → 12V)
+*    - Aumenta tensão de entrada
+*    - Duty cycle D > 50% (Vout = Vin/(1-D))
+*    - MOSFET low-side + diodo de saída
+*    - Usado em: inversores, carregadores, LED drivers
+*
+* TOPOLOGIA BUCK:
+*           +Vin
+*            |
+*         [MOSFET]
+*            |----+----[L1]----+----o Vout
+*            |    |             |
+*          [D1]  [C1]         [Rload]
+*            |    |             |
+*           GND  GND           GND
+*
+* TOPOLOGIA BOOST:
+*           +Vin
+*            |
+*            +----[L2]----+
+*            |            |
+*          [C2]        [MOSFET]
+*            |            |
+*           GND          [D2]
+*                         |----+----o Vout
+*                         |    |
+*                        [C3] [Rload]
+*                         |    |
+*                        GND  GND
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* CONFIGURACAO 1: BUCK CONVERTER (12V → 5V)
+* ------------------------------------------------------------------------------
+.subckt buck_converter vin vout gnd pwm_in
+
+* Chave controlada por tensão (simplificação do MOSFET + driver)
+* Ron = 50mΩ (Rds do IRF540N), Roff = 10MΩ
+* Vcontrol > 2.5V: chave FECHADA (ON)
+S1 vin vsw pwm_in gnd SMOD
+
+* Diodo de Roda Livre (Schottky)
+D1 gnd vsw DSCHOTTKY
+
+* Indutor (100µH, ESR=50mΩ) com amperimetro
+V_IL_buck vsw n_l1 DC 0
+L1 n_l1 n_l2 100u
+R_L1 n_l2 vout 50m
+
+* Capacitor de Saída (220µF, ESR=100mΩ)
+C1 vout gnd 220u
+R_C1 vout n_c1 100m
+C1_esr n_c1 gnd 1n
+
+* Carga (5V @ 1A = 5Ω)
+Rload vout gnd 5
+
+.ends buck_converter
+
+* ------------------------------------------------------------------------------
+* CONFIGURACAO 2: BOOST CONVERTER (5V → 12V)
+* ------------------------------------------------------------------------------
+.subckt boost_converter vin vout gnd pwm_in
+
+* Capacitor de Entrada (100µF)
+C_in vin gnd 100u
+
+* Indutor (100µH, ESR=50mΩ) com amperimetro
+V_IL_boost vin n_l1 DC 0
+L2 n_l1 n_l2 100u
+R_L2 n_l2 n_sw 50m
+
+* MOSFET Low-Side (IRF540N)
+M2 n_sw pwm_in gnd gnd IRF540N
+
+* Diodo de Saída (MBR20200 - Schottky)
+D2 n_sw vout DSCHOTTKY
+
+* Capacitor de Saída (220µF, ESR=100mΩ)
+C2 vout gnd 220u
+R_C2 vout n_c2 100m
+C2_esr n_c2 gnd 1n
+
+* Carga (12V @ 0.5A = 24Ω)
+Rload vout gnd 24
+
+.ends boost_converter
+
+* ------------------------------------------------------------------------------
+* CIRCUITO PRINCIPAL
+* ------------------------------------------------------------------------------
+
+* === BUCK CONVERTER (12V → 5V) ===
+Vin_buck vin_buck 0 DC 12
+
+* PWM para Buck (frequência 100kHz, duty cycle 41.67% para Vout=5V)
+* Duty = Vout/Vin = 5/12 = 0.4167 = 41.67%
+Vpwm_buck pwm_buck 0 PULSE(0 5 0 10n 10n 4.167u 10u)
+
+* Instância do Buck Converter
+X_buck vin_buck vout_buck 0 pwm_buck buck_converter
+
+* === BOOST CONVERTER (5V → 12V) ===
+Vin_boost vin_boost 0 DC 5
+
+* PWM para Boost (frequência 100kHz, duty cycle 58.33% para Vout=12V)
+* Duty = 1 - Vin/Vout = 1 - 5/12 = 0.5833 = 58.33%
+Vpwm_boost pwm_boost 0 PULSE(0 5 0 10n 10n 5.833u 10u)
+
+* Instância do Boost Converter
+X_boost vin_boost vout_boost 0 pwm_boost boost_converter
+
+* ------------------------------------------------------------------------------
+* MODELOS
+* ------------------------------------------------------------------------------
+
+* Modelo MOSFET IRF540N (N-Channel) - usado no Boost
+.model IRF540N NMOS (
++ Level=1
++ Vto=4.0
++ Kp=20
++ Rd=0.044
++ Rs=0.001
++ Cgso=3000p
++ Cgdo=1000p
++ Cbd=2000p
++ Cbs=2000p
++ Is=1e-14
++ Pb=0.8
+)
+
+* Modelo de Chave Controlada por Tensão (Buck converter)
+.model SMOD SW (Ron=0.05 Roff=10Meg Vt=2.5 Vh=0.5)
+
+* Modelo Diodo Schottky MBR20200
+.model DSCHOTTKY D (
++ Is=1e-6
++ Rs=0.01
++ N=1.05
++ Bv=200
++ Ibv=10u
++ Vj=0.4
++ Cjo=500p
++ M=0.5
++ Tt=10n
+)
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+.tran 1u 5m 0 1u
+
+.control
+run
+
+* Configurar plot para dados transientes
+set curplot = tran1
+
+* === MEDIÇÕES BUCK CONVERTER ===
+* Tensão média de saída (deve ser ~5V)
+meas tran Vout_buck_avg AVG v(vout_buck) from=2m to=5m
+meas tran Vout_buck_min MIN v(vout_buck) from=2m to=5m
+meas tran Vout_buck_max MAX v(vout_buck) from=2m to=5m
+let ripple_buck_pp = Vout_buck_max - Vout_buck_min
+let ripple_buck_percent = ripple_buck_pp / Vout_buck_avg * 100
+
+* Corrente média no indutor Buck (deve ser ~1A)
+meas tran IL_buck_avg AVG i(v.x_buck.v_il_buck) from=2m to=5m
+meas tran IL_buck_min MIN i(v.x_buck.v_il_buck) from=2m to=5m
+meas tran IL_buck_max MAX i(v.x_buck.v_il_buck) from=2m to=5m
+let IL_buck_ripple_pp = IL_buck_max - IL_buck_min
+
+* Potência Buck
+let pout_buck = Vout_buck_avg * Vout_buck_avg / 5
+let pin_buck = 12 * IL_buck_avg
+let eff_buck = pout_buck / pin_buck * 100
+
+* === MEDIÇÕES BOOST CONVERTER ===
+* Tensão média de saída (deve ser ~12V)
+meas tran Vout_boost_avg AVG v(vout_boost) from=2m to=5m
+meas tran Vout_boost_min MIN v(vout_boost) from=2m to=5m
+meas tran Vout_boost_max MAX v(vout_boost) from=2m to=5m
+let ripple_boost_pp = Vout_boost_max - Vout_boost_min
+let ripple_boost_percent = ripple_boost_pp / Vout_boost_avg * 100
+
+* Corrente média no indutor Boost (deve ser ~1.2A)
+meas tran IL_boost_avg AVG i(v.x_boost.v_il_boost) from=2m to=5m
+meas tran IL_boost_min MIN i(v.x_boost.v_il_boost) from=2m to=5m
+meas tran IL_boost_max MAX i(v.x_boost.v_il_boost) from=2m to=5m
+let IL_boost_ripple_pp = IL_boost_max - IL_boost_min
+
+* Potência Boost
+let pout_boost = Vout_boost_avg * Vout_boost_avg / 24
+let pin_boost = 5 * IL_boost_avg
+let eff_boost = pout_boost / pin_boost * 100
+
+* === EXPORTAR DADOS ===
+* Buck Converter - Tensões
+wrdata circuits/14_conversores_dcdc/buck_tensoes.csv time v(vin_buck) v(vout_buck) v(pwm_buck)
+
+* Buck Converter - Correntes
+wrdata circuits/14_conversores_dcdc/buck_correntes.csv time i(v.x_buck.v_il_buck)
+
+* Buck Converter - Detalhe do Ripple (últimos 100µs)
+wrdata circuits/14_conversores_dcdc/buck_ripple.csv time v(vout_buck)
+
+* Boost Converter - Tensões
+wrdata circuits/14_conversores_dcdc/boost_tensoes.csv time v(vin_boost) v(vout_boost) v(pwm_boost)
+
+* Boost Converter - Correntes
+wrdata circuits/14_conversores_dcdc/boost_correntes.csv time i(v.x_boost.v_il_boost)
+
+* Boost Converter - Detalhe do Ripple
+wrdata circuits/14_conversores_dcdc/boost_ripple.csv time v(vout_boost)
+
+* === RELATÓRIO FINAL ===
+echo
+echo "============================================================================"
+echo "                    CONVERSORES DC-DC - RESULTADOS"
+echo "============================================================================"
+echo
+echo "=== BUCK CONVERTER (12V → 5V) ==="
+echo "TENSAO DE SAIDA:"
+print Vout_buck_avg Vout_buck_min Vout_buck_max
+echo "  Vout média: " Vout_buck_avg "V (esperado: 5.0V)"
+echo "  Ripple p-p: " ripple_buck_pp "V (" ripple_buck_percent "%)"
+echo
+echo "CORRENTE NO INDUTOR:"
+print IL_buck_avg IL_buck_min IL_buck_max
+echo "  IL média: " IL_buck_avg "A (esperado: ~1.0A)"
+echo "  Ripple p-p: " IL_buck_ripple_pp "A"
+echo
+echo "EFICIENCIA:"
+echo "  Pin: " pin_buck "W"
+echo "  Pout: " pout_buck "W"
+echo "  Eficiência: " eff_buck "% (típico: 85-95%)"
+echo
+echo "PROJETO BUCK:"
+echo "  - Frequência: 100kHz"
+echo "  - Duty Cycle: 41.67% (Vout/Vin = 5/12)"
+echo "  - Indutor: 100µH (crítico para ripple)"
+echo "  - Capacitor saída: 220µF (ripple < 2%)"
+echo "  - Aplicação: Reguladores de fonte de alimentação"
+echo
+echo "============================================================================"
+echo
+echo "=== BOOST CONVERTER (5V → 12V) ==="
+echo "TENSAO DE SAIDA:"
+print Vout_boost_avg Vout_boost_min Vout_boost_max
+echo "  Vout média: " Vout_boost_avg "V (esperado: 12.0V)"
+echo "  Ripple p-p: " ripple_boost_pp "V (" ripple_boost_percent "%)"
+echo
+echo "CORRENTE NO INDUTOR:"
+print IL_boost_avg IL_boost_min IL_boost_max
+echo "  IL média: " IL_boost_avg "A (esperado: ~1.2A)"
+echo "  Ripple p-p: " IL_boost_ripple_pp "A"
+echo
+echo "EFICIENCIA:"
+echo "  Pin: " pin_boost "W"
+echo "  Pout: " pout_boost "W"
+echo "  Eficiência: " eff_boost "% (típico: 80-90%)"
+echo
+echo "PROJETO BOOST:"
+echo "  - Frequência: 100kHz"
+echo "  - Duty Cycle: 58.33% (1 - Vin/Vout = 1 - 5/12)"
+echo "  - Indutor: 100µH (energia armazenada)"
+echo "  - Capacitor saída: 220µF (ripple < 5%)"
+echo "  - Aplicação: Inversores, LED drivers, USB 5V→12V"
+echo
+echo "============================================================================"
+echo
+echo "COMPARACAO BUCK vs BOOST:"
+echo "  BUCK:  Reduz tensão, D<50%, Iout<Iin, mais eficiente"
+echo "  BOOST: Aumenta tensão, D>50%, Iout>Iin, maior stress no MOSFET"
+echo
+echo "CONSIDERACOES DE PROJETO:"
+echo "  1. Frequência: 50kHz-500kHz (trade-off: tamanho L/C vs perdas chaveamento)"
+echo "  2. Indutor: Valor alto → menor ripple, resposta lenta"
+echo "  3. Capacitor: ESR baixo → menor ripple de saída"
+echo "  4. MOSFET: Rds(on) baixo → maior eficiência"
+echo "  5. Diodo: Schottky → menor Vf, recuperação rápida"
+echo "============================================================================"
+
+.endc
+
+.end
