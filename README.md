@@ -47,8 +47,9 @@ learning_ngspice/
 │   │   └── 02_reguladores_tensao.spice     # Zener, LM7805, LM317
 │   ├── 10_timer_555/                       # Timer 555 (1 circuito)
 │   │   └── 01_timer_555_astavel_monostavel_pwm.spice  # 3 modos
-│   ├── 11_filtros_ativos/                  # Filtros Ativos (1 circuito)
-│   │   └── 01_sallen_key_passa_baixa_passa_alta.spice  # 2ª ordem
+│   ├── 11_filtros_ativos/                  # Filtros Ativos (2 circuitos)
+│   │   ├── 01_sallen_key_passa_baixa_passa_alta.spice  # 2ª ordem
+│   │   └── 02_filtro_passa_banda_notch.spice          # Passa-banda e Notch 60Hz
 │   ├── 12_amplificadores_diferenciais/     # Amplificadores Diferenciais (2 circuitos)
 │   │   ├── 01_par_diferencial_bjt.spice    # Par diferencial BJT
 │   │   └── 02_par_diferencial_jfet.spice   # Par diferencial JFET
@@ -56,8 +57,10 @@ learning_ngspice/
 │   │   └── 01_espelhos_corrente_bjt_jfet_mosfet.spice  # BJT, JFET, MOSFET
 │   ├── 14_conversores_dcdc/                # Conversores DC-DC (1 circuito)
 │   │   └── 01_buck_boost_conversores.spice # Buck (12V→5V) e Boost (5V→12V)
-│   └── 15_pwm_modulacao/                   # Modulação PWM (1 circuito)
-│       └── 01_pwm_modulador_demodulador.spice # Modulador e demodulador PWM
+│   ├── 15_pwm_modulacao/                   # Modulação PWM (1 circuito)
+│   │   └── 01_pwm_modulador_demodulador.spice # Modulador e demodulador PWM
+│   └── 16_conversao_ad_da/                 # Conversão A/D e D/A (1 circuito)
+│       └── 01_dac_adc_sample_hold.spice    # DAC, ADC e Sample & Hold
 ├── docs/
 │   ├── tutorial_spice.md                   # Tutorial completo SPICE
 │   └── circuitikzmanual.pdf                # Manual CircuiTikZ
@@ -316,6 +319,16 @@ pdflatex --version
 |---------|-----------|
 | `just exemplo-pwm` | Modulador e Demodulador PWM (com AmpOp e JFET) |
 
+#### Conversão A/D e D/A
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-ad-da` | DAC R-2R 4-bit, ADC Flash 3-bit e Sample & Hold |
+
+#### Filtros Especiais
+| Comando | Descricao |
+|---------|-----------|
+| `just exemplo-filtros-especiais` | Filtros Passa-Banda e Notch 60Hz |
+
 ### Limpeza
 
 | Comando | Descricao |
@@ -355,7 +368,7 @@ just full circuits/02_filtros/filtro_rc_passa_baixa.spice
 just full-all
 ```
 
-## Conteúdo dos Circuitos (35 circuitos)
+## Conteúdo dos Circuitos (37 circuitos)
 
 ### 00_esquematicos
 
@@ -451,13 +464,14 @@ O icônico CI 555 em suas três configurações principais.
 |---------|-----------|
 | `01_timer_555_astavel_monostavel_pwm.spice` | Astável (oscilador), monostável (one-shot) e PWM |
 
-### 11_filtros_ativos (1 circuito)
+### 11_filtros_ativos (2 circuitos)
 
 Filtros ativos de 2ª ordem usando amplificadores operacionais.
 
 | Arquivo | Descrição |
 |---------|-----------|
 | `01_sallen_key_passa_baixa_passa_alta.spice` | Topologia Sallen-Key Butterworth (fc=1kHz) |
+| `02_filtro_passa_banda_notch.spice` | Filtro passa-banda (250Hz-2kHz) e Notch 60Hz (Twin-T) |
 
 ### 12_amplificadores_diferenciais (2 circuitos)
 
@@ -491,6 +505,14 @@ Modulação e demodulação PWM (Pulse Width Modulation) para amplificadores cla
 | Arquivo | Descrição |
 |---------|-----------|
 | `01_pwm_modulador_demodulador.spice` | Modulador PWM com comparador e carrier 20kHz, buffer JFET, demodulador com filtro ativo |
+
+### 16_conversao_ad_da (1 circuito)
+
+Conversão entre sinais analógicos e digitais - fundamentos de sistemas digitais.
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `01_dac_adc_sample_hold.spice` | DAC R-2R 4-bit, ADC Flash 3-bit (7 comparadores), Sample & Hold com JFET |
 
 ## Scripts
 

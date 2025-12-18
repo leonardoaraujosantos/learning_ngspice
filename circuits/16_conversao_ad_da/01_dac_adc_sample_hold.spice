@@ -1,0 +1,342 @@
+* ==============================================================================
+* CONVERSAO ANALOGICO-DIGITAL E DIGITAL-ANALOGICO
+* ==============================================================================
+*
+* Este circuito demonstra três blocos fundamentais da conversão de sinais:
+*
+* 1. DAC (Digital-to-Analog Converter) - Rede R-2R de 4 bits
+*    - Converte palavra digital (0000 a 1111) em tensão analógica
+*    - Resolução: 4 bits = 16 níveis (0V a 5V em steps de ~333mV)
+*    - Arquitetura R-2R: simples, precisa, econômica
+*
+* 2. SAMPLE & HOLD
+*    - Amostra sinal analógico e mantém valor constante
+*    - Essencial para ADCs: congela entrada durante conversão
+*    - Usa JFET como chave + capacitor de armazenamento
+*
+* 3. ADC FLASH (3 bits)
+*    - Converte tensão analógica em código digital
+*    - 7 comparadores em paralelo (2^n - 1)
+*    - Mais rápido tipo de ADC, mas usa muitos componentes
+*
+* APLICACOES:
+*    - Áudio digital (CD: 16-bit DAC + ADC)
+*    - Instrumentação (voltímetros digitais)
+*    - Processamento digital de sinais (DSP)
+*    - Sistemas de aquisição de dados
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* BLOCO 1: DAC R-2R DE 4 BITS
+* ------------------------------------------------------------------------------
+* Rede R-2R: Cada bit tem peso binário (MSB=8, ..., LSB=1)
+* Vout = Vref * (D3*8 + D2*4 + D1*2 + D0*1) / 16
+*
+* Topologia R-2R (para 4 bits):
+*
+*   Vref---[R]---+---[R]---+---[R]---+---[R]---+
+*                |         |         |         |
+*              [2R]      [2R]      [2R]      [2R]
+*                |         |         |         |
+*               D3        D2        D1        D0  (bits)
+*
+* Tensão de referência
+Vref_dac vref_dac 0 DC 5
+
+* Entradas digitais (4 bits) - Sequência crescente para teste
+* Bit 3 (MSB) - peso 8
+V_d3 d3 0 PULSE(0 5 0 1n 1n 8m 16m)
+* Bit 2 - peso 4
+V_d2 d2 0 PULSE(0 5 0 1n 1n 4m 8m)
+* Bit 1 - peso 2
+V_d1 d1 0 PULSE(0 5 0 1n 1n 2m 4m)
+* Bit 0 (LSB) - peso 1
+V_d0 d0 0 PULSE(0 5 0 1n 1n 1m 2m)
+
+* Chaves controladas por bits (conectam a Vref ou GND)
+* Quando bit=HIGH (5V), conecta ao Vref; quando LOW (0V), conecta a GND
+S_d3 vref_dac sw_d3 d3 0 SBIT
+S_d2 vref_dac sw_d2 d2 0 SBIT
+S_d1 vref_dac sw_d1 d1 0 SBIT
+S_d0 vref_dac sw_d0 d0 0 SBIT
+
+* Rede R-2R (R = 10k, 2R = 20k)
+* Estágio MSB (D3)
+R_dac1 sw_d3 n_dac1 10k
+R_dac1_2r n_dac1 0 20k
+
+* Estágio D2
+R_dac2 n_dac1 n_dac2 10k
+R_dac2_2r_a sw_d2 n_dac2 10k
+R_dac2_2r_b n_dac2 0 20k
+
+* Estágio D1
+R_dac3 n_dac2 n_dac3 10k
+R_dac3_2r_a sw_d1 n_dac3 10k
+R_dac3_2r_b n_dac3 0 20k
+
+* Estágio LSB (D0)
+R_dac4 n_dac3 n_dac_out 10k
+R_dac4_2r_a sw_d0 n_dac_out 10k
+R_dac4_2r_b n_dac_out 0 20k
+
+* Buffer de saída (unity gain) para isolamento
+E_dac_out v_dac_out 0 n_dac_out 0 1
+R_dac_out_load v_dac_out 0 100k
+
+* ------------------------------------------------------------------------------
+* BLOCO 2: SAMPLE & HOLD
+* ------------------------------------------------------------------------------
+* Sinal de entrada para S&H (senoide 500Hz)
+Vin_sh vin_sh 0 SIN(2.5 2 500 0 0)
+
+* Clock de amostragem (1kHz, duty 10%)
+* JFET N-channel conduz quando Vgs < Vto, então clock negativo liga
+V_clk_sh clk_sh 0 PULSE(-5 0 0 1n 1n 100u 1m)
+
+* Chave JFET (sample quando clock=-5V, hold quando clock=0V)
+J_sh n_sh_cap clk_sh vin_sh 2N5457
+
+* Capacitor de armazenamento (hold) - 100nF
+C_sh n_sh_cap 0 100n
+
+* Resistor de descarga (simulando leakage) - 10MΩ
+R_sh_leak n_sh_cap 0 10Meg
+
+* Buffer de saída (alta impedância)
+E_sh_out v_sh_out 0 n_sh_cap 0 1
+R_sh_out v_sh_out 0 100k
+
+* ------------------------------------------------------------------------------
+* BLOCO 3: ADC FLASH 3-BIT (8 níveis, 7 comparadores)
+* ------------------------------------------------------------------------------
+* Entrada analógica para ADC (rampa 0-5V em 16ms)
+Vin_adc vin_adc 0 PWL(0 0 16m 5 16.001m 0 32m 5)
+
+* Tensões de referência (ladder resistivo para 8 níveis)
+Vref_adc vref_adc 0 DC 5
+
+* Divisor resistivo para gerar referências (0.625V, 1.25V, ..., 4.375V)
+R_ref0 vref_adc n_ref7 1k
+R_ref1 n_ref7 n_ref6 1k
+R_ref2 n_ref6 n_ref5 1k
+R_ref3 n_ref5 n_ref4 1k
+R_ref4 n_ref4 n_ref3 1k
+R_ref5 n_ref3 n_ref2 1k
+R_ref6 n_ref2 n_ref1 1k
+R_ref7 n_ref1 0 1k
+
+* Comparadores (7 comparadores para 3 bits = 8 níveis)
+* Comparador 7: Vin > 4.375V → bit 111
+E_comp7 comp7 0 vin_adc n_ref7 100000
+* Comparador 6: Vin > 3.75V
+E_comp6 comp6 0 vin_adc n_ref6 100000
+* Comparador 5: Vin > 3.125V
+E_comp5 comp5 0 vin_adc n_ref5 100000
+* Comparador 4: Vin > 2.5V
+E_comp4 comp4 0 vin_adc n_ref4 100000
+* Comparador 3: Vin > 1.875V
+E_comp3 comp3 0 vin_adc n_ref3 100000
+* Comparador 2: Vin > 1.25V
+E_comp2 comp2 0 vin_adc n_ref2 100000
+* Comparador 1: Vin > 0.625V
+E_comp1 comp1 0 vin_adc n_ref1 100000
+
+* Limitadores (convertem ±15V em 0/5V digital)
+D_comp1_low 0 comp1_limited DCLAMP
+D_comp1_high comp1_limited vcc_adc DCLAMP
+R_comp1 comp1 comp1_limited 1k
+R_comp1_load comp1_limited 0 10k
+
+D_comp2_low 0 comp2_limited DCLAMP
+D_comp2_high comp2_limited vcc_adc DCLAMP
+R_comp2 comp2 comp2_limited 1k
+R_comp2_load comp2_limited 0 10k
+
+D_comp3_low 0 comp3_limited DCLAMP
+D_comp3_high comp3_limited vcc_adc DCLAMP
+R_comp3 comp3 comp3_limited 1k
+R_comp3_load comp3_limited 0 10k
+
+D_comp4_low 0 comp4_limited DCLAMP
+D_comp4_high comp4_limited vcc_adc DCLAMP
+R_comp4 comp4 comp4_limited 1k
+R_comp4_load comp4_limited 0 10k
+
+D_comp5_low 0 comp5_limited DCLAMP
+D_comp5_high comp5_limited vcc_adc DCLAMP
+R_comp5 comp5 comp5_limited 1k
+R_comp5_load comp5_limited 0 10k
+
+D_comp6_low 0 comp6_limited DCLAMP
+D_comp6_high comp6_limited vcc_adc DCLAMP
+R_comp6 comp6 comp6_limited 1k
+R_comp6_load comp6_limited 0 10k
+
+D_comp7_low 0 comp7_limited DCLAMP
+D_comp7_high comp7_limited vcc_adc DCLAMP
+R_comp7 comp7 comp7_limited 1k
+R_comp7_load comp7_limited 0 10k
+
+Vcc_adc vcc_adc 0 DC 5
+
+* Codificador de prioridade (Thermometer → Binary)
+* Em um ADC real, isso seria lógica digital (encoder)
+* Aqui simulamos com fontes controladas
+* Bit 2 (MSB): HIGH se 4+ comparadores ativos
+E_adc_b2 adc_b2 0 VALUE={V(comp4_limited) > 2.5 ? 5 : 0}
+* Bit 1: HIGH se 2-3 ou 6-7 comparadores ativos
+E_adc_b1 adc_b1 0 VALUE={((V(comp2_limited) > 2.5) && (V(comp4_limited) < 2.5)) || (V(comp6_limited) > 2.5) ? 5 : 0}
+* Bit 0 (LSB): padrão alternado
+E_adc_b0 adc_b0 0 VALUE={((V(comp1_limited) > 2.5) && (V(comp2_limited) < 2.5)) || ((V(comp3_limited) > 2.5) && (V(comp4_limited) < 2.5)) || ((V(comp5_limited) > 2.5) && (V(comp6_limited) < 2.5)) || (V(comp7_limited) > 2.5) ? 5 : 0}
+
+* ------------------------------------------------------------------------------
+* MODELOS
+* ------------------------------------------------------------------------------
+
+* JFET 2N5457 (para S&H)
+.model 2N5457 NJF (
++ Vto=-2.0
++ Beta=0.001
++ Lambda=0.001
++ Rd=1
++ Rs=1
++ Is=1e-14
++ Pb=1
++ Fc=0.5
++ Cgd=1.6p
++ Cgs=2.4p
+)
+
+* Diodos para limitadores
+.model DCLAMP D (
++ Is=1e-14
++ Rs=10
++ N=1.0
++ Bv=50
++ Ibv=1m
+)
+
+* Modelo de chave para DAC
+.model SBIT SW (Ron=1 Roff=1G Vt=2.5 Vh=0.5)
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+.tran 10u 32m 0 10u
+
+.control
+run
+
+set curplot = tran1
+
+* === MEDICOES DAC ===
+* Conta quantos níveis distintos (deve ser 16)
+meas tran vdac_min MIN v(v_dac_out)
+meas tran vdac_max MAX v(v_dac_out)
+let vdac_range = vdac_max - vdac_min
+let vdac_step = vdac_range / 15
+let vdac_lsb = 5 / 16
+
+* === MEDICOES SAMPLE & HOLD ===
+* Verifica amplitude do sinal amostrado
+meas tran vsh_in_max MAX v(vin_sh) from=0 to=16m
+meas tran vsh_out_max MAX v(v_sh_out) from=0 to=16m
+let sh_error = abs(vsh_out_max - vsh_in_max)
+
+* Droop rate (queda de tensão durante hold)
+meas tran vsh_hold1 v(v_sh_out) at=1.1m
+meas tran vsh_hold2 v(v_sh_out) at=1.9m
+let sh_droop_rate = abs(vsh_hold2 - vsh_hold1) / 0.8m
+
+* === MEDICOES ADC ===
+* Verifica transições (deve ter 8 níveis para 3 bits)
+meas tran vadc_b2_trans WHEN v(adc_b2)=2.5 CROSS=1 RISE
+meas tran vadc_b1_trans WHEN v(adc_b1)=2.5 CROSS=1 RISE
+meas tran vadc_b0_trans WHEN v(adc_b0)=2.5 CROSS=1 RISE
+
+* === EXPORTAR DADOS ===
+* DAC: palavra digital e saída analógica
+wrdata circuits/16_conversao_ad_da/dac_output.csv time v(d3) v(d2) v(d1) v(d0) v(v_dac_out)
+
+* Sample & Hold: entrada, clock e saída
+wrdata circuits/16_conversao_ad_da/sample_hold.csv time v(vin_sh) v(clk_sh) v(v_sh_out)
+
+* ADC: entrada analógica e bits de saída
+wrdata circuits/16_conversao_ad_da/adc_conversion.csv time v(vin_adc) v(adc_b2) v(adc_b1) v(adc_b0)
+
+* ADC: comparadores (termômetro)
+wrdata circuits/16_conversao_ad_da/adc_comparators.csv time v(vin_adc) v(comp1_limited) v(comp2_limited) v(comp3_limited) v(comp4_limited) v(comp5_limited) v(comp6_limited) v(comp7_limited)
+
+* Sistema completo: DAC → S&H → ADC (conceitual)
+wrdata circuits/16_conversao_ad_da/system_overview.csv time v(v_dac_out) v(vin_sh) v(v_sh_out) v(vin_adc)
+
+* === RELATORIO ===
+echo
+echo "============================================================================"
+echo "          CONVERSAO ANALOGICO-DIGITAL E DIGITAL-ANALOGICO"
+echo "============================================================================"
+echo
+echo "=== DAC R-2R 4-BIT ==="
+print vdac_min vdac_max vdac_range vdac_step vdac_lsb
+echo "  Range de saída: " vdac_min "V a " vdac_max "V"
+echo "  Step medido: " vdac_step "V"
+echo "  LSB teórico: " vdac_lsb "V (5V / 16 = 312.5mV)"
+echo "  Resolução: 4 bits = 16 níveis"
+echo "  Linearidade: Excelente (R-2R garante monotonia)"
+echo
+echo "  VANTAGENS R-2R:"
+echo "    - Apenas 2 valores de resistor (R e 2R)"
+echo "    - Fácil fabricação em CI"
+echo "    - Boa linearidade (matching de resistores)"
+echo "    - Baixo custo comparado a outros DACs"
+echo
+echo "=== SAMPLE & HOLD ==="
+print vsh_in_max vsh_out_max sh_error sh_droop_rate
+echo "  Amplitude entrada: " vsh_in_max "V"
+echo "  Amplitude saída: " vsh_out_max "V"
+echo "  Erro de aquisição: " sh_error "V"
+echo "  Droop rate: " sh_droop_rate "V/ms"
+echo "  Tempo de hold: ~900µs (entre amostras)"
+echo
+echo "  PARAMETROS IMPORTANTES:"
+echo "    - Acquisition time: <1µs (JFET rápido)"
+echo "    - Droop rate: ~" sh_droop_rate "V/ms (leakage de 100nF)"
+echo "    - Aperture jitter: Negligível (fonte ideal)"
+echo "    - Aplicação: Entrada de ADCs SAR, Sigma-Delta"
+echo
+echo "=== ADC FLASH 3-BIT ==="
+echo "  Resolução: 3 bits = 8 níveis"
+echo "  Range: 0-5V"
+echo "  LSB: 625mV (5V / 8)"
+echo "  Número de comparadores: 7 (2^n - 1)"
+echo "  Velocidade: MUITO RÁPIDA (todos comparadores em paralelo)"
+echo "  Trade-off: Muitos componentes (2^n - 1 comparadores)"
+echo
+echo "  NIVEIS DE CONVERSAO (3 bits):"
+echo "    000: 0.000 - 0.625V"
+echo "    001: 0.625 - 1.250V"
+echo "    010: 1.250 - 1.875V"
+echo "    011: 1.875 - 2.500V"
+echo "    100: 2.500 - 3.125V"
+echo "    101: 3.125 - 3.750V"
+echo "    110: 3.750 - 4.375V"
+echo "    111: 4.375 - 5.000V"
+echo
+echo "=== COMPARACAO DE ARQUITETURAS ADC ==="
+echo "  FLASH (este):      Rápido, caro, baixa resolução (3-8 bits típico)"
+echo "  SAR:              Médio, barato, média resolução (8-16 bits típico)"
+echo "  SIGMA-DELTA:      Lento, preciso, alta resolução (16-24 bits típico)"
+echo "  PIPELINE:         Rápido, complexo, alta resolução (10-14 bits típico)"
+echo
+echo "=== APLICACOES ==="
+echo "  DAC:       Áudio (CD player), geração de sinais, controle analógico"
+echo "  S&H:       Frontend de ADCs, amostragem de sinais rápidos"
+echo "  ADC Flash: Osciloscópios digitais, vídeo, RF sampling"
+echo "============================================================================"
+
+.endc
+
+.end

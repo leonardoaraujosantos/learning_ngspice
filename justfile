@@ -329,6 +329,16 @@ exemplo-pwm:
     @echo "=== Exemplo: Modulação e Demodulação PWM (AmpOp e JFET) ==="
     just run circuits/15_pwm_modulacao/01_pwm_modulador_demodulador.spice
 
+# Exemplo: conversão A/D e D/A
+exemplo-ad-da:
+    @echo "=== Exemplo: DAC, ADC e Sample & Hold ==="
+    just run circuits/16_conversao_ad_da/01_dac_adc_sample_hold.spice
+
+# Exemplo: filtros passa-banda e notch
+exemplo-filtros-especiais:
+    @echo "=== Exemplo: Filtros Passa-Banda e Notch 60Hz ==="
+    just run circuits/11_filtros_ativos/02_filtro_passa_banda_notch.spice
+
 # Simula todos os novos osciladores
 exemplo-osciladores-todos:
     @echo "=== Simulando TODOS os osciladores ==="
