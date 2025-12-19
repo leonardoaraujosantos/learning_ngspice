@@ -84,15 +84,16 @@
 * FONTES DE ENTRADA (Pós-retificação)
 * ============================================================================
 * Simula saída de retificador com ripple
+* Sintaxe correta: SIN(Voffset Vamplitude freq delay damping phase)
 
-* Para Zener: 12V DC com ripple de 1V @ 120Hz
-VZENER vin_zener 0 DC 12 AC 0 SIN(0 0.5 120)
+* Para Zener: 12V DC com ripple de 1V pico-a-pico @ 120Hz
+VZENER vin_zener 0 SIN(12 0.5 120)
 
-* Para LM7805: 9V DC com ripple de 0.5V @ 120Hz
-V7805 vin_7805 0 DC 9 AC 0 SIN(0 0.25 120)
+* Para LM7805: 9V DC com ripple de 0.5V pico-a-pico @ 120Hz
+V7805 vin_7805 0 SIN(9 0.25 120)
 
-* Para LM317: 15V DC com ripple de 0.5V @ 120Hz
-V317 vin_317 0 DC 15 AC 0 SIN(0 0.25 120)
+* Para LM317: 15V DC com ripple de 0.5V pico-a-pico @ 120Hz
+V317 vin_317 0 SIN(15 0.25 120)
 
 * ============================================================================
 * REGULADOR ZENER (5.1V)
@@ -100,10 +101,11 @@ V317 vin_317 0 DC 15 AC 0 SIN(0 0.25 120)
 * Design: Vout = 5.1V, Iload_max = 50mA, Iz_min = 5mA
 *         Rs = (12V - 5.1V) / (55mA) ≈ 125Ω
 *         Usar 120Ω (valor padrão)
+* IMPORTANTE: Zener deve estar em polarização reversa (catodo no +, ânodo no GND)
 
 Rs_zener vin_zener n_zener 120
-Dz n_zener 0 DZ5V1
-Rload_zener n_zener 0 200  ; 50mA @ 5.1V ≈ 100Ω, usando 200Ω (25mA)
+Dz 0 n_zener DZ5V1           ; Polarização correta: ânodo=GND, catodo=n_zener
+Rload_zener n_zener 0 200    ; 50mA @ 5.1V ≈ 100Ω, usando 200Ω (25mA)
 
 * Capacitor de saída para filtro adicional (opcional)
 Cout_zener n_zener 0 10u
@@ -137,57 +139,63 @@ Rload_317 out_317 0 120  ; 100mA @ 12V
 * MODELOS
 * ============================================================================
 
-* Diodo Zener 5.1V (1N4733A)
+* Diodo Zener 5.1V (1N4733A melhorado)
 .model DZ5V1 D(
 + IS=1e-14
 + RS=0.5
 + N=1.7
 + BV=5.1      ; Tensão Zener
-+ IBV=20m     ; Corrente de teste
++ IBV=49m     ; Corrente de teste (aumentada para melhor regulação)
 + VJ=0.7
++ CJO=100p
++ TT=5n
 + )
 
-* Modelo simplificado do LM7805
+* Modelo simplificado e funcional do LM7805
 .subckt LM7805_MODEL IN GND OUT
-* Regulador linear série - modelo comportamental
+* Regulador linear série - modelo comportamental melhorado
 
 * Tensão de referência interna (5V)
-Vref ref GND 5.0
+Vref ref GND DC 5.0
 
-* Amplificador de erro (ganho alto)
-* Compara Vout com Vref e controla elemento série
-Eerror error GND OUT ref 1000
+* Fonte controlada por tensão - regula saída para 5V
+* Quando Vin > Vout+dropout, mantém Vout=5V
+* Dropout = 2V, então funciona se Vin > 7V
+Breg IN OUT V = {
++ (V(IN,GND) > 7.0) ?
++ (V(IN,GND) - 5.0) :
++ (V(IN,GND) - 2.0)
++ }
 
-* Elemento série (transistor de passagem) - modelado como fonte controlada
-* Limita corrente e garante dropout
-Gpass IN OUT VALUE={LIMIT((V(error)*0.1), 0, 1.5)}
-Rpass IN OUT 1Meg
+* Resistência de saída (baixa) e limitação de corrente
+Rout OUT GND 0.1
+Rlimit IN OUT 1k
 
-* Resistência de saída (baixa)
-Rout OUT GND 0.01
-
-* Capacitor interno para estabilidade
-Ccomp error GND 100p
+* Capacitor para estabilidade
+Cint OUT GND 10p
 
 .ends LM7805_MODEL
 
-* Modelo simplificado do LM317
+* Modelo simplificado e funcional do LM317
 .subckt LM317_MODEL IN OUT ADJ
-* Regulador ajustável
+* Regulador ajustável - mantém 1.25V entre OUT e ADJ
 
-* Tensão de referência entre OUT e ADJ (1.25V)
-Vref OUT ADJ 1.25
+* Corrente de ajuste (50µA típico) através de ADJ
+Iadj OUT ADJ DC 50u
 
-* Corrente de ajuste (50µA típico)
-Iadj OUT ADJ 50u
+* Tensão de referência fixa de 1.25V entre OUT e ADJ
+* Esta é a característica fundamental do LM317
+Vref OUT ADJ DC 1.25
 
-* Elemento série - fonte controlada por tensão
-* Regula para manter 1.25V entre OUT e ADJ
-Gseries IN OUT VALUE={LIMIT((V(IN,OUT)-V(OUT,ADJ)-1.25)*0.1, 0, 1.5)}
-Rseries IN OUT 1Meg
+* Elemento de passagem com dropout
+* Usa resistência série para simular dropout de ~3V
+Rseries IN OUT 3
 
-* Resistência de saída
+* Resistência de saída baixa
 Rout OUT ADJ 0.01
+
+* Capacitor para estabilidade
+Cint OUT ADJ 10p
 
 .ends LM317_MODEL
 
