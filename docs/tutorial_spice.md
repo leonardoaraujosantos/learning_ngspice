@@ -994,13 +994,13 @@ O ngspice pode ser executado de duas formas:
 
 **Modo Interativo:**
 ```bash
-ngspice circuito.spice
+ngspice circuito.cir
 # Abre interface grafica com plots
 ```
 
 **Modo Batch:**
 ```bash
-ngspice -b circuito.spice -o saida.log
+ngspice -b circuito.cir -o saida.log
 # Executa sem interface, salva log
 ```
 

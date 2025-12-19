@@ -1,0 +1,26 @@
+* Nodes: 0=GND, BattA=3V, BattD=2V, unknowns: B, C
+* Fora do .control temos os circuito (netlist)
+* Fontes Bateria de 3 e 2 volts 
+VBattA   A 0 DC 3
+VBattD  D 0 DC 2
+* Resistor 2 ohms
+RAB     A B 2
+* Resistor 4 ohms
+RBC     B C 4
+* Resistor 1 ohms
+RCD     C D 1
+* Resistor 3 ohms no B ao terra
+RB      B 0 3
+* Resistor 2 ohms no C ao terra
+RC      C 0 2
+
+* Dentro do .control temos os comandos de controle do simulador
+* "op" indica analise dc 
+.control
+op
+echo "===== RESULTADOS ANALISE NODAL ====="
+print v(a) v(b) v(c) v(d)
+echo "==================================="
+.endc
+
+.end

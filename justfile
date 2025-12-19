@@ -44,27 +44,27 @@ sim-batch file:
 # Simula todos os circuitos de fundamentos
 sim-fundamentos:
     @echo "Simulando circuitos de fundamentos..."
-    {{ngspice}} -b circuits/01_fundamentos/01_divisor_tensao.spice
-    {{ngspice}} -b circuits/01_fundamentos/02_divisor_corrente.spice
+    {{ngspice}} -b circuits/01_fundamentos/01_divisor_tensao.cir
+    {{ngspice}} -b circuits/01_fundamentos/02_divisor_corrente.cir
     @echo "Concluido!"
 
 # Simula todos os circuitos de filtros
 sim-filtros:
     @echo "Simulando circuitos de filtros..."
-    {{ngspice}} -b circuits/02_filtros/filtro_rc_passa_baixa.spice
+    {{ngspice}} -b circuits/02_filtros/filtro_rc_passa_baixa.cir
     @echo "Concluido!"
 
 # Simula todos os circuitos de osciladores
 sim-osciladores:
     @echo "Simulando circuitos de osciladores..."
-    {{ngspice}} -b circuits/03_osciladores/colpitts_bc548.spice
+    {{ngspice}} -b circuits/03_osciladores/colpitts_bc548.cir
     @echo "Concluido!"
 
 # Simula TODOS os circuitos do projeto
 sim-all:
     @echo "Simulando TODOS os circuitos..."
     #!/usr/bin/env bash
-    for file in circuits/*/*.spice; do \
+    for file in circuits/*/*.cir; do \
         echo "Simulando $file..."; \
         {{ngspice}} -b "$file" || true; \
     done
@@ -197,152 +197,152 @@ test:
 # Exemplo: divisor de tensao
 exemplo-divisor:
     @echo "=== Exemplo: Divisor de Tensao ==="
-    just full circuits/01_fundamentos/01_divisor_tensao.spice
+    just full circuits/01_fundamentos/01_divisor_tensao.cir
 
 # Exemplo: filtro RC
 exemplo-filtro:
     @echo "=== Exemplo: Filtro RC Passa-Baixa ==="
-    just full circuits/02_filtros/filtro_rc_passa_baixa.spice
+    just full circuits/02_filtros/filtro_rc_passa_baixa.cir
 
 # Exemplo: oscilador Colpitts
 exemplo-colpitts:
     @echo "=== Exemplo: Oscilador Colpitts ==="
-    just full circuits/03_osciladores/colpitts_bc548.spice
+    just full circuits/03_osciladores/colpitts_bc548.cir
 
 # Exemplo: oscilador Pierce com JFET e cristal
 exemplo-pierce:
     @echo "=== Exemplo: Oscilador Pierce (JFET + Cristal 10MHz) ==="
-    just run circuits/03_osciladores/oscilador_pierce_jfet.spice
+    just run circuits/03_osciladores/oscilador_pierce_jfet.cir
 
 # Exemplo: oscilador Hartley
 exemplo-hartley:
     @echo "=== Exemplo: Oscilador Hartley ==="
-    just run circuits/03_osciladores/oscilador_hartley.spice
+    just run circuits/03_osciladores/oscilador_hartley.cir
 
 # Exemplo: oscilador Ring
 exemplo-ring:
     @echo "=== Exemplo: Oscilador Ring (3 e 5 estagios) ==="
-    just run circuits/03_osciladores/oscilador_ring.spice
+    just run circuits/03_osciladores/oscilador_ring.cir
 
 # Exemplo: VCO senoidal
 exemplo-vco:
     @echo "=== Exemplo: VCO Senoidal (controle por tensao) ==="
-    just run circuits/03_osciladores/vco_senoidal.spice
+    just run circuits/03_osciladores/vco_senoidal.cir
 
 # Exemplo: multivibrador astavel 10Hz
 exemplo-multivibrador:
     @echo "=== Exemplo: Multivibrador Astavel 10Hz ==="
-    just run circuits/03_osciladores/multivibrador_astavel_10hz.spice
+    just run circuits/03_osciladores/multivibrador_astavel_10hz.cir
 
 # Exemplo: amplificador classe A/B
 exemplo-classe-ab:
     @echo "=== Exemplo: Amplificador Classe A/B Push-Pull ==="
-    just run circuits/04_amplificadores/classe_ab_push_pull.spice
+    just run circuits/04_amplificadores/classe_ab_push_pull.cir
 
 # Exemplo: amplificador JFET
 exemplo-jfet:
     @echo "=== Exemplo: Amplificador JFET Self-Bias ==="
-    just run circuits/04_amplificadores/amplificador_jfet_self_bias.spice
+    just run circuits/04_amplificadores/amplificador_jfet_self_bias.cir
 
 # Exemplo: amp-op inversor
 exemplo-amp-op-inv:
     @echo "=== Exemplo: Amplificador Operacional Inversor ==="
-    just run circuits/05_amplificadores_operacionais/01_amp_op_inversor.spice
+    just run circuits/05_amplificadores_operacionais/01_amp_op_inversor.cir
 
 # Exemplo: amp-op integrador
 exemplo-integrador:
     @echo "=== Exemplo: Amplificador Operacional Integrador ==="
-    just run circuits/05_amplificadores_operacionais/04_amp_op_integrador.spice
+    just run circuits/05_amplificadores_operacionais/04_amp_op_integrador.cir
 
 # Exemplo: mixer com diodo
 exemplo-mixer:
     @echo "=== Exemplo: Mixer de Frequencia (Diodo) ==="
-    just run circuits/06_rf_comunicacoes/mixer_diodo.spice
+    just run circuits/06_rf_comunicacoes/mixer_diodo.cir
 
 # Exemplo: modulador AM
 exemplo-am:
     @echo "=== Exemplo: Modulador AM ==="
-    just run circuits/06_rf_comunicacoes/modulador_am.spice
+    just run circuits/06_rf_comunicacoes/modulador_am.cir
 
 # Exemplo: PLL completo
 exemplo-pll:
     @echo "=== Exemplo: PLL (Phase-Locked Loop) ==="
-    just run circuits/06_rf_comunicacoes/pll_completo.spice
+    just run circuits/06_rf_comunicacoes/pll_completo.cir
 
 # Exemplo: portas logicas CMOS
 exemplo-cmos:
     @echo "=== Exemplo: Portas Logicas CMOS (7 portas) ==="
-    just run circuits/07_logica_digital_cmos/portas_logicas_cmos.spice
+    just run circuits/07_logica_digital_cmos/portas_logicas_cmos.cir
 
 # Exemplo: somador 4 bits digital
 exemplo-somador:
     @echo "=== Exemplo: Somador 4 Bits Digital (Portas Ideais) ==="
-    just run circuits/08_logica_digital/somador_4bits_digital.spice
+    just run circuits/08_logica_digital/somador_4bits_digital.cir
 
 # Exemplo: contador BCD 0-10 digital
 exemplo-contador:
     @echo "=== Exemplo: Contador BCD 0-10 Digital (Portas Ideais) ==="
-    just run circuits/08_logica_digital/contador_bcd_0_10.spice
+    just run circuits/08_logica_digital/contador_bcd_0_10.cir
 
 # Exemplo: retificadores (meia onda, onda completa, ponte)
 exemplo-retificadores:
     @echo "=== Exemplo: Retificadores (Meia Onda, Onda Completa, Ponte) ==="
-    just run circuits/09_fontes_alimentacao/01_retificadores.spice
+    just run circuits/09_fontes_alimentacao/01_retificadores.cir
 
 # Exemplo: reguladores de tensão (Zener, LM7805, LM317)
 exemplo-reguladores:
     @echo "=== Exemplo: Reguladores de Tensao (Zener, LM7805, LM317) ==="
-    just run circuits/09_fontes_alimentacao/02_reguladores_tensao.spice
+    just run circuits/09_fontes_alimentacao/02_reguladores_tensao.cir
 
 # Exemplo: Timer 555 (astável, monostável, PWM)
 exemplo-555:
     @echo "=== Exemplo: Timer 555 (Astavel, Monostavel, PWM) ==="
-    just run circuits/10_timer_555/01_timer_555_astavel_monostavel_pwm.spice
+    just run circuits/10_timer_555/01_timer_555_astavel_monostavel_pwm.cir
 
 # Exemplo: filtros ativos Sallen-Key
 exemplo-sallen-key:
     @echo "=== Exemplo: Filtros Ativos Sallen-Key (Passa-Baixa, Passa-Alta) ==="
-    just run circuits/11_filtros_ativos/01_sallen_key_passa_baixa_passa_alta.spice
+    just run circuits/11_filtros_ativos/01_sallen_key_passa_baixa_passa_alta.cir
 
 # Exemplo: amplificador diferencial BJT
 exemplo-diff-bjt:
     @echo "=== Exemplo: Amplificador Diferencial BJT ==="
-    just run circuits/12_amplificadores_diferenciais/01_par_diferencial_bjt.spice
+    just run circuits/12_amplificadores_diferenciais/01_par_diferencial_bjt.cir
 
 # Exemplo: amplificador diferencial JFET
 exemplo-diff-jfet:
     @echo "=== Exemplo: Amplificador Diferencial JFET ==="
-    just run circuits/12_amplificadores_diferenciais/02_par_diferencial_jfet.spice
+    just run circuits/12_amplificadores_diferenciais/02_par_diferencial_jfet.cir
 
 # Exemplo: espelhos de corrente (BJT, JFET, MOSFET)
 exemplo-espelhos:
     @echo "=== Exemplo: Espelhos de Corrente (BJT, JFET, MOSFET) ==="
-    just run circuits/13_espelhos_corrente/01_espelhos_corrente_bjt_jfet_mosfet.spice
+    just run circuits/13_espelhos_corrente/01_espelhos_corrente_bjt_jfet_mosfet.cir
 
 # Exemplo: conversores DC-DC Buck e Boost
 exemplo-buck-boost:
     @echo "=== Exemplo: Conversores DC-DC (Buck 12V→5V e Boost 5V→12V) ==="
-    just run circuits/14_conversores_dcdc/01_buck_boost_conversores.spice
+    just run circuits/14_conversores_dcdc/01_buck_boost_conversores.cir
 
 # Exemplo: modulação e demodulação PWM
 exemplo-pwm:
     @echo "=== Exemplo: Modulação e Demodulação PWM (AmpOp e JFET) ==="
-    just run circuits/15_pwm_modulacao/01_pwm_modulador_demodulador.spice
+    just run circuits/15_pwm_modulacao/01_pwm_modulador_demodulador.cir
 
 # Exemplo: conversão A/D e D/A
 exemplo-ad-da:
     @echo "=== Exemplo: DAC, ADC e Sample & Hold ==="
-    just run circuits/16_conversao_ad_da/01_dac_adc_sample_hold.spice
+    just run circuits/16_conversao_ad_da/01_dac_adc_sample_hold.cir
 
 # Exemplo: filtros passa-banda e notch
 exemplo-filtros-especiais:
     @echo "=== Exemplo: Filtros Passa-Banda e Notch 60Hz ==="
-    just run circuits/11_filtros_ativos/02_filtro_passa_banda_notch.spice
+    just run circuits/11_filtros_ativos/02_filtro_passa_banda_notch.cir
 
 # Exemplo: Gilbert Cell mixer (RF) - versão original com BJT
 exemplo-gilbert:
     @echo "=== Exemplo: Gilbert Cell Mixer (1MHz × 100Hz) ==="
-    just run circuits/06_rf_comunicacoes/gilbert_cell_mixer.spice
+    just run circuits/06_rf_comunicacoes/gilbert_cell_mixer.cir
     @echo "=== Gerando gráficos detalhados (FFT + tempo) ==="
     {{python}} scripts/plot_gilbert_cell.py
     @echo "=== Concluído! ==="
@@ -351,7 +351,7 @@ exemplo-gilbert:
 exemplo-gilbert-fixed:
     @echo "=== Exemplo: Gilbert Cell Mixer - VERSÃO CORRIGIDA (1MHz × 100Hz) ==="
     @echo "Simulando circuito com multiplicador ideal..."
-    {{ngspice}} -b circuits/06_rf_comunicacoes/gilbert_cell_mixer_fixed.spice
+    {{ngspice}} -b circuits/06_rf_comunicacoes/gilbert_cell_mixer_fixed.cir
     @echo "=== Gerando gráficos detalhados (FFT + tempo) ==="
     {{python}} scripts/plot_gilbert_fixed.py
     @echo "=== ✅ CONCLUÍDO! Produtos de mistura visíveis em 999.9kHz e 1.0001MHz ==="
