@@ -15,3 +15,6 @@
 # Python
 __pycache__/
 *.pyc
+ckt_*/
+*.aux
+bode_R_
