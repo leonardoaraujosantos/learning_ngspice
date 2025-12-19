@@ -1,0 +1,55 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n3) at (48.0,16.0);
+\coordinate (n7) at (28.0,32.0);
+\coordinate (n0) at (14.0,16.0);
+\coordinate (n1) at (24.0,22.0);
+\coordinate (n2) at (24.0,8.0);
+\coordinate (n5) at (40.0,16.0);
+\coordinate (n6) at (24.0,32.0);
+\coordinate (n4) at (22.0,20.0);
+\coordinate (vccbusL_g0) at (10.0,38.0);
+\coordinate (vccbusR_g0) at (52.0,38.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n6) -- (n6 |- vccbusL_g0);
+\draw (n7) -- (n7 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (52.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (12.0,12.0) -- (16.0,12.0);
+\draw (14.0,16.0) -- (12.0,16.0);
+\draw (12.0,16.0) -- (12.0,12.0);
+\draw (20.0,4.0) -- (28.0,4.0);
+\draw (24.0,8.0) -- (20.0,8.0);
+\draw (20.0,8.0) -- (20.0,4.0);
+\draw (n6) to[V,l=$VDD$,l_=$12$] (n6 |- gndbusL_g0);
+\draw (n7) to[V,l=$VTUNE$,l_=$PWL($] (n7 |- gndbusL_g0);
+\draw (n6) to[R,l=$RB1$,l_=$47k$] (24.0,16.0) to[short] (n0);
+\draw (n0) to[short] ++(2.0,0) coordinate (RB2_top);
+\draw (RB2_top) to[R,l=$RB2$,l_=$10k$] (16.0,12.0);
+\draw (n0) to[short] ++(-2.0,0) coordinate (CB_top);
+\draw (CB_top) to[C,l=$CB$,l_=$100n$] (12.0,12.0);
+\draw (n6) to[R,l=$RC$,l_=$2.2k$] (n1);
+\draw (n2) to[short] ++(4.0,0) coordinate (RE_top);
+\draw (RE_top) to[R,l=$RE$,l_=$680$] (28.0,4.0);
+\draw (n2) to[C,l=$CE$,l_=$100u$] (24.0,4.0);
+\draw (n1) to[L,l=$LTANK$,l_=$470u$] (24.0,16.0) to[short] (n3);
+\draw (n3) to[C,l=$C1$,l_=$100p$] (48.0,8.0) to[short] (n2);
+\draw (n2) to[short] ++(-4.0,0) coordinate (C2_top);
+\draw (C2_top) to[C,l=$C2$,l_=$100p$] (20.0,4.0);
+\draw (n7) to[R,l=$RBIAS$,l_=$100k$] (28.0,20.0) to[short] (n4);
+\draw (n3) to[D,l=$DVAR$,l_=$VARACTOR\_BB109$] (48.0,20.0) to[short] (n4);
+\draw (n4) to[C,l=$CDC$,l_=$10n$] (n4 |- gndbusL_g0);
+\draw (n1) to[C,l=$COUT$,l_=$10p$] (24.0,16.0) to[short] (n5);
+\draw (n5) to[R,l=$RLOAD$,l_=$10k$] (n5 |- gndbusL_g0);
+\node[npn] (Q1) at (20.666666666666668,15.333333333333334) {};
+\draw (Q1.C) -| (n1);
+\draw (Q1.B) |- (n0);
+\draw (Q1.E) |- (n2);
+\end{circuitikz}
+\end{document}

@@ -1,0 +1,14 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (hub) at (0,0);
+\coordinate (gnd) at (0,-3);
+\draw (hub) to[V,l=$VIN$,l_=$12$, invert] (gnd);
+\draw (hub) to[short] ++(3,0) coordinate (b0_0);
+\draw (b0_0) to[R,l=$R1$,l_=$10k$] ++(2,0) coordinate (b0_1);
+\draw (b0_1) to[R,l=$R2$,l_=$10k$] ++(2,0) to[short] ++(0,-2) node[ground]{};
+\end{circuitikz}
+\end{document}

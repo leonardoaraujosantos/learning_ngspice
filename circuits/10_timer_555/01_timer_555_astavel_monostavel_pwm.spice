@@ -218,35 +218,43 @@ Rload_pwm out_pwm gnd_pwm 1k
 + N=1.7
 + )
 
-* Modelo comportamental simplificado do NE555
+* Modelo NE555 simplificado usando lógica direta
 .subckt NE555_MODEL VCC TRIG OUT RESET CTRL THRESH DISCH GND
 
-* Comparadores internos
-* Comparador inferior: dispara quando TRIG < Vcc/3
-* Comparador superior: reseta quando THRESH > 2×Vcc/3
+* Divisor para CTRL (2/3 Vcc = 3.33V)
+Rctrl1 VCC CTRL 20k
+Rctrl2 CTRL GND 10k
 
-* Tensão de controle (normalmente 2/3 Vcc)
-Bctrl_internal ctrl_int GND V={V(CTRL) > 0.1 ? V(CTRL) : 2*V(VCC)/3}
+* Comparadores
+Bset n_set GND V={V(TRIG,GND) < V(VCC,GND)/3 ? 5 : 0}
+Brst n_rst GND V={V(THRESH,GND) > V(CTRL,GND) ? 5 : 0}
 
-* Comparador inferior (trigger)
-Ecomp_low comp_low GND VALUE={V(TRIG) < V(VCC)/3 ? 5 : 0}
+* Filtros RC nos comparadores para estabilidade
+Rset n_set set 1k
+Cset set GND 100n
+Rrst n_rst rst 1k
+Crst rst GND 100n
 
-* Comparador superior (threshold)
-Ecomp_high comp_high GND VALUE={V(THRESH) > V(ctrl_int) ? 5 : 0}
+* Flip-flop SR com hold
+* RESET prioridade, depois RST, depois SET, senão mantém
+Bq_new n_q GND V={
++ V(RESET,GND) < 1 ? 0 :
++ V(rst,GND) > 2 ? 0 :
++ V(set,GND) > 2 ? 5 :
++ V(q,GND)
++}
 
-* Flip-flop SR (set-reset) - comportamental
-* S=comp_low, R=comp_high
-Eff ff GND VALUE={V(RESET) < 1 ? 0 : (V(comp_low) > 2.5 ? 5 : (V(comp_high) > 2.5 ? 0 : V(ff)))}
-Cff ff GND 1n IC=0
-Rff ff GND 10Meg
+* Atraso e buffer para q
+Rq_buf n_q q 1k
+Cq q GND 100n
 
-* Saída (buffer)
-Eout OUT GND ff GND 1
+* Saída
+Eout OUT GND q GND 1
 
-* Transistor de descarga (open collector)
-* Conduz quando saída está LOW
-Gdisch DISCH GND VALUE={V(ff) < 2.5 ? V(DISCH)/10 : 0}
-Rdisch DISCH GND 10Meg
+* Discharge: ON (LOW) quando q é LOW
+Bdisch_ctrl n_dctl GND V={V(q,GND) < 2 ? 5 : 0}
+Sdisch DISCH GND n_dctl GND SW_555
+.model SW_555 SW(Vt=2 Vh=1 Ron=10 Roff=1G)
 
 .ends NE555_MODEL
 

@@ -1,0 +1,428 @@
+* =========================================================
+* AMPLIFICADOR OPERACIONAL COMPARADOR - Exemplo Didatico
+* =========================================================
+*
+* TEORIA:
+* -------
+* O comparador e um circuito que compara duas tensoes e
+* indica qual e maior atraves de uma saida digital (HIGH/LOW).
+* E diferente de um amplificador: NAO USA REALIMENTACAO!
+*
+* DIFERENCA FUNDAMENTAL:
+* ----------------------
+*   AMPLIFICADOR: usa realimentacao negativa (linear)
+*   COMPARADOR: SEM realimentacao (nao-linear, saturado)
+*
+* TIPOS DE COMPARADORES:
+* -----------------------
+* 1. Comparador simples: Vin vs Vref
+* 2. Comparador com histerese (Schmitt Trigger)
+* 3. Comparador de janela: detecta se sinal esta em faixa
+* 4. Comparador de zero-crossing
+*
+* DIAGRAMA - COMPARADOR SIMPLES:
+*
+*          Vin ----| +\
+*                  |   >---- Vout
+*         Vref ----| -/
+*
+*   Se Vin > Vref: Vout = +Vsat (~VCC)
+*   Se Vin < Vref: Vout = -Vsat (~VEE)
+*
+* DIAGRAMA - COMPARADOR COM HISTERESE:
+*
+*          Vin ----| +\
+*               +--| -/ >---- Vout
+*               |      |
+*              [R1]   [R2]
+*               |      |
+*              Vref   GND
+*
+* Histerese evita oscilacao (chatter) quando Vin ~ Vref
+*
+* DIAGRAMA - COMPARADOR DE JANELA:
+*
+*   Usa DOIS comparadores para detectar se:
+*     Vlow < Vin < Vhigh
+*
+*          Vin ----| +\
+*                  |   >---- OUT1 (Vin > Vlow?)
+*         Vlow ----| -/
+*
+*          Vin ----| -\
+*                  |   >---- OUT2 (Vin < Vhigh?)
+*        Vhigh ----| +/
+*
+*   Logica: LED acende se OUT1=HIGH AND OUT2=HIGH
+*
+* FORMULAS - HISTERESE:
+* ---------------------
+*   Vthr_high = Vref * (1 + R2/R1)
+*   Vthr_low  = Vref * (1 - R2/R1)
+*   Histerese = Vthr_high - Vthr_low
+*
+* EXEMPLO NUMERICO:
+*   Vref = 2.5V, R1 = 10k, R2 = 1k
+*   Vthr_high = 2.5 * (1 + 1k/10k) = 2.75V
+*   Vthr_low  = 2.5 * (1 - 1k/10k) = 2.25V
+*   Histerese = 0.5V
+*
+* APLICACOES:
+* -----------
+* - Conversores ADC (comparacao de niveis)
+* - Detector de limiar (overvoltage, undervoltage)
+* - Detector de zero-crossing (sincronizacao AC)
+* - Schmitt trigger (limpeza de sinal ruidoso)
+* - Oscilador astavel (com RC)
+* - PWM (comparador de rampa)
+* - Alarmes (temperatura, luz, etc)
+* - Interface digital (sensores -> logica)
+*
+* COMPARADOR DEDICADO vs AMP-OP:
+* -------------------------------
+*                 AMP-OP      COMPARADOR
+* Slew rate:      lento       rapido
+* Saida:          analogica   digital (push-pull)
+* Propagacao:     ~us         ~ns
+* Histerese:      nao         sim (alguns)
+* Custo:          medio       baixo
+*
+* Exemplos: LM339, LM393, TLC3702
+*
+* VANTAGENS COMPARADOR:
+* ---------------------
+* + Muito rapido (ns)
+* + Saida compativel com logica digital
+* + Simples de usar
+* + Detecta pequenas diferencas
+*
+* DESVANTAGENS:
+* -------------
+* - Oscilacao se Vin ~ Vref (use histerese!)
+* - Saida nao e rail-to-rail (em amp-ops velhos)
+* - Propagation delay (atraso)
+*
+* =========================================================
+
+.options plotwinsize=0
+
+* ---------------------------------------------------------
+* FONTES DE ALIMENTACAO
+* ---------------------------------------------------------
+VCC vcc 0 DC 15
+VEE vee 0 DC -15
+
+* ---------------------------------------------------------
+* EXEMPLO 1: COMPARADOR SIMPLES
+* ---------------------------------------------------------
+* Compara Vin com Vref (2.5V)
+* Vout = HIGH se Vin > 2.5V
+* Vout = LOW  se Vin < 2.5V
+
+.subckt comparador_simples vin vref vout vcc vee
+  * Entrada em V+, referencia em V-
+  XOP1 vin vref vcc vee vout LM741
+
+  * Resistor de pull-down (opcional, para estabilidade)
+  Rpd vout 0 10k
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 2: COMPARADOR COM HISTERESE (Schmitt Trigger)
+* ---------------------------------------------------------
+* Evita oscilacao quando Vin ~ Vref
+* Histerese ~ 0.5V
+*
+* Vref = 2.5V, R1=10k, R2=1k
+* Vthr_high ~ 2.75V
+* Vthr_low  ~ 2.25V
+
+.subckt schmitt_trigger vin vout vcc vee
+  * Divisor de referencia
+  R_ref_h vcc v_ref 10k
+  R_ref_l v_ref 0 10k
+
+  * Realimentacao positiva (cria histerese!)
+  R_hyst vout v_minus 100k
+  R_ref v_ref v_minus 10k
+
+  * Amp-op sem realimentacao negativa
+  XOP2 vin v_minus vcc vee vout LM741
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 3: COMPARADOR DE JANELA
+* ---------------------------------------------------------
+* Detecta se Vin esta entre Vlow e Vhigh
+* Vlow = 2V, Vhigh = 3V
+*
+* OUT_IN_RANGE = HIGH se 2V < Vin < 3V
+
+.subckt comparador_janela vin vlow vhigh out_low out_high vcc vee
+  * Comparador 1: Vin > Vlow?
+  XOP_low vin vlow vcc vee out_low LM741
+
+  * Comparador 2: Vin < Vhigh?
+  XOP_high vhigh vin vcc vee out_high LM741
+.ends
+
+* ---------------------------------------------------------
+* EXEMPLO 4: DETECTOR DE ZERO-CROSSING
+* ---------------------------------------------------------
+* Detecta quando sinal AC cruza zero
+* Util para sincronizacao com rede AC
+
+.subckt zero_crossing vin vout vcc vee
+  * Compara Vin com GND (zero)
+  XOP4 vin 0 vcc vee vout LM741
+
+  * Resistor de pull-down
+  Rpd vout 0 10k
+.ends
+
+* =========================================================
+* CIRCUITO DE TESTE
+* =========================================================
+
+* ---------------------------------------------------------
+* Sinal de teste: rampa lenta (0 a 5V em 10ms)
+* ---------------------------------------------------------
+VIN input 0 PWL(
++ 0m 0  10m 5  20m 0  30m 5  40m 0) AC 1
+
+* ---------------------------------------------------------
+* Referencia fixa para comparador simples
+* ---------------------------------------------------------
+VREF1 ref1 0 DC 2.5
+
+* ---------------------------------------------------------
+* Limites para comparador de janela
+* ---------------------------------------------------------
+VLOW  vlow 0 DC 2.0
+VHIGH vhigh 0 DC 3.0
+
+* ---------------------------------------------------------
+* Sinal AC para zero-crossing
+* ---------------------------------------------------------
+VAC input_ac 0 SIN(0 3 50) AC 3
+
+* ---------------------------------------------------------
+* Instanciando os comparadores
+* ---------------------------------------------------------
+
+* Comparador simples (threshold 2.5V)
+X1 input ref1 out_comp vcc vee comparador_simples
+
+* Schmitt trigger
+X2 input out_schmitt vcc vee schmitt_trigger
+
+* Comparador de janela
+X3 input vlow vhigh out_win_low out_win_high vcc vee comparador_janela
+
+* Zero-crossing detector
+X4 input_ac out_zc vcc vee zero_crossing
+
+* ---------------------------------------------------------
+* Logica AND para janela (OUT1 AND OUT2)
+* ---------------------------------------------------------
+* Se ambos HIGH, janela OK
+* Simples: uso de diodos e resistor
+D1 out_win_low n_and DLOGIC
+D2 out_win_high n_and DLOGIC
+R_and n_and vcc 10k
+E_and out_window 0 n_and 0 1
+
+.model DLOGIC D (IS=1e-14)
+
+* Cargas
+Rload1 out_comp 0 10k
+Rload2 out_schmitt 0 10k
+Rload3 out_win_low 0 10k
+Rload4 out_win_high 0 10k
+Rload5 out_window 0 10k
+Rload6 out_zc 0 10k
+
+* ---------------------------------------------------------
+* MODELO LM741 PADRAO
+* ---------------------------------------------------------
+* Incluindo modelo LM741 da biblioteca padrao
+.include LM741.lib
+
+* ---------------------------------------------------------
+* ANALISES
+* ---------------------------------------------------------
+
+.op
+.tran 100u 50m
+
+* =========================================================
+* CONTROLE E MEDIDAS
+* =========================================================
+
+.control
+  set noaskquit
+
+  echo ""
+  echo "=========================================================="
+  echo "    COMPARADORES COM AMPLIFICADOR OPERACIONAL"
+  echo "=========================================================="
+  echo ""
+
+  * ---------------------------------------------------------
+  * Analise Transiente
+  * ---------------------------------------------------------
+  echo "--- Analise Transiente ---"
+  echo ""
+
+  tran 100u 50m
+
+  * ---------------------------------------------------------
+  * Teste 1: Comparador Simples
+  * ---------------------------------------------------------
+  echo "=== COMPARADOR SIMPLES (Vref = 2.5V) ==="
+  echo ""
+
+  * Detectar quando saida muda de estado
+  meas tran T_COMP_HIGH WHEN v(out_comp)=0 RISE=1
+  meas tran V_IN_AT_SWITCH FIND v(input) AT=T_COMP_HIGH
+
+  echo "Threshold medido (esperado: 2.5V):"
+  print V_IN_AT_SWITCH
+  echo ""
+
+  * ---------------------------------------------------------
+  * Teste 2: Schmitt Trigger
+  * ---------------------------------------------------------
+  echo "=== SCHMITT TRIGGER (com histerese) ==="
+  echo ""
+
+  * Threshold de subida
+  meas tran T_SCHMITT_RISE WHEN v(out_schmitt)=0 RISE=1
+  meas tran V_THR_RISE FIND v(input) AT=T_SCHMITT_RISE
+
+  * Threshold de descida
+  meas tran T_SCHMITT_FALL WHEN v(out_schmitt)=0 FALL=1
+  meas tran V_THR_FALL FIND v(input) AT=T_SCHMITT_FALL
+
+  * Histerese
+  let HISTERESE = V_THR_RISE - V_THR_FALL
+
+  echo "Threshold subida:"
+  print V_THR_RISE
+  echo "Threshold descida:"
+  print V_THR_FALL
+  echo "Histerese:"
+  print HISTERESE
+  echo ""
+
+  * ---------------------------------------------------------
+  * Teste 3: Comparador de Janela
+  * ---------------------------------------------------------
+  echo "=== COMPARADOR DE JANELA (2V < Vin < 3V) ==="
+  echo ""
+
+  * Quando entra na janela
+  meas tran T_ENTER_WINDOW WHEN v(input)=2.0 RISE=1
+  meas tran T_EXIT_WINDOW WHEN v(input)=3.0 RISE=1
+  let WINDOW_TIME = T_EXIT_WINDOW - T_ENTER_WINDOW
+
+  echo "Tempo na janela:"
+  print WINDOW_TIME
+  echo ""
+
+  * ---------------------------------------------------------
+  * Plots
+  * ---------------------------------------------------------
+
+  * Comparador simples
+  plot v(input) v(ref1) v(out_comp) title 'Comparador Simples' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Schmitt trigger (mostra histerese)
+  plot v(input) v(out_schmitt) title 'Schmitt Trigger - Histerese' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Comparador de janela
+  plot v(input) v(vlow) v(vhigh) v(out_win_low) v(out_win_high) v(out_window) title 'Comparador de Janela' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Zero-crossing
+  plot v(input_ac) v(out_zc) title 'Detector Zero-Crossing' xlabel 'Tempo (s)' ylabel 'Tensao (V)'
+
+  * Curva de transferencia (histerese)
+  * Plot Vout vs Vin (mostra loop de histerese)
+  plot v(out_schmitt) vs v(input) title 'Curva de Transferencia - Histerese' xlabel 'Vin (V)' ylabel 'Vout (V)'
+
+  * ---------------------------------------------------------
+  * Salvando Resultados
+  * ---------------------------------------------------------
+  set hcopydevtype=png
+  hardcopy comparador_simples.png v(input) v(ref1) v(out_comp)
+  hardcopy schmitt_trigger.png v(input) v(out_schmitt)
+  hardcopy comparador_janela.png v(input) v(vlow) v(vhigh) v(out_window)
+  hardcopy zero_crossing.png v(input_ac) v(out_zc)
+
+  wrdata comparador_time.csv time v(input) v(out_comp) v(out_schmitt) v(out_window)
+  wrdata zero_crossing.csv time v(input_ac) v(out_zc)
+
+  echo "Arquivos gerados:"
+  echo "  - comparador_simples.png"
+  echo "  - schmitt_trigger.png"
+  echo "  - comparador_janela.png"
+  echo "  - zero_crossing.png"
+  echo "  - comparador_time.csv"
+  echo "  - zero_crossing.csv"
+  echo ""
+
+  echo "=========================================================="
+  echo "    DICAS DE PROJETO"
+  echo "=========================================================="
+  echo ""
+  echo "1. COMPARADOR SIMPLES:"
+  echo "   - Use para threshold fixo"
+  echo "   - Problema: oscila se Vin ~ Vref!"
+  echo "   - Solucao: adicione histerese"
+  echo ""
+  echo "2. SCHMITT TRIGGER (HISTERESE):"
+  echo "   - ESSENCIAL para sinais ruidosos"
+  echo "   - Evita multiplas transicoes"
+  echo "   - Calculo: H = Vref * (R2/R1) * 2"
+  echo "   - Tipico: 50mV a 500mV de histerese"
+  echo ""
+  echo "3. COMPARADOR DE JANELA:"
+  echo "   - Usa 2 comparadores"
+  echo "   - Detecta faixa (Vlow < Vin < Vhigh)"
+  echo "   - Aplicacao: alarme de bateria"
+  echo "     (avisa se < 11V ou > 14V)"
+  echo ""
+  echo "4. VELOCIDADE:"
+  echo "   - LM741: lento (~us)"
+  echo "   - Use comparador dedicado para rapido:"
+  echo "     LM339 (~1us), LM393 (~300ns)"
+  echo "     TLC3702 (~25ns)"
+  echo ""
+  echo "5. SAIDA:"
+  echo "   - Amp-op: nao e rail-to-rail"
+  echo "   - LM741: Vout ~ Vcc-2V (nao chega em +15V)"
+  echo "   - Comparador dedicado: open-collector"
+  echo "     (precisa pull-up)"
+  echo ""
+  echo "6. REFERENCIA:"
+  echo "   - Zener (preciso mas ruidoso)"
+  echo "   - TL431 (ajustavel, 1%)"
+  echo "   - LM4040 (precision, 0.1%)"
+  echo "   - Divisor resistivo (simples, deriva)"
+  echo ""
+  echo "7. APLICACOES PRATICAS:"
+  echo "   - Termostato: comparador + NTC"
+  echo "   - Sensor de luz: LDR + comparador"
+  echo "   - PWM: comparador + triangular"
+  echo "   - ADC: comparadores em cascata"
+  echo "   - Alarme bateria: janela 11-14V"
+  echo ""
+  echo "8. PROTECAO ENTRADA:"
+  echo "   - Diodos clamp: protege ±0.7V de VCC/VEE"
+  echo "   - Resistor serie: limita corrente"
+  echo "   - Importante em ambientes industriais!"
+  echo ""
+
+.endc
+
+.end

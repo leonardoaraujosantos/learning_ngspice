@@ -1,0 +1,53 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n0) at (24.0,22.0);
+\coordinate (n1) at (14.0,16.0);
+\coordinate (n2) at (40.0,16.0);
+\coordinate (n3) at (48.0,16.0);
+\coordinate (n4) at (24.0,8.0);
+\coordinate (n5) at (24.0,32.0);
+\coordinate (vccbusL_g0) at (10.0,38.0);
+\coordinate (vccbusR_g0) at (52.0,38.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n5) -- (n5 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (52.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (12.0,12.0) -- (16.0,12.0);
+\draw (14.0,16.0) -- (12.0,16.0);
+\draw (12.0,16.0) -- (12.0,12.0);
+\draw (22.0,4.0) -- (26.0,4.0);
+\draw (24.0,8.0) -- (22.0,8.0);
+\draw (22.0,8.0) -- (22.0,4.0);
+\draw (n5) to[V,l=$VDD$,l_=$10$] (n5 |- gndbusL_g0);
+\draw (n1) to[short] ++(2.0,0) coordinate (RG_top);
+\draw (RG_top) to[R,l=$RG$,l_=$1MEG$] (16.0,12.0);
+\draw (n5) to[R,l=$RD$,l_=$2.2k$] (n0);
+\draw (n4) to[short] ++(2.0,0) coordinate (RS_top);
+\draw (RS_top) to[R,l=$RS$,l_=$680$] (26.0,4.0);
+\draw (n4) to[short] ++(-2.0,0) coordinate (CS_top);
+\draw (CS_top) to[C,l=$CS$,l_=$100u$] (22.0,4.0);
+\draw (n0) to[L,l=$LXTAL$,l_=$10m$] (24.0,16.0) to[short] (n2);
+\draw (n2) to[short] ++(0,-1.0) coordinate (n2_CXTAL_p1);
+\draw (n1) to[short] ++(0,-1.0) coordinate (n1_CXTAL_p2);
+\draw (n2_CXTAL_p1) to[C,l=$CXTAL$,l_=$25f$] (n1_CXTAL_p2);
+\draw (n2) to[short] ++(0,1.0) coordinate (n2_RXTAL_p1);
+\draw (n1) to[short] ++(0,1.0) coordinate (n1_RXTAL_p2);
+\draw (n2_RXTAL_p1) to[R,l=$RXTAL$,l_=$50$] (n1_RXTAL_p2);
+\draw (n0) to[C,l=$CP\_XTAL$,l_=$5p$] (24.0,16.0) to[short] (n1);
+\draw (n1) to[short] ++(-2.0,0) coordinate (C1_top);
+\draw (C1_top) to[C,l=$C1$,l_=$40p$] (12.0,12.0);
+\draw (n0) to[C,l=$C2$,l_=$40p$] (n0 |- gndbusL_g0);
+\draw (n0) to[C,l=$COUT$,l_=$10p$] (48.0,22.0) to[short] (n3);
+\draw (n3) to[R,l=$RLOAD$,l_=$1k$] (n3 |- gndbusL_g0);
+\node[njfet] (J1) at (20.666666666666668,15.333333333333334) {};
+\draw (J1.D) -| (n0);
+\draw (J1.G) |- (n1);
+\draw (J1.S) |- (n4);
+\end{circuitikz}
+\end{document}

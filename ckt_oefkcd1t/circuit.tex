@@ -1,0 +1,48 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n1) at (14.0,30.0);
+\coordinate (n2) at (20.0,28.0);
+\coordinate (n5) at (20.0,32.0);
+\coordinate (n4) at (14.0,2.0);
+\coordinate (n0) at (56.0,28.0);
+\coordinate (n3) at (56.0,6.0);
+\coordinate (gndbusL_g0) at (52.0,22.0);
+\coordinate (gndbusR_g0) at (60.0,22.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\coordinate (gndbusL_g1) at (10.0,22.0);
+\coordinate (gndbusR_g1) at (24.0,22.0);
+\draw (gndbusL_g1) -- (gndbusR_g1);
+\node[ground] at (gndbusL_g1) {};
+\coordinate (vccbusL_g2) at (52.0,12.0);
+\coordinate (vccbusR_g2) at (60.0,12.0);
+\draw (vccbusL_g2) -- (vccbusR_g2);
+\draw (n3) -- (n3 |- vccbusL_g2);
+\coordinate (gndbusL_g2) at (52.0,0.0);
+\coordinate (gndbusR_g2) at (60.0,0.0);
+\draw (gndbusL_g2) -- (gndbusR_g2);
+\node[ground] at (gndbusL_g2) {};
+\coordinate (gndbusL_g3) at (10.0,-4.0);
+\coordinate (gndbusR_g3) at (18.0,-4.0);
+\draw (gndbusL_g3) -- (gndbusR_g3);
+\node[ground] at (gndbusL_g3) {};
+\draw (18.0,28.0) -- (22.0,28.0);
+\draw (20.0,32.0) -- (18.0,32.0);
+\draw (18.0,32.0) -- (18.0,28.0);
+\draw (n3) to[V,l=$VREF$,l_=$PULSE(0$] (n3 |- gndbusL_g2);
+\draw (n2) to[R,l=$R1$,l_=$10k$] (14.0,28.0) to[short] (n1);
+\draw (n1) to[C,l=$C1$,l_=$1u$] (n1 |- gndbusL_g1);
+\draw (n1) to[R,l=$R2$,l_=$10k$] (14.0,32.0) to[short] (n5);
+\draw (n5) to[short] ++(-2.0,0) coordinate (C2_top);
+\draw (C2_top) to[C,l=$C2$,l_=$100n$] (18.0,28.0);
+\draw (n4) to[R,l=$RLOAD\_OUT$,l_=$10k$] (n4 |- gndbusL_g3);
+\draw (n0) to[R,l=$RLOAD\_FB$,l_=$10k$] (n0 |- gndbusL_g0);
+\draw (n2) to[R,l=$RMON$,l_=$100k$] (n2 |- gndbusL_g1);
+\draw (n5) to[short] ++(2.0,0) coordinate (RMON2_top);
+\draw (RMON2_top) to[R,l=$RMON2$,l_=$100k$] (22.0,28.0);
+\end{circuitikz}
+\end{document}

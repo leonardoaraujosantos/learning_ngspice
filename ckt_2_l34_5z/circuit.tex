@@ -1,0 +1,53 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n4) at (14.0,28.0);
+\coordinate (n0) at (24.0,24.0);
+\coordinate (n1) at (24.0,30.0);
+\coordinate (n2) at (58.0,24.0);
+\coordinate (n3) at (58.0,2.0);
+\coordinate (vccbusL_g0) at (10.0,36.0);
+\coordinate (vccbusR_g0) at (28.0,36.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n4) -- (n4 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,18.0);
+\coordinate (gndbusR_g0) at (28.0,18.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\coordinate (gndbusL_g1) at (54.0,18.0);
+\coordinate (gndbusR_g1) at (62.0,18.0);
+\draw (gndbusL_g1) -- (gndbusR_g1);
+\node[ground] at (gndbusL_g1) {};
+\coordinate (gndbusL_g2) at (54.0,-4.0);
+\coordinate (gndbusR_g2) at (62.0,-4.0);
+\draw (gndbusL_g2) -- (gndbusR_g2);
+\node[ground] at (gndbusL_g2) {};
+\draw (54.0,20.0) -- (62.0,20.0);
+\draw (58.0,24.0) -- (54.0,24.0);
+\draw (54.0,24.0) -- (54.0,20.0);
+\draw (52.0,0.0) -- (64.0,0.0);
+\draw (58.0,2.0) -- (52.0,2.0);
+\draw (52.0,2.0) -- (52.0,0.0);
+\draw (n2) to[short] ++(-4.0,0) coordinate (IIN_top);
+\draw (IIN_top) to[I,l=$IIN$,l_=$10M$] (54.0,20.0);
+\draw (n2) to[R,l=$R1$,l_=$1k$] (58.0,20.0);
+\draw (n2) to[short] ++(4.0,0) coordinate (R2_top);
+\draw (R2_top) to[R,l=$R2$,l_=$2k$] (62.0,20.0);
+\draw (n3) to[short] ++(-6.0,0) coordinate (IIN2_top);
+\draw (IIN2_top) to[I,l=$IIN2$,l_=$12M$] (52.0,0.0);
+\draw (n3) to[short] ++(-2.0,0) coordinate (R3_top);
+\draw (R3_top) to[R,l=$R3$,l_=$1k$] (56.0,0.0);
+\draw (n3) to[short] ++(2.0,0) coordinate (R4_top);
+\draw (R4_top) to[R,l=$R4$,l_=$2k$] (60.0,0.0);
+\draw (n3) to[short] ++(6.0,0) coordinate (R5_top);
+\draw (R5_top) to[R,l=$R5$,l_=$3k$] (64.0,0.0);
+\draw (n4) to[V,l=$VLED$,l_=$12$] (n4 |- gndbusL_g0);
+\draw (n4) to[D,l=$D1$,l_=$LED\_RED$] (14.0,24.0) to[short] (n0);
+\draw (n0) to[R,l=$RLED1$,l_=$470$] (n0 |- gndbusL_g0);
+\draw (n4) to[D,l=$D2$,l_=$LED\_GREEN$] (14.0,30.0) to[short] (n1);
+\draw (n1) to[R,l=$RLED2$,l_=$1k$] (n1 |- gndbusL_g0);
+\end{circuitikz}
+\end{document}

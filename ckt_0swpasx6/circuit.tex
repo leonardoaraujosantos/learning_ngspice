@@ -1,0 +1,21 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n0) at (14.0,8.0);
+\coordinate (n1) at (24.0,8.0);
+\coordinate (vccbusL_g0) at (10.0,14.0);
+\coordinate (vccbusR_g0) at (28.0,14.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n0) -- (n0 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (28.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (n0) to[V,l=$V1$,l_=$1$] (n0 |- gndbusL_g0);
+\draw (n0) to[R,l=$R1$,l_=$R$] (n1);
+\draw (n1) to[C,l=$C1$,l_=$C$] (n1 |- gndbusL_g0);
+\end{circuitikz}
+\end{document}

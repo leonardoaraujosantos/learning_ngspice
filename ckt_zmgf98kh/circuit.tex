@@ -1,0 +1,75 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n4) at (14.0,22.0);
+\coordinate (n0) at (14.0,30.0);
+\coordinate (n5) at (26.0,8.0);
+\coordinate (n10) at (26.0,16.0);
+\coordinate (n8) at (26.0,22.0);
+\coordinate (n6) at (26.0,30.0);
+\coordinate (n11) at (26.0,36.0);
+\coordinate (n9) at (26.0,44.0);
+\coordinate (n13) at (36.0,12.0);
+\coordinate (n1) at (36.0,18.0);
+\coordinate (n7) at (36.0,26.0);
+\coordinate (n3) at (36.0,34.0);
+\coordinate (n2) at (36.0,40.0);
+\coordinate (n12) at (48.0,26.0);
+\coordinate (vccbusL_g0) at (10.0,50.0);
+\coordinate (vccbusR_g0) at (52.0,50.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n0) -- (n0 |- vccbusL_g0);
+\draw (n4) -- (n4 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (52.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (34.0,24.0) -- (38.0,24.0);
+\draw (36.0,26.0) -- (34.0,26.0);
+\draw (34.0,26.0) -- (34.0,24.0);
+\draw (46.0,24.0) -- (50.0,24.0);
+\draw (48.0,26.0) -- (46.0,26.0);
+\draw (46.0,26.0) -- (46.0,24.0);
+\draw (n4) to[V,l=$VDD$,l_=$12$] (n4 |- gndbusL_g0);
+\draw (n0) to[V,l=$VIN$,l_=$SIN(0$] (n0 |- gndbusL_g0);
+\draw (n1) to[R,l=$RLOAD1$,l_=$10k$] (n1 |- gndbusL_g0);
+\draw (n2) to[R,l=$RLOAD2$,l_=$10k$] (n2 |- gndbusL_g0);
+\draw (n3) to[R,l=$RLOAD3$,l_=$10k$] (n3 |- gndbusL_g0);
+\draw (n0) to[C,l=$X1\_CIN$,l_=$100n$] (n6);
+\draw (n6) to[R,l=$X1\_RG$,l_=$1MEG$] (n6 |- gndbusL_g0);
+\draw (n4) to[R,l=$X1\_RD$,l_=$2.2k$] (14.0,8.0) to[short] (n5);
+\draw (n7) to[short] ++(2.0,0) coordinate (X1_RS_top);
+\draw (X1_RS_top) to[R,l=$X1\_RS$,l_=$470$] (38.0,24.0);
+\draw (n7) to[short] ++(-2.0,0) coordinate (X1_CS_top);
+\draw (X1_CS_top) to[C,l=$X1\_CS$,l_=$100u$] (34.0,24.0);
+\draw (n5) to[C,l=$X1\_COUT$,l_=$100n$] (26.0,18.0) to[short] (n1);
+\draw (n0) to[C,l=$X2\_CIN$,l_=$100n$] (14.0,24.0) to[short] (26.0,24.0) to[short] (n8);
+\draw (n8) to[R,l=$X2\_RG$,l_=$1MEG$] (n8 |- gndbusL_g0);
+\draw (n9) to[R,l=$X2\_RS$,l_=$1k$] (n9 |- gndbusL_g0);
+\draw (n9) to[C,l=$X2\_COUT$,l_=$100n$] (26.0,40.0) to[short] (n2);
+\draw (n0) to[C,l=$X3\_CIN$,l_=$100n$] (14.0,36.0) to[short] (n11);
+\draw (n11) to[R,l=$X3\_RG$,l_=$1MEG$] (n11 |- gndbusL_g0);
+\draw (n4) to[R,l=$X3\_RD$,l_=$2.2k$] (14.0,16.0) to[short] (n10);
+\draw (n13) to[R,l=$X3\_RS1$,l_=$220$] (48.0,12.0) to[short] (n12);
+\draw (n12) to[short] ++(2.0,0) coordinate (X3_RS2_top);
+\draw (X3_RS2_top) to[R,l=$X3\_RS2$,l_=$220$] (50.0,24.0);
+\draw (n12) to[short] ++(-2.0,0) coordinate (X3_CS_top);
+\draw (X3_CS_top) to[C,l=$X3\_CS$,l_=$100u$] (46.0,24.0);
+\draw (n10) to[C,l=$X3\_COUT$,l_=$100n$] (36.0,16.0) to[short] (n3);
+\node[njfet] (X1_J1) at (29.333333333333332,21.333333333333332) {};
+\draw (X1_J1.D) |- (n5);
+\draw (X1_J1.G) |- (n6);
+\draw (X1_J1.S) |- (n7);
+\node[njfet] (X2_J2) at (22.0,29.333333333333332) {};
+\draw (X2_J2.D) |- (n4);
+\draw (X2_J2.G) |- (n8);
+\draw (X2_J2.S) |- (n9);
+\node[njfet] (X3_J3) at (29.333333333333332,21.333333333333332) {};
+\draw (X3_J3.D) |- (n10);
+\draw (X3_J3.G) |- (n11);
+\draw (X3_J3.S) |- (n13);
+\end{circuitikz}
+\end{document}

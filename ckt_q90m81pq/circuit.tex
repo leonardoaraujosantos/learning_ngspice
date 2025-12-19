@@ -1,0 +1,92 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n9) at (14.0,12.0);
+\coordinate (n7) at (14.0,18.0);
+\coordinate (n8) at (14.0,24.0);
+\coordinate (n6) at (14.0,30.0);
+\coordinate (n10) at (14.0,38.0);
+\coordinate (n11) at (14.0,44.0);
+\coordinate (n18) at (14.0,50.0);
+\coordinate (n12) at (14.0,56.0);
+\coordinate (n15) at (24.0,8.0);
+\coordinate (n5) at (24.0,14.0);
+\coordinate (n13) at (24.0,22.0);
+\coordinate (n14) at (24.0,28.0);
+\coordinate (n0) at (24.0,34.0);
+\coordinate (n16) at (24.0,40.0);
+\coordinate (n17) at (24.0,48.0);
+\coordinate (n3) at (24.0,54.0);
+\coordinate (n4) at (24.0,60.0);
+\coordinate (n1) at (34.0,30.0);
+\coordinate (n2) at (34.0,38.0);
+\coordinate (vccbusL_g0) at (10.0,66.0);
+\coordinate (vccbusR_g0) at (38.0,66.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n6) -- (n6 |- vccbusL_g0);
+\draw (n7) -- (n7 |- vccbusL_g0);
+\draw (n8) -- (n8 |- vccbusL_g0);
+\draw (n9) -- (n9 |- vccbusL_g0);
+\draw (n10) -- (n10 |- vccbusL_g0);
+\draw (n11) -- (n11 |- vccbusL_g0);
+\draw (n12) -- (n12 |- vccbusL_g0);
+\draw (n18) -- (n18 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (38.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (n6) to[V,l=$VDD$,l_=$15$] (n6 |- gndbusL_g0);
+\draw (n18) to[V,l=$VSS$,l_=$-15$] (n18 |- gndbusL_g0);
+\draw (n6) to[R,l=$RD1$,l_=$7.5k$] (14.0,28.0) to[short] (n14);
+\draw (n6) to[R,l=$RD2$,l_=$7.5k$] (14.0,40.0) to[short] (n16);
+\draw (n4) to[I,l=$ISS$,l_=$2M$] (24.0,50.0) to[short] (n18);
+\draw (n8) to[V,l=$VIN1\_JFET$,l_=$0$] (n8 |- gndbusL_g0);
+\draw (n11) to[V,l=$VIN2\_JFET$,l_=$0$] (n11 |- gndbusL_g0);
+\draw (n6) to[R,l=$RD1\_SR$,l_=$7.5k$] (14.0,8.0) to[short] (n15);
+\draw (n6) to[R,l=$RD2\_SR$,l_=$7.5k$] (14.0,48.0) to[short] (n17);
+\draw (n1) to[R,l=$RS1\_SR$,l_=$1k$] (34.0,14.0) to[short] (n5);
+\draw (n2) to[R,l=$RS2\_SR$,l_=$1k$] (34.0,14.0) to[short] (n5);
+\draw (n5) to[I,l=$ISS\_SR$,l_=$2M$] (24.0,50.0) to[short] (n18);
+\draw (n9) to[V,l=$VIN1\_SR$,l_=$0$] (n9 |- gndbusL_g0);
+\draw (n12) to[V,l=$VIN2\_SR$,l_=$0$] (n12 |- gndbusL_g0);
+\draw (n6) to[R,l=$RD1\_CA$,l_=$7.5k$] (14.0,22.0) to[short] (n13);
+\draw (n3) to[I,l=$ISS\_CA$,l_=$2M$] (24.0,50.0) to[short] (n18);
+\draw (n7) to[V,l=$VIN1\_CA$,l_=$0$] (n7 |- gndbusL_g0);
+\draw (n10) to[V,l=$VIN2\_CA$,l_=$0$] (n10 |- gndbusL_g0);
+\node[njfet] (J1) at (20.666666666666668,37.333333333333336) {};
+\draw (J1.D) |- (n14);
+\draw (J1.G) |- (n8);
+\draw (J1.S) |- (n4);
+\node[njfet] (J2) at (20.666666666666668,48.0) {};
+\draw (J2.D) |- (n16);
+\draw (J2.G) |- (n11);
+\draw (J2.S) |- (n4);
+\node[njfet] (J1_SR) at (24.0,16.666666666666668) {};
+\draw (J1_SR.D) -- (n15);
+\draw (J1_SR.G) |- (n9);
+\draw (J1_SR.S) -| (n1);
+\node[njfet] (J2_SR) at (24.0,47.333333333333336) {};
+\draw (J2_SR.D) -- (n17);
+\draw (J2_SR.G) |- (n12);
+\draw (J2_SR.S) -| (n2);
+\node[njfet] (J1_CA) at (20.666666666666668,31.333333333333332) {};
+\draw (J1_CA.D) |- (n13);
+\draw (J1_CA.G) |- (n7);
+\draw (J1_CA.S) |- (n3);
+\node[njfet] (J2_CA) at (20.666666666666668,42.0) {};
+\draw (J2_CA.D) |- (n0);
+\draw (J2_CA.G) |- (n10);
+\draw (J2_CA.S) |- (n3);
+\node[njfet] (J3_MIRROR) at (20.666666666666668,32.666666666666664) {};
+\draw (J3_MIRROR.D) |- (n0);
+\draw (J3_MIRROR.G) |- (n0);
+\draw (J3_MIRROR.S) |- (n6);
+\node[njfet] (J4_MIRROR) at (20.666666666666668,28.666666666666668) {};
+\draw (J4_MIRROR.D) |- (n13);
+\draw (J4_MIRROR.G) |- (n0);
+\draw (J4_MIRROR.S) |- (n6);
+\end{circuitikz}
+\end{document}

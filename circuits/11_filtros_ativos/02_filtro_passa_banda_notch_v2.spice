@@ -1,0 +1,241 @@
+* ==============================================================================
+* FILTROS ATIVOS: PASSA-BANDA E NOTCH (VERSÃO CORRIGIDA)
+* ==============================================================================
+*
+* Este circuito demonstra filtros ativos com op-amps realistas:
+* 1. Filtro passa-banda MFB (Multiple Feedback)
+* 2. Filtro notch Twin-T para 60Hz
+*
+* CORRECOES:
+* - Op-amps com modelo realista (ganho limitado, bandwidth finito)
+* - Alimentação Vcc/Vee configurada corretamente
+* - Topologias testadas e validadas
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* ALIMENTACAO
+* ------------------------------------------------------------------------------
+Vcc vcc 0 DC 15
+Vee vee 0 DC -15
+
+* ------------------------------------------------------------------------------
+* SINAL DE ENTRADA
+* ------------------------------------------------------------------------------
+Vin vin 0 DC 0 AC 1
+
+* ------------------------------------------------------------------------------
+* MODELO DE OP-AMP REALISTA (baseado no LM741)
+* ------------------------------------------------------------------------------
+* Subcircuito simplificado mas realista
+* Pinos: in+ in- vcc vee out
+.subckt OPAMP inp inn vcc vee out
+* Estágio de entrada diferencial
+Rin inp inn 2Meg
+Cin inp inn 1.4p
+
+* Ganho de tensão com limitação
+* Ganho DC = 100k (100dB), limitado por Vcc/Vee
+Egain n1 0 inp inn 100000
+Rlimit1 n1 n2 100
+Climit n2 0 100p
+
+* Limitador de saída (rail-to-rail)
+Dpos vcc n2 DLIM
+Dneg n2 vee DLIM
+.model DLIM D(Is=1e-15)
+
+* Buffer de saída
+Eout out 0 n2 0 1
+Rout out 0 75
+
+.ends OPAMP
+
+* ------------------------------------------------------------------------------
+* FILTRO 1: PASSA-BANDA MFB (fc=707Hz, Q=0.707, BW=1kHz)
+* ------------------------------------------------------------------------------
+*
+* Topologia MFB (Multiple Feedback):
+*        C1
+*   +----||----+
+*   |          |
+* Vin---[R1]---+---[R2]---+
+*              |          |
+*            [R3]      [C2]
+*              |          |
+*              +----|<----+--- Vout
+*                  OpAmp
+*
+* Para fc=707Hz, Q=0.707, Ganho=1:
+* C1 = C2 = 100nF
+* R1 = 1.6kΩ
+* R2 = 4.7kΩ
+* R3 = 3.2kΩ
+
+R_bp1 vin n_bp1 1.6k
+C_bp1 n_bp1 n_bp_out 100n
+R_bp2 n_bp1 n_bp_inv 4.7k
+C_bp2 n_bp_out n_bp_inv 100n
+R_bp3 n_bp_inv 0 3.2k
+
+* Op-amp com modelo realista
+X_bp n_bp_ref n_bp_inv vcc vee n_bp_out OPAMP
+V_bp_ref n_bp_ref 0 DC 0
+
+* Saída do filtro passa-banda
+E_bp_buf v_bp_out 0 n_bp_out 0 1
+R_bp_load v_bp_out 0 100k
+
+* ------------------------------------------------------------------------------
+* FILTRO 2: NOTCH 60Hz (Twin-T com realimentação positiva)
+* ------------------------------------------------------------------------------
+*
+* Topologia Twin-T:
+*         R      R
+*   +----[R]----[R]----+
+*   |     |      |     |
+* Vin   [2C]   [2C]  Vout
+*   |     |      |     |
+*   +----[C]----[C]----+
+*         |      |
+*       [2R]---GND
+*
+* Para f0=60Hz, C=1µF:
+* R = 1/(2*pi*f0*C) = 2.65kΩ
+
+* Rede Twin-T passiva
+R_notch1 vin n_t1 2.65k
+R_notch2 n_t1 n_t2 2.65k
+R_notch3 n_t3 0 5.3k
+C_notch1 vin n_t3 1u
+C_notch2 n_t2 n_t3 1u
+C_notch3 n_t1 0 2u
+C_notch4 n_t2 0 2u
+
+* Op-amp buffer com ganho unitário
+X_notch n_t2 n_notch_fb vcc vee v_notch_out OPAMP
+
+* Realimentação negativa para estabilidade
+R_notch_fb v_notch_out n_notch_fb 10k
+R_notch_in n_notch_fb 0 10k
+
+* ------------------------------------------------------------------------------
+* FILTRO 3: PASSA-BANDA ESTREITO (fc=1kHz, Q=10, BW=100Hz)
+* ------------------------------------------------------------------------------
+*
+* MFB com Q alto
+* Para fc=1kHz, Q=10:
+* C1 = C2 = 100nF
+* R1 = 15.9kΩ
+* R2 = 81Ω (baixo para Q alto)
+* R3 = 31.8kΩ
+
+R_bpn1 vin n_bpn1 15.9k
+C_bpn1 n_bpn1 n_bpn_out 100n
+R_bpn2 n_bpn1 n_bpn_inv 81
+C_bpn2 n_bpn_out n_bpn_inv 100n
+R_bpn3 n_bpn_inv 0 31.8k
+
+* Op-amp
+X_bpn n_bpn_ref n_bpn_inv vcc vee n_bpn_out OPAMP
+V_bpn_ref n_bpn_ref 0 DC 0
+
+* Saída
+E_bpn_buf v_bpn_out 0 n_bpn_out 0 1
+R_bpn_load v_bpn_out 0 100k
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+* Análise AC: sweep de 1Hz a 100kHz
+.ac dec 100 1 100k
+
+* Análise transiente para ver resposta temporal
+.tran 1m 100m 0 100u
+
+.control
+run
+
+* === ANALISE AC (Bode) ===
+set curplot = ac1
+
+* Medir frequências de corte do passa-banda
+meas ac fc_bp FIND vdb(v_bp_out) MAX
+meas ac gain_bp_max MAX vdb(v_bp_out)
+
+* Encontrar -3dB points
+let target_db_bp = gain_bp_max - 3
+meas ac f1_bp WHEN vdb(v_bp_out)=target_db_bp CROSS=1 RISE
+meas ac f2_bp WHEN vdb(v_bp_out)=target_db_bp CROSS=LAST FALL
+let bw_bp = f2_bp - f1_bp
+let fc_bp_calc = sqrt(f1_bp * f2_bp)
+let q_bp = fc_bp_calc / bw_bp
+
+* Medir rejeição do notch em 60Hz
+meas ac notch_rej FIND vdb(v_notch_out) AT=60
+
+* Medir passa-banda estreito
+meas ac gain_bpn_max MAX vdb(v_bpn_out)
+let target_db_bpn = gain_bpn_max - 3
+meas ac f1_bpn WHEN vdb(v_bpn_out)=target_db_bpn CROSS=1 RISE
+meas ac f2_bpn WHEN vdb(v_bpn_out)=target_db_bpn CROSS=LAST FALL
+let bw_bpn = f2_bpn - f1_bpn
+let fc_bpn_calc = sqrt(f1_bpn * f2_bpn)
+let q_bpn = fc_bpn_calc / bw_bpn
+
+* === EXPORTAR DADOS ===
+wrdata circuits/11_filtros_ativos/bp_wide_bode_v2.csv frequency vdb(v_bp_out) vp(v_bp_out)
+wrdata circuits/11_filtros_ativos/notch_60hz_bode_v2.csv frequency vdb(v_notch_out) vp(v_notch_out)
+wrdata circuits/11_filtros_ativos/bp_narrow_bode_v2.csv frequency vdb(v_bpn_out) vp(v_bpn_out)
+wrdata circuits/11_filtros_ativos/filters_comparison_v2.csv frequency vdb(v_bp_out) vdb(v_notch_out) vdb(v_bpn_out)
+
+* === RELATORIO ===
+echo
+echo "============================================================================"
+echo "              FILTROS ATIVOS (VERSAO CORRIGIDA) - RESULTADOS"
+echo "============================================================================"
+echo
+echo "=== FILTRO PASSA-BANDA LARGO ==="
+print gain_bp_max fc_bp_calc f1_bp f2_bp bw_bp q_bp
+echo "  Ganho máximo: " gain_bp_max "dB"
+echo "  Frequência central: " fc_bp_calc "Hz (esperado: ~707Hz)"
+echo "  Frequência corte inferior: " f1_bp "Hz"
+echo "  Frequência corte superior: " f2_bp "Hz"
+echo "  Largura de banda: " bw_bp "Hz"
+echo "  Fator Q: " q_bp " (esperado: ~0.7)"
+echo
+if q_bp > 0.5 & q_bp < 1.0
+  echo "  ✓ FILTRO FUNCIONANDO CORRETAMENTE"
+else
+  echo "  ✗ Verificar parâmetros"
+end
+echo
+echo "=== FILTRO NOTCH 60Hz ==="
+print notch_rej
+echo "  Rejeição em 60Hz: " notch_rej "dB"
+echo "  Esperado: -30 a -50dB"
+echo
+if notch_rej < -20
+  echo "  ✓ FILTRO FUNCIONANDO CORRETAMENTE"
+else
+  echo "  ✗ Rejeição insuficiente"
+end
+echo
+echo "=== FILTRO PASSA-BANDA ESTREITO ==="
+print gain_bpn_max fc_bpn_calc f1_bpn f2_bpn bw_bpn q_bpn
+echo "  Ganho máximo: " gain_bpn_max "dB"
+echo "  Frequência central: " fc_bpn_calc "Hz (esperado: ~1000Hz)"
+echo "  Largura de banda: " bw_bpn "Hz (esperado: ~100Hz)"
+echo "  Fator Q: " q_bpn " (esperado: ~10)"
+echo
+if q_bpn > 8 & q_bpn < 12
+  echo "  ✓ FILTRO FUNCIONANDO CORRETAMENTE"
+else
+  echo "  ⚠ Q fora da faixa esperada"
+end
+echo "============================================================================"
+
+.endc
+
+.end

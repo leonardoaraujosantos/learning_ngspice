@@ -1,0 +1,36 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n0) at (14.0,14.0);
+\coordinate (n1) at (22.0,20.0);
+\coordinate (n2) at (22.0,8.0);
+\coordinate (n3) at (22.0,28.0);
+\coordinate (n4) at (36.0,14.0);
+\coordinate (n5) at (26.0,28.0);
+\coordinate (vccbusL_g0) at (10.0,34.0);
+\coordinate (vccbusR_g0) at (40.0,34.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n3) -- (n3 |- vccbusL_g0);
+\draw (n5) -- (n5 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (40.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (n5) to[V,l=$VCC$,l_=$12$] (n5 |- gndbusL_g0);
+\draw (n3) to[V,l=$VIN$,l_=$0$] (n3 |- gndbusL_g0);
+\draw (n5) to[R,l=$R1$,l_=$47k$] (26.0,14.0) to[short] (n0);
+\draw (n0) to[R,l=$R2$,l_=$10k$] (n0 |- gndbusL_g0);
+\draw (n5) to[R,l=$RC$,l_=$4.7k$] (24.0,28.0) to[short] (24.0,20.0) to[short] (n1);
+\draw (n2) to[R,l=$RE$,l_=$1k$] (n2 |- gndbusL_g0);
+\draw (n3) to[C,l=$CIN$,l_=$10u$] (14.0,28.0) to[short] (n0);
+\draw (n1) to[C,l=$COUT$,l_=$10u$] (22.0,14.0) to[short] (n4);
+\draw (n4) to[R,l=$RL$,l_=$10k$] (n4 |- gndbusL_g0);
+\node[npn] (Q1) at (19.333333333333332,14.0) {};
+\draw (Q1.C) |- (n1);
+\draw (Q1.B) -- (n0);
+\draw (Q1.E) |- (n2);
+\end{circuitikz}
+\end{document}

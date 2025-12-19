@@ -1,0 +1,187 @@
+* ==============================================================================
+* GILBERT CELL MIXER V2 - CORRIGIDO (Multiplicador Analógico)
+* ==============================================================================
+*
+* VERSAO CORRIGIDA com polarização DC adequada e acoplamento AC
+*
+* Este circuito demonstra a célula de Gilbert, um mixer multiplicador
+* fundamental em sistemas de RF e comunicações.
+*
+* PRINCIPIO DE OPERACAO:
+*   - Multiplica dois sinais: RF (1MHz) e LO (100Hz)
+*   - Saída contem: f_RF ± f_LO
+*   - Produtos: 1.0001MHz (soma) e 999.9kHz (diferença)
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* ALIMENTACAO
+* ------------------------------------------------------------------------------
+Vcc vcc 0 DC 12
+Vee vee 0 DC -12
+
+* ------------------------------------------------------------------------------
+* SINAIS DE ENTRADA (AC-coupled)
+* ------------------------------------------------------------------------------
+
+* Sinal RF: 1MHz, 100mVpp (diferencial)
+V_rf_p v_rf_p_ac 0 SIN(0 50m 1Meg 0 0)
+V_rf_n v_rf_n_ac 0 SIN(0 50m 1Meg 0 0 180)
+C_rf_p v_rf_p_ac rf_p 1u
+C_rf_n v_rf_n_ac rf_n 1u
+R_rf_bias_p rf_p 0 10k
+R_rf_bias_n rf_n 0 10k
+
+* Sinal LO: 100Hz, 400mVpp (diferencial)
+V_lo_p v_lo_p_ac 0 SIN(0 200m 100 0 0)
+V_lo_n v_lo_n_ac 0 SIN(0 200m 100 0 0 180)
+C_lo_p v_lo_p_ac lo_p 1u
+C_lo_n v_lo_n_ac lo_n 1u
+R_lo_bias_p lo_p 0 10k
+R_lo_bias_n lo_n 0 10k
+
+* ------------------------------------------------------------------------------
+* GILBERT CELL - TOPOLOGIA CORRIGIDA
+* ------------------------------------------------------------------------------
+
+* === FONTE DE CORRENTE CONSTANTE (Tail Current Source) ===
+* Gera corrente de ~2mA
+Q_tail n_tail n_bias_tail vee BC547
+R_ee n_bias_tail vee 10k
+V_bias_tail n_bias_tail 0 DC -10.3
+
+* === PAR DIFERENCIAL INFERIOR (Q1, Q2) - Recebe RF ===
+* Transcondutor controlado pelo sinal RF
+Q1 n_c1 rf_p n_tail BC547
+Q2 n_c2 rf_n n_tail BC547
+
+* Resistor de degeneração emissiva para linearidade
+R_deg1 n_c1 n_deg1 100
+R_deg2 n_c2 n_deg2 100
+
+* === QUAD DE CHAVEAMENTO SUPERIOR (Q3-Q6) - Recebe LO ===
+* Par esquerdo (conectado a Q1)
+Q3 vout_p lo_p n_deg1 BC547
+Q4 vout_n lo_n n_deg1 BC547
+
+* Par direito (conectado a Q2)
+Q5 vout_n lo_p n_deg2 BC547
+Q6 vout_p lo_n n_deg2 BC547
+
+* === CARGAS ATIVAS (current mirror) ===
+* Cargas de coletor
+R_load_p vcc vout_p 1k
+R_load_n vcc vout_n 1k
+
+* === SAIDA DIFERENCIAL ===
+E_out v_out 0 vout_p vout_n 1
+R_out v_out 0 100k
+
+* ------------------------------------------------------------------------------
+* SAIDAS DE REFERENCIA (para monitoramento)
+* ------------------------------------------------------------------------------
+E_rf_mon v_rf_mon 0 rf_p rf_n 1
+R_rf_mon v_rf_mon 0 100k
+
+E_lo_mon v_lo_mon 0 lo_p lo_n 1
+R_lo_mon v_lo_mon 0 100k
+
+* ------------------------------------------------------------------------------
+* MODELO BJT
+* ------------------------------------------------------------------------------
+.model BC547 NPN (
++ IS=1.8e-14
++ BF=400
++ VAF=80
++ IKF=0.15
++ ISE=5e-14
++ NE=1.46
++ BR=4
++ NR=1
++ VAR=18
++ IKR=0.12
++ RE=0.6
++ RB=5
++ RC=0.5
++ CJE=13p
++ VJE=0.7
++ MJE=0.33
++ CJC=4p
++ VJC=0.5
++ MJC=0.33
++ TF=0.5n
++ TR=10n
+)
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+* Ponto de operação
+.op
+
+* Análise transiente: 1 segundo para ver 100 ciclos de 100Hz
+.tran 1u 1 0 1u
+
+.control
+run
+
+* === PONTO DE OPERACAO ===
+echo
+echo "============================================================================"
+echo "                    PONTO DE OPERACAO DC"
+echo "============================================================================"
+echo
+print v(n_tail) v(n_c1) v(n_c2) v(vout_p) v(vout_n)
+print @q1[ic] @q2[ic] @q3[ic] @q4[ic] @q5[ic] @q6[ic]
+
+* === ANALISE TRANSIENTE ===
+set curplot = tran1
+
+* Medições
+meas tran V_rf_pk MAX v(v_rf_mon)
+meas tran V_lo_pk MAX v(v_lo_mon)
+meas tran V_out_pk MAX v(v_out)
+meas tran V_out_min MIN v(v_out)
+let V_out_pp = V_out_pk - V_out_min
+
+* === FFT ===
+linearize v(v_out) v(v_rf_mon) v(v_lo_mon)
+fft v(v_out)
+
+let v_out_fft_mag = mag(v(v_out))
+let v_out_fft_db = db(v_out_fft_mag)
+let v_out_fft_freq = frequency
+
+* === EXPORTAR DADOS ===
+set curplot = tran1
+wrdata circuits/06_rf_comunicacoes/gilbert_v2_time.csv time v(v_rf_mon) v(v_lo_mon) v(v_out)
+
+wrdata circuits/06_rf_comunicacoes/gilbert_v2_fft.csv v_out_fft_freq v_out_fft_db v_out_fft_mag
+
+* === RELATORIO ===
+echo
+echo "============================================================================"
+echo "                    GILBERT CELL V2 - RESULTADOS"
+echo "============================================================================"
+echo
+echo "=== SINAIS DE ENTRADA ==="
+print V_rf_pk V_lo_pk
+echo "  RF: 1MHz, amplitude = " V_rf_pk "V"
+echo "  LO: 100Hz, amplitude = " V_lo_pk "V"
+echo
+echo "=== SAIDA ==="
+print V_out_pp
+echo "  Amplitude p-p: " V_out_pp "V"
+echo
+echo "=== PRODUTOS ESPERADOS (FFT) ==="
+echo "  1. DC component"
+echo "  2. f_LO = 100Hz (vazamento)"
+echo "  3. f_RF = 1MHz (vazamento)"
+echo "  4. f_DIFF = 999.9kHz  <- Downconversion"
+echo "  5. f_SUM = 1.0001MHz  <- Upconversion"
+echo "============================================================================"
+
+.endc
+
+.end

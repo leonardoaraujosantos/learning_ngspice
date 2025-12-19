@@ -1,0 +1,152 @@
+* ==============================================================================
+* FILTROS ATIVOS: PASSA-BANDA E NOTCH (VERSÃO 3 - SIMPLIFICADA)
+* ==============================================================================
+*
+* Versão simplificada com op-amps ideais mas com limitação de saída
+*
+* ==============================================================================
+
+* ------------------------------------------------------------------------------
+* ALIMENTACAO
+* ------------------------------------------------------------------------------
+Vcc vcc 0 DC 15
+Vee vee 0 DC -15
+
+* ------------------------------------------------------------------------------
+* SINAL DE ENTRADA
+* ------------------------------------------------------------------------------
+Vin vin 0 DC 0 AC 1
+
+* ------------------------------------------------------------------------------
+* FILTRO 1: PASSA-BANDA SIMPLES (Sallen-Key modificado)
+* ------------------------------------------------------------------------------
+* Topologia de dois estágios: passa-alta + passa-baixa = passa-banda
+*
+* Estágio passa-alta (fc_low = 250Hz)
+C_hp vin n_hp 68n
+R_hp n_hp n_hp1 10k
+R_hp_gnd n_hp1 0 10k
+
+* Op-amp buffer
+E_hp n_hp_out 0 n_hp1 0 10000
+R_hp_limit1 vcc r_hp_lim1 100
+R_hp_limit2 r_hp_lim2 vee 100
+D_hp1 n_hp_out r_hp_lim1 DLIM
+D_hp2 r_hp_lim2 n_hp_out DLIM
+
+* Estágio passa-baixa (fc_high = 2kHz)
+R_lp n_hp_out n_lp1 10k
+C_lp n_lp1 0 8n
+R_lp_fb n_lp1 n_bp_out 10k
+
+* Op-amp integrador
+E_bp n_bp_out 0 0 n_lp1 10000
+R_bp_limit1 vcc r_bp_lim1 100
+R_bp_limit2 r_bp_lim2 vee 100
+D_bp1 n_bp_out r_bp_lim1 DLIM
+D_bp2 r_bp_lim2 n_bp_out DLIM
+
+* Saída do passa-banda
+E_bp_buf v_bp_out 0 n_bp_out 0 1
+R_bp_load v_bp_out 0 100k
+
+* ------------------------------------------------------------------------------
+* FILTRO 2: NOT CH 60Hz (passivo + buffer)
+* ------------------------------------------------------------------------------
+*
+* Twin-T simples
+R_t1 vin n_t1 2.65k
+R_t2 n_t1 n_t2 2.65k
+R_t3 n_t3 0 5.3k
+C_t1 vin n_t3 1u
+C_t2 n_t2 n_t3 1u
+C_t3 n_t1 0 2u
+C_t4 n_t2 0 2u
+
+* Buffer simples
+E_notch n_notch_raw 0 n_t2 0 1
+R_notch_out n_notch_raw v_notch_out 1k
+C_notch_out v_notch_out 0 1u
+R_notch_load v_notch_out 0 100k
+
+* ------------------------------------------------------------------------------
+* FILTRO 3: PASSA-BANDA ESTREITO 1kHz (Q=10)
+* ------------------------------------------------------------------------------
+* Usa topologia state-variable simplificada
+*
+* Integrador 1
+R_sv1 vin n_sv1 15.9k
+C_sv1 n_sv1 n_int1 100n
+E_int1 n_int1 0 0 n_sv1 1000
+R_int1_limit1 vcc r_int1_lim1 100
+R_int1_limit2 r_int1_lim2 vee 100
+D_int1_1 n_int1 r_int1_lim1 DLIM
+D_int1_2 r_int1_lim2 n_int1 DLIM
+
+* Integrador 2
+R_sv2 n_int1 n_sv2 1k
+C_sv2 n_sv2 n_int2 100n
+E_int2 n_int2 0 0 n_sv2 1000
+R_int2_limit1 vcc r_int2_lim1 100
+R_int2_limit2 r_int2_lim2 vee 100
+D_int2_1 n_int2 r_int2_lim1 DLIM
+D_int2_2 r_int2_lim2 n_int2 DLIM
+
+* Realimentação para Q
+R_fb1 n_int2 n_sv1 31.8k
+
+* Saída (passa-banda é n_int1)
+E_bpn_buf v_bpn_out 0 n_int1 0 1
+R_bpn_load v_bpn_out 0 100k
+
+* ------------------------------------------------------------------------------
+* MODELO DE DIODO
+* ------------------------------------------------------------------------------
+.model DLIM D(Is=1e-15 Rs=1)
+
+* ------------------------------------------------------------------------------
+* ANALISES
+* ------------------------------------------------------------------------------
+
+.ac dec 100 1 100k
+
+.control
+run
+
+set curplot = ac1
+
+* Medições
+meas ac gain_bp_max MAX vdb(v_bp_out)
+meas ac freq_bp_max WHEN vdb(v_bp_out)=gain_bp_max
+meas ac notch_60hz FIND vdb(v_notch_out) AT=60
+meas ac gain_bpn_max MAX vdb(v_bpn_out)
+meas ac freq_bpn_max WHEN vdb(v_bpn_out)=gain_bpn_max
+
+* Exportar
+wrdata circuits/11_filtros_ativos/bp_wide_v3.csv frequency vdb(v_bp_out)
+wrdata circuits/11_filtros_ativos/notch_v3.csv frequency vdb(v_notch_out)
+wrdata circuits/11_filtros_ativos/bp_narrow_v3.csv frequency vdb(v_bpn_out)
+
+echo
+echo "==================================================================="
+echo "           FILTROS ATIVOS V3 - RESULTADOS"
+echo "==================================================================="
+echo
+echo "PASSA-BANDA LARGO:"
+print gain_bp_max freq_bp_max
+echo "  Ganho máximo: " gain_bp_max "dB"
+echo "  Frequência: " freq_bp_max "Hz"
+echo
+echo "NOTCH 60Hz:"
+print notch_60hz
+echo "  Atenuação em 60Hz: " notch_60hz "dB"
+echo
+echo "PASSA-BANDA ESTREITO:"
+print gain_bpn_max freq_bpn_max
+echo "  Ganho máximo: " gain_bpn_max "dB"
+echo "  Frequência: " freq_bpn_max "Hz"
+echo "==================================================================="
+
+.endc
+
+.end

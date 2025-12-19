@@ -1,0 +1,93 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage[siunitx]{circuitikz}
+\usepackage[active,tightpage]{preview}
+\PreviewEnvironment{circuitikz}
+\begin{document}
+\begin{circuitikz}[american voltages]
+\coordinate (n10) at (14.0,12.0);
+\coordinate (n7) at (14.0,18.0);
+\coordinate (n8) at (14.0,24.0);
+\coordinate (n6) at (14.0,30.0);
+\coordinate (n9) at (14.0,38.0);
+\coordinate (n11) at (14.0,44.0);
+\coordinate (n12) at (14.0,50.0);
+\coordinate (n13) at (14.0,56.0);
+\coordinate (n16) at (24.0,8.0);
+\coordinate (n4) at (24.0,14.0);
+\coordinate (n2) at (24.0,22.0);
+\coordinate (n3) at (24.0,28.0);
+\coordinate (n14) at (24.0,34.0);
+\coordinate (n15) at (24.0,40.0);
+\coordinate (n17) at (24.0,48.0);
+\coordinate (n5) at (24.0,54.0);
+\coordinate (n18) at (24.0,60.0);
+\coordinate (n0) at (34.0,30.0);
+\coordinate (n1) at (34.0,38.0);
+\coordinate (vccbusL_g0) at (10.0,66.0);
+\coordinate (vccbusR_g0) at (38.0,66.0);
+\draw (vccbusL_g0) -- (vccbusR_g0);
+\draw (n6) -- (n6 |- vccbusL_g0);
+\draw (n7) -- (n7 |- vccbusL_g0);
+\draw (n8) -- (n8 |- vccbusL_g0);
+\draw (n9) -- (n9 |- vccbusL_g0);
+\draw (n10) -- (n10 |- vccbusL_g0);
+\draw (n11) -- (n11 |- vccbusL_g0);
+\draw (n12) -- (n12 |- vccbusL_g0);
+\draw (n13) -- (n13 |- vccbusL_g0);
+\coordinate (gndbusL_g0) at (10.0,2.0);
+\coordinate (gndbusR_g0) at (38.0,2.0);
+\draw (gndbusL_g0) -- (gndbusR_g0);
+\node[ground] at (gndbusL_g0) {};
+\draw (n6) to[V,l=$VCC$,l_=$12$] (n6 |- gndbusL_g0);
+\draw (n7) to[V,l=$VEE$,l_=$-12$] (n7 |- gndbusL_g0);
+\draw (n6) to[R,l=$RC1$,l_=$10k$] (14.0,34.0) to[short] (n14);
+\draw (n6) to[R,l=$RC2$,l_=$10k$] (14.0,48.0) to[short] (n17);
+\draw (n2) to[I,l=$IEE$,l_=$1M$] (24.0,18.0) to[short] (n7);
+\draw (n8) to[V,l=$VIN1$,l_=$0$] (n8 |- gndbusL_g0);
+\draw (n11) to[V,l=$VIN2$,l_=$0$] (n11 |- gndbusL_g0);
+\draw (n6) to[R,l=$RC1\_ACT$,l_=$10k$] (14.0,40.0) to[short] (n15);
+\draw (n6) to[R,l=$RC2\_ACT$,l_=$10k$] (14.0,54.0) to[short] (n5);
+\draw (n3) to[I,l=$IEE\_ACT$,l_=$1M$] (24.0,18.0) to[short] (n7);
+\draw (n9) to[V,l=$VIN1\_ACT$,l_=$0$] (n9 |- gndbusL_g0);
+\draw (n12) to[V,l=$VIN2\_ACT$,l_=$0$] (n12 |- gndbusL_g0);
+\draw (n6) to[R,l=$RC1\_DEG$,l_=$10k$] (14.0,8.0) to[short] (n16);
+\draw (n6) to[R,l=$RC2\_DEG$,l_=$10k$] (14.0,60.0) to[short] (n18);
+\draw (n0) to[R,l=$RE1\_DEG$,l_=$1k$] (34.0,14.0) to[short] (n4);
+\draw (n1) to[R,l=$RE2\_DEG$,l_=$1k$] (34.0,14.0) to[short] (n4);
+\draw (n4) to[I,l=$IEE\_DEG$,l_=$1M$] (24.0,18.0) to[short] (n7);
+\draw (n10) to[V,l=$VIN1\_DEG$,l_=$0$] (n10 |- gndbusL_g0);
+\draw (n13) to[V,l=$VIN2\_DEG$,l_=$0$] (n13 |- gndbusL_g0);
+\node[npn] (Q1) at (20.666666666666668,26.666666666666668) {};
+\draw (Q1.C) |- (n14);
+\draw (Q1.B) |- (n8);
+\draw (Q1.E) |- (n2);
+\node[npn] (Q2) at (20.666666666666668,38.0) {};
+\draw (Q2.C) |- (n17);
+\draw (Q2.B) |- (n11);
+\draw (Q2.E) |- (n2);
+\node[npn] (Q1_ACT) at (20.666666666666668,35.333333333333336) {};
+\draw (Q1_ACT.C) |- (n15);
+\draw (Q1_ACT.B) |- (n9);
+\draw (Q1_ACT.E) |- (n3);
+\node[npn] (Q2_ACT) at (20.666666666666668,44.0) {};
+\draw (Q2_ACT.C) |- (n5);
+\draw (Q2_ACT.B) |- (n12);
+\draw (Q2_ACT.E) |- (n3);
+\node[pnp] (Q3_MIRROR) at (20.666666666666668,46.0) {};
+\draw (Q3_MIRROR.C) |- (n6);
+\draw (Q3_MIRROR.B) |- (n5);
+\draw (Q3_MIRROR.E) |- (n5);
+\node[pnp] (Q4_MIRROR) at (20.666666666666668,41.333333333333336) {};
+\draw (Q4_MIRROR.C) |- (n6);
+\draw (Q4_MIRROR.B) |- (n15);
+\draw (Q4_MIRROR.E) |- (n5);
+\node[npn] (Q1_DEG) at (24.0,16.666666666666668) {};
+\draw (Q1_DEG.C) -- (n16);
+\draw (Q1_DEG.B) |- (n10);
+\draw (Q1_DEG.E) -| (n0);
+\node[npn] (Q2_DEG) at (24.0,51.333333333333336) {};
+\draw (Q2_DEG.C) -- (n18);
+\draw (Q2_DEG.B) |- (n13);
+\draw (Q2_DEG.E) -| (n1);
+\end{circuitikz}
+\end{document}
