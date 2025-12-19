@@ -140,7 +140,7 @@ X_boost vin_boost vout_boost 0 pwm_boost boost_converter
 + Cbs=2000p
 + Is=1e-14
 + Pb=0.8
-)
++ )
 
 * Modelo de Chave Controlada por Tensão (Buck converter)
 .model SMOD SW (Ron=0.05 Roff=10Meg Vt=2.5 Vh=0.5)
@@ -156,7 +156,7 @@ X_boost vin_boost vout_boost 0 pwm_boost boost_converter
 + Cjo=500p
 + M=0.5
 + Tt=10n
-)
++ )
 
 * ------------------------------------------------------------------------------
 * ANALISES
