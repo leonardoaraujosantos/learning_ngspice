@@ -59,4 +59,66 @@ Use estes projetos para praticar o que está no `eletronica_analogica.pdf` e no 
 - Plote erro de fase vs tempo, frequência do VCO e tensão do filtro de loop.
 - Estime largura de banda do loop e tempo de lock.
 
+## 11) Regulador de Tensão Linear Discreto
+- Monte regulador série com transistor de passagem (NPN ou Darlington), zener de referência e divisor de realimentação.
+- Alvo: Vout = 5 V estável para Vin = 9–15 V, carga 0–100 mA.
+- Meça regulação de linha (ΔVout/ΔVin) e regulação de carga (ΔVout/ΔIout).
+- Plote Vout vs Vin (varredura DC) e resposta transitória a degrau de carga.
+
+## 12) Comparador com Histerese (Schmitt Trigger)
+- Schmitt Trigger com op-amp (LM741 ou ideal) e realimentação positiva resistiva.
+- Alvo: VTH+ = 3.3 V, VTH- = 1.7 V (histerese ~1.6 V) com VCC = ±12 V.
+- Plote curva de transferência Vout vs Vin (varredura DC lenta) mostrando histerese.
+- Aplique onda triangular e verifique forma de onda quadrada na saída.
+
+## 13) Oscilador Wien Bridge
+- Oscilador senoidal com op-amp, rede RC de Wien (R-C série + R-C paralelo), e controle de amplitude com JFET ou lâmpada incandescente (modelo resistivo).
+- Alvo: frequência ~1 kHz, THD < 1% em regime.
+- Plote start-up, estabilização de amplitude e espectro FFT.
+- Compare THD com e sem controle automático de ganho (AGC).
+
+## 14) Amplificador Cascode (BJT)
+- Cascode NPN (BC548 × 2) em configuração emissor comum + base comum.
+- Alvo: ganho > 50 dB, banda > 1 MHz, baixa capacitância Miller.
+- Plote Bode (ganho e fase) e compare com emissor comum simples.
+- Meça Zout e verifique melhoria na impedância de saída.
+
+## 15) Amplificador de Instrumentação (3 Op-Amps)
+- Topologia clássica com 3 op-amps (2 buffers de entrada + diferencial de saída).
+- Alvo: ganho diferencial ajustável (1–100×) via Rgain, CMRR > 80 dB.
+- Injete sinal comum e diferencial; meça Ad, Ac e calcule CMRR.
+- Verifique linearidade com varredura DC de entrada diferencial.
+
+## 16) Amplificador de Transimpedância (TIA)
+- Op-amp com realimentação resistiva para converter corrente (fotodiodo modelado) em tensão.
+- Alvo: ganho 100 kΩ (Vout = 1 V para Iin = 10 µA), banda > 100 kHz.
+- Inclua capacitor de compensação para estabilidade.
+- Plote resposta em frequência e ruído de saída (`.noise`).
+
+## 17) Retificador de Precisão (Meia-Onda)
+- Retificador de meia-onda com op-amp e diodos no laço de realimentação.
+- Alvo: retificação precisa de sinais < 100 mV sem perda de 0.6 V do diodo.
+- Plote entrada senoidal (100 mVpp, 1 kHz) e saída retificada.
+- Compare com retificador passivo simples.
+
+## 18) Fonte de Corrente de Precisão (Wilson Mirror)
+- Espelho de corrente Wilson (3 BJTs NPN) para alta impedância de saída.
+- Alvo: Iout = 1 mA com compliance > 8 V (VCC = 12 V).
+- Compare Zout e precisão com espelho simples de 2 transistores.
+- Plote Iout vs Vout para verificar região de compliance.
+
+## 19) Mixer Analógico (Célula de Gilbert Simplificada)
+- Par diferencial com modulação da corrente de cauda por segundo sinal.
+- Injete RF = 1 MHz e LO = 1.1 MHz; observe produto IF = 100 kHz.
+- Plote espectro de saída (FFT) mostrando componentes de mistura.
+- Meça ganho de conversão e isolação LO-RF.
+
+## 20) Retificador de Onda Completa com Filtro Capacitivo
+- Ponte de diodos (1N4148 ou 1N4007) com filtro RC/LC.
+- Alvo: Vout DC ≈ 5 V com ripple < 5% para carga de 100 mA.
+- Plote tensão de saída, ripple e corrente nos diodos.
+- Calcule e compare ripple teórico vs simulado.
+
+---
+
 > Sugestão: para cada exercício, produza: (1) netlist SPICE, (2) plots exportados, (3) tabelas de medidas `.meas` no log, (4) breve interpretação dos resultados e verificações (ganho, fase, start-up, compliance, THD, ruído).
