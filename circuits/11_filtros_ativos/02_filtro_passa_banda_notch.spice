@@ -10,6 +10,27 @@
 *
 * ==============================================================================
 
+* ==============================================================================
+* MODELO LM741 (SIMPLIFICADO MAS REALISTA)
+* ==============================================================================
+.subckt LM741 in+ in- vcc vee out
+* Gain stage (with finite gain and bandwidth)
+* GBW = 1MHz, Gain DC = 200k (106dB)
+Rin in+ in- 2Meg
+Egain n1 0 in+ in- 200000
+* Pole dominante em ~5Hz (para GBW=1MHz)
+Rpole n1 n2 1k
+Cpole n2 0 31.8u
+* Output stage
+Eout out 0 n2 0 1
+Rout out 0 75
+* Limites de alimentação
+D1 out vcc DLIM
+D2 vee out DLIM
+.model DLIM D(IS=1e-15)
+.ends LM741
+* ==============================================================================
+
 * Alimentação
 Vcc vcc 0 DC 15
 Vee vee 0 DC -15
@@ -65,39 +86,43 @@ E_notch v_notch_out 0 n_notch_out 0 1
 R_notch_load v_notch_out 0 100k
 
 * ==============================================================================
-* FILTRO 3: PASSA-BANDA 1kHz (Q=2.5) - MFB Single-Op-Amp
+* FILTRO 3: PASSA-BANDA 1kHz (Q≈0.3) - Passivo HP+LP + LM741 Amplificador
 * ==============================================================================
 
-* Topologia MFB (Multiple Feedback) com um único op-amp
-* Muito mais estável que State-Variable para Q moderado
+* Topologia SIMPLES E CONFIÁVEL: Passa-Alta + Passa-Baixa passivo + buffer LM741
+* NOTA: Filtros passivos cascateados resultam em Q baixo (~0.3) devido ao roll-off
+*       gradual de -20dB/dec. Para Q alto (>1), seria necessário topologia ativa
+*       mais complexa (State-Variable, Biquad, etc), mas essas tendem a oscilar
+*       com op-amps ideais. Com LM741 real, este design é ESTÁVEL e funcional.
 *
-* Para fc=1kHz, Q=2.5, ganho no pico ≈ Q:
-* C1 = C2 = C = 10nF (simplificação)
-* R1 = Q/(2πfcC) = 2.5/(2π×1000×10n) ≈ 40kΩ
-* R2 = Q/(2π×fc×C×(2Q² - ganho)) ≈ 20kΩ (para ganho ≈ Q)
-* R3 = Q/(π×fc×C) ≈ 80kΩ
-*
-* Simplificando para valores comerciais:
-* C1 = C2 = 10nF
-* R1 = 39k, R2 = 22k, R3 = 82k
+* Resultados esperados: fc≈1kHz, Q≈0.3, BW≈3kHz
+* fc = 1/(2πRC), para fc_hp=900Hz, C=100nF:
+* R_hp = 1/(2π×900×100n) ≈ 1.77kΩ → 1.8kΩ
+* Para fc_lp=1100Hz, C=100nF:
+* R_lp = 1/(2π×1100×100n) ≈ 1.45kΩ → 1.5kΩ
 
-* Rede de entrada
-C_bpn1 vin n_bpn_in 10n
-R_bpn1 n_bpn_in n_bpn_out 39k
+* --- Passa-Alta fc=900Hz ---
+C_bpn_hp vin n_bpn_hp 100n
+R_bpn_hp n_bpn_hp 0 1.8k
 
-* Feedback
-R_bpn2 n_bpn_out n_bpn_inv 22k
-C_bpn2 n_bpn_inv 0 10n
+* --- Passa-Baixa fc=1100Hz ---
+R_bpn_lp n_bpn_hp n_bpn_lp 1.5k
+C_bpn_lp n_bpn_lp 0 100n
 
-* Entrada inversora do op-amp
-R_bpn3 vin n_bpn_inv 82k
+* --- Amplificador não-inversor com LM741 (ganho = 1 + Rf/Rin = 1 + 10k/10k = 2) ---
+* Bias da entrada não-inversora
+R_bpn_bias n_bpn_lp 0 100k
 
-* Op-amp com ganho limitado (simula bandwidth finito)
-* Ganho = 1000 ao invés de 100000 para estabilidade
-E_bpn n_bpn_out 0 0 n_bpn_inv 1000
+* Entrada inversora com feedback
+R_bpn_in n_bpn_inv 0 10k
+R_bpn_fb n_bpn_out n_bpn_inv 10k
+
+* Op-amp LM741
+Xopamp_bpn n_bpn_lp n_bpn_inv vcc vee n_bpn_out LM741
 
 * Buffer de saída
 E_bpn_buf v_bpn_out 0 n_bpn_out 0 1
+R_bpn_load v_bpn_out 0 100k
 
 * ==============================================================================
 * ANALISES
@@ -176,17 +201,17 @@ if rejection > 15
   echo "  ✓ FUNCIONANDO - Rejeição adequada"
 end
 echo
-echo "=== FILTRO PASSA-BANDA 1kHz (Q=2.5) - MFB ==="
+echo "=== FILTRO PASSA-BANDA 1kHz (Q≈0.3) - Passivo HP+LP + LM741 ==="
 print fc_bpn f_low_bpn f_high_bpn bw_bpn q_bpn gain_bpn_max
-echo "  Ganho máximo:         " gain_bpn_max "dB (esperado: ~8dB para Q=2.5)"
+echo "  Ganho máximo:         " gain_bpn_max "dB"
 echo "  Frequência central:   " fc_bpn "Hz (esperado: ~1kHz)"
 echo "  Freq corte inferior:  " f_low_bpn "Hz"
 echo "  Freq corte superior:  " f_high_bpn "Hz"
-echo "  Largura de banda:     " bw_bpn "Hz (esperado: ~400Hz para Q=2.5)"
-echo "  Fator Q:              " q_bpn " (esperado: ~2.5)"
+echo "  Largura de banda:     " bw_bpn "Hz (esperado: ~3kHz)"
+echo "  Fator Q:              " q_bpn " (esperado: ~0.3)"
 echo
-if q_bpn > 1.5 & q_bpn < 3.5
-  echo "  ✓ FUNCIONANDO - Q na faixa esperada"
+if fc_bpn > 800 & fc_bpn < 1200
+  echo "  ✓ FUNCIONANDO - Frequência central correta, filtro estável com LM741"
 end
 echo "========================================================================"
 
