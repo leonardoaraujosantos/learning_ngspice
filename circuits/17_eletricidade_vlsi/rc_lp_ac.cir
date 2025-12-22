@@ -1,0 +1,19 @@
+* RC Low-Pass Filter - AC Analysis (Bode)
+.param R=1k
+.param C=1u
+
+V1 in 0 AC 1
+R1 in out {R}
+C1 out 0 {C}
+
+.ac dec 200 1 1Meg
+* ganho e fase da função de transferência
+.print ac db(v(out)/v(in)) phase(v(out)/v(in))
+
+.control
+run
+plot db(v(out)/v(in)) vs frequency
+plot phase(v(out)/v(in)) vs frequency
+.endc
+
+.end
