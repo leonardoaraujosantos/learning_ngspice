@@ -1,0 +1,147 @@
+* ============================================================================
+* Circuito: Retificador de Meia Onda com Transformador Abaixador
+* ============================================================================
+* Este circuito demonstra um retificador simples de meia onda:
+*   1. Entrada: 110V AC da rede elétrica (60Hz)
+*   2. Transformador: reduz de 110V para 11V
+*   3. Diodo: retifica (permite apenas semiciclo positivo)
+*   4. Carga resistiva: 10kΩ
+*
+* A análise transitória mostra como a tensão AC senoidal é convertida
+* em uma tensão pulsante DC (pulsos positivos a cada ciclo).
+* ============================================================================
+
+* ----------------------------------------------------------------------------
+* Fonte de Tensão AC (Rede Elétrica)
+* ----------------------------------------------------------------------------
+* Sintaxe: Vxxx n+ n- SIN(Voffset Vamp Freq Tdelay Theta)
+*
+* 110V RMS → Amplitude de pico = 110 × √2 ≈ 155.56V
+* Frequência: 60Hz (padrão brasileiro)
+Vin  vin 0  SIN(0 155.56 60 0 0)
+
+* ----------------------------------------------------------------------------
+* Transformador Abaixador (110V → 11V)
+* ----------------------------------------------------------------------------
+* Implementado com dois indutores acoplados magneticamente
+* Razão de transformação: n = V1/V2 = 110/11 = 10:1
+*
+* A razão de espiras é dada por: n = √(L1/L2)
+* Escolhendo L1 = 1H e L2 = 10mH → n = √(1/0.01) = 10 ✓
+
+* Enrolamento primário (lado de 110V)
+L1  vin  0  1
+
+* Enrolamento secundário (lado de 11V)
+L2  vsec 0  10m
+
+* Acoplamento magnético entre L1 e L2
+* k = 0.999 (acoplamento quase perfeito, próximo de transformador ideal)
+K1  L1 L2  0.999
+
+* Resistências internas dos enrolamentos (perdas do transformador)
+* Valores pequenos para simular transformador real
+Rpri  vin  0   1k        ; Resistência primário (alta, paralelo)
+Rsec  vsec 0   100       ; Resistência secundário (baixa)
+
+* ----------------------------------------------------------------------------
+* Diodo Retificador
+* ----------------------------------------------------------------------------
+* O diodo conduz apenas no semiciclo positivo (Vsec > 0.7V)
+* No semiciclo negativo, o diodo bloqueia e Vout ≈ 0V
+*
+* Usando modelo de diodo genérico do SPICE
+D1  vsec vout  DMOD
+
+* Modelo do diodo (parâmetros típicos de diodo retificador como 1N4007)
+.model DMOD D(Is=1e-14 Rs=0.1 N=1.8 BV=1000 IBV=5e-4)
+
+* ----------------------------------------------------------------------------
+* Carga Resistiva
+* ----------------------------------------------------------------------------
+* Resistor de 10kΩ representa a carga alimentada pelo retificador
+* A corrente média na carga será: Iavg ≈ Vpico/(π×R) ≈ 15V/(3.14×10k) ≈ 0.48mA
+Rload  vout 0  10k
+
+* ============================================================================
+* CÁLCULOS TEÓRICOS
+* ============================================================================
+* Tensão de entrada primário:
+*   Vin_rms = 110V
+*   Vin_pico = 110 × √2 ≈ 155.6V
+*
+* Tensão de saída secundário:
+*   Vsec_rms = 110V / 10 = 11V
+*   Vsec_pico = 11 × √2 ≈ 15.6V
+*
+* Tensão retificada na carga (após diodo):
+*   Vout_pico ≈ Vsec_pico - Vd ≈ 15.6V - 0.7V ≈ 14.9V
+*   Vout_média = Vout_pico / π ≈ 14.9V / 3.14 ≈ 4.74V
+*
+* Frequência dos pulsos de saída:
+*   f_pulso = 60Hz (um pulso por ciclo em retificador de meia onda)
+*   Período = 16.67ms
+* ============================================================================
+
+* ----------------------------------------------------------------------------
+* Análise Transitória
+* ----------------------------------------------------------------------------
+* .tran <passo> <tempo_total> <tempo_inicial> <passo_máximo>
+*
+* Simula 6 ciclos completos de 60Hz (100ms) para visualizar bem a retificação
+* Passo de 10µs garante boa resolução da forma de onda
+.tran 10u 100m
+
+* Salvar variáveis importantes
+.save V(vin) V(vsec) V(vout) I(Rload)
+
+* ----------------------------------------------------------------------------
+* Comandos de Controle e Plotagem
+* ----------------------------------------------------------------------------
+.control
+run
+
+* Plot 1: Tensões do primário e secundário do transformador
+echo "=== TENSÕES NO TRANSFORMADOR ==="
+plot V(vin) V(vsec) title "Transformador 110V → 11V" xlabel "Tempo (s)" ylabel "Tensão (V)"
+
+* Plot 2: Comparação entre tensão do secundário e tensão retificada na carga
+echo "=== TENSÃO ANTES E DEPOIS DO DIODO ==="
+plot V(vsec) V(vout) title "Retificação de Meia Onda" xlabel "Tempo (s)" ylabel "Tensão (V)"
+
+* Plot 3: Tensão na carga (saída do retificador)
+echo "=== TENSÃO RETIFICADA NA CARGA ==="
+plot V(vout) title "Tensão na Carga Resistiva (10kΩ)" xlabel "Tempo (s)" ylabel "Tensão (V)"
+
+* Plot 4: Corrente na carga
+echo "=== CORRENTE NA CARGA ==="
+plot I(Rload) title "Corrente na Carga" xlabel "Tempo (s)" ylabel "Corrente (A)"
+
+* Medições úteis
+echo " "
+echo "========================================================"
+echo "  PARÂMETROS DO RETIFICADOR DE MEIA ONDA"
+echo "========================================================"
+echo "  Tensão de entrada (RMS):     110V AC @ 60Hz"
+echo "  Razão do transformador:      10:1 (110V → 11V)"
+echo "  Tensão secundário (RMS):     ~11V AC"
+echo "  Tensão secundário (pico):    ~15.6V"
+echo "  Tensão na carga (pico):      ~14.9V (após diodo)"
+echo "  Tensão na carga (média):     ~4.74V DC"
+echo "  Resistência de carga:        10 kΩ"
+echo "  Corrente média na carga:     ~0.47 mA"
+echo "  Frequência de ripple:        60 Hz"
+echo "========================================================"
+echo " "
+echo "OBSERVAÇÕES:"
+echo "  - Apenas os semiciclos positivos aparecem na saída"
+echo "  - O diodo bloqueia os semiciclos negativos"
+echo "  - Para obter DC mais contínua, seria necessário:"
+echo "    * Capacitor de filtro em paralelo com a carga"
+echo "    * Ou retificador de onda completa (ponte de diodos)"
+echo "========================================================"
+echo " "
+
+.endc
+
+.end

@@ -1,35 +1,78 @@
-* Carrega um tanque LC via chave; depois abre e observa ring-down
+* ============================================================================
+* Circuito: Tanque LC com Chave - Demonstração de Ring-Down
+* ============================================================================
+* Este circuito demonstra o comportamento de um tanque LC:
+*   1. Fase de carga (0 a 1ms): Chave fechada, capacitor carrega via bateria
+*   2. Fase de oscilação (após 1ms): Chave abre, energia oscila entre L e C
+*   3. Amortecimento gradual devido ao Rloss
+* ============================================================================
 
-Vbat  vbatt 0  DC 5
-Rser  vbatt nsw 100
+* ----------------------------------------------------------------------------
+* Fonte de alimentação e resistor série
+* ----------------------------------------------------------------------------
+Vbat  vbatt 0  DC 5        ; Bateria de 5V
+Rser  vbatt nsw 100        ; Resistor série de 100Ω (limita corrente de carga)
 
-* Chave controlada por tensão: Sxxx n+ n- ctrl+ ctrl- model
+* ----------------------------------------------------------------------------
+* Chave controlada por tensão
+* ----------------------------------------------------------------------------
+* Sintaxe: Sxxx n+ n- nctrl+ nctrl- ModelName
+* A chave conecta nsw ao ntank (tanque LC)
 S1    nsw   ntank vctrl 0  SWMOD
 
-* Controle da chave:
-* - Começa FECHADA (Vctrl = 5V)
-* - Abre em 1 ms (Vctrl cai pra 0V)
+* ----------------------------------------------------------------------------
+* Sinal de controle da chave
+* ----------------------------------------------------------------------------
+* PULSE(V_inicial V_final t_delay t_rise t_fall t_pulse t_period)
+* - De 0 a 1ms: Vctrl = 5V → Chave FECHADA (carrega o capacitor)
+* - Após 1ms: Vctrl = 0V → Chave ABERTA (oscilação livre do tanque LC)
 Vctrl vctrl 0  PULSE(5 0 1m 1n 1n 1 2m)
 
+* Modelo da chave:
+*   Ron   = 0.1Ω    (resistência quando fechada)
+*   Roff  = 1e12Ω   (resistência quando aberta - praticamente infinito)
+*   Vt    = 2.5V    (tensão de limiar)
+*   Vh    = 0.1V    (histerese)
 .model SWMOD SW(Ron=0.1 Roff=1e12 Vt=2.5 Vh=0.1)
 
-* Tanque LC em paralelo para GND
-L1 ntank 0  10u
-C1 ntank 0  100n
+* ----------------------------------------------------------------------------
+* Tanque LC em paralelo
+* ----------------------------------------------------------------------------
+* Frequência de ressonância: f = 1/(2π√LC) ≈ 71 Hz (período ≈ 14ms)
+* Com valores maiores, a oscilação é mais lenta e fácil de visualizar
+L1 ntank 0  500m           ; Indutor de 500mH
+C1 ntank 0  10u            ; Capacitor de 10µF
 
-* Pequena perda (senão fica oscilando "pra sempre" em simulador ideal)
+* ----------------------------------------------------------------------------
+* Resistor de perda (amortecimento)
+* ----------------------------------------------------------------------------
+* Sem este resistor, a oscilação seria eterna em simulação ideal
+* Rloss = 50kΩ → Q alto, oscilação levemente amortecida
 Rloss ntank 0  50k
 
-* Ajuda o simulador: condições iniciais (opcional)
+* ----------------------------------------------------------------------------
+* Condições iniciais
+* ----------------------------------------------------------------------------
+* Capacitor começa descarregado
 .ic V(ntank)=0
 
-
-.tran 50n 10m
+* ----------------------------------------------------------------------------
+* Análise transitória
+* ----------------------------------------------------------------------------
+* .tran <passo> <tempo_total>
+* Tempo total de 150ms permite ver ~10 ciclos completos e o decaimento da oscilação
+.tran 100n 150m
 .save V(ntank) V(vctrl) I(L1)
 
+* ----------------------------------------------------------------------------
+* Comandos de controle
+* ----------------------------------------------------------------------------
 .control
 run
+* Plota tensão no tanque LC e sinal de controle da chave
 plot v(ntank) v(vctrl)
+* Plota corrente no indutor (mostra a energia circulando)
+plot i(L1)
 .endc
 
 .end

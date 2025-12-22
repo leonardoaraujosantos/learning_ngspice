@@ -1,0 +1,114 @@
+* ============================================================================
+* Circuito: Filtro Passa-Baixa RLC - Análise de Resposta em Frequência
+* ============================================================================
+* Este circuito demonstra um filtro passa-baixa de segunda ordem usando
+* componentes RLC. A análise AC mostra como o filtro atenua sinais de
+* alta frequência enquanto permite a passagem de baixas frequências.
+* ============================================================================
+
+* ----------------------------------------------------------------------------
+* Fonte de sinal AC
+* ----------------------------------------------------------------------------
+* Fonte com amplitude de 1V para facilitar leitura do ganho em dB
+* A fase é 0 graus
+Vin  vin 0  AC 1
+
+* ----------------------------------------------------------------------------
+* Resistor série (resistência da fonte + resistência do filtro)
+* ----------------------------------------------------------------------------
+* Rs representa tanto a impedância de saída da fonte quanto a
+* resistência de amortecimento do filtro (controla o fator Q)
+Rs   vin n1  50
+
+* ----------------------------------------------------------------------------
+* Indutor série
+* ----------------------------------------------------------------------------
+* O indutor bloqueia altas frequências (XL = 2πfL aumenta com f)
+L1   n1  vout  10m        ; Indutor de 10mH
+
+* ----------------------------------------------------------------------------
+* Capacitor em paralelo com a saída
+* ----------------------------------------------------------------------------
+* O capacitor desvia altas frequências para o terra (XC = 1/(2πfC) diminui com f)
+C1   vout 0   1u          ; Capacitor de 1µF
+
+* ----------------------------------------------------------------------------
+* Resistor de carga (opcional)
+* ----------------------------------------------------------------------------
+* Representa a impedância de entrada do próximo estágio
+* Valor alto para não afetar muito a resposta do filtro
+Rload vout 0  10k
+
+* ============================================================================
+* CÁLCULOS TEÓRICOS
+* ============================================================================
+* Frequência de ressonância (aproximadamente a frequência de corte):
+*   f0 = 1/(2π√LC)
+*   f0 = 1/(2π√(10mH × 1µF))
+*   f0 = 1/(2π√(10×10⁻⁹))
+*   f0 = 1/(2π × 0.0001)
+*   f0 ≈ 1592 Hz ≈ 1.6 kHz
+*
+* Fator de qualidade:
+*   Q = (1/Rs)√(L/C)
+*   Q = (1/50)√(10m/1u)
+*   Q = 0.02 × 100 = 2
+*
+* Um Q ≈ 2 indica amortecimento moderado (sem pico excessivo na resposta)
+* ============================================================================
+
+* ----------------------------------------------------------------------------
+* Análise de Frequência (AC Analysis)
+* ----------------------------------------------------------------------------
+* Sintaxe: .ac <tipo> <num_pontos> <freq_inicial> <freq_final>
+*
+* DEC = escala logarítmica (decade) - pontos por década
+* 50 pontos por década garante uma curva suave
+* Faixa: 10Hz a 100kHz (cobre bem abaixo e acima da freq. de corte)
+.ac dec 50 10 100k
+
+* Variáveis a salvar (economiza memória em simulações grandes)
+.save V(vin) V(vout)
+
+* ----------------------------------------------------------------------------
+* Comandos de controle e plotagem
+* ----------------------------------------------------------------------------
+.control
+run
+
+* Plot 1: Magnitude da resposta em frequência (diagrama de Bode - magnitude)
+* vdb(vout) = 20*log10(|V(vout)/1V|) em decibéis
+* Em frequências baixas: ganho próximo de 0 dB (sinal passa)
+* Em frequências altas: ganho cai -40 dB/década (filtro de 2ª ordem)
+echo "=== RESPOSTA EM FREQUÊNCIA - MAGNITUDE ==="
+plot vdb(vout) title "Filtro Passa-Baixa RLC - Magnitude" xlabel "Frequência (Hz)" ylabel "Ganho (dB)"
+
+* Plot 2: Fase da resposta em frequência (diagrama de Bode - fase)
+* A fase varia de 0° (baixas freq.) até -180° (altas freq.)
+* Na frequência de corte, a fase é aproximadamente -90°
+echo "=== RESPOSTA EM FREQUÊNCIA - FASE ==="
+plot phase(vout)*180/pi title "Filtro Passa-Baixa RLC - Fase" xlabel "Frequência (Hz)" ylabel "Fase (graus)"
+
+* Plot 3: Magnitude e fase juntas
+echo "=== DIAGRAMA DE BODE COMPLETO ==="
+plot vdb(vout) phase(vout)*180/pi title "Diagrama de Bode - Filtro Passa-Baixa RLC" xlabel "Frequência (Hz)"
+
+* Informações úteis na saída
+echo " "
+echo "========================================================"
+echo "  PARÂMETROS DO FILTRO PASSA-BAIXA RLC"
+echo "========================================================"
+echo "  Rs    = 50 Ω"
+echo "  L     = 10 mH"
+echo "  C     = 1 µF"
+echo "  Rload = 10 kΩ"
+echo " "
+echo "  Frequência de corte teórica: ~1.6 kHz"
+echo "  Fator Q: ~2 (amortecimento moderado)"
+echo "  Taxa de atenuação: -40 dB/década (filtro 2ª ordem)"
+echo "========================================================"
+echo " "
+
+.endc
+
+.end
