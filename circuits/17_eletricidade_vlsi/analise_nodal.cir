@@ -13,14 +13,13 @@ RCD     C D 1
 RB      B 0 3
 * Resistor 2 ohms no C ao terra
 RC      C 0 2
-
 * Dentro do .control temos os comandos de controle do simulador
-* "op" indica analise dc 
 .control
-op
-echo "===== RESULTADOS ANALISE NODAL ====="
-print v(a) v(b) v(c) v(d)
-echo "==================================="
+    * "op" indica analise dc (instrui o SPICE em DC)
+    op
+    echo "===== RESULTADOS ANALISE NODAL ====="
+    print v(a) v(b) v(c) v(d)
+    echo "==================================="
 .endc
 
 .end

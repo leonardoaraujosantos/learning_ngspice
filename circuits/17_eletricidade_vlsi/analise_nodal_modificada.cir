@@ -1,0 +1,19 @@
+* MNA example - Kirchhoff + sources
+* Fonte de tensao e corrente
+V1 v1 0 DC 1
+I1 0 v3 DC 1.5
+* Resistores (5,10,7)
+R5 v1 v2 5
+R10 v2 0 10
+R7 v2 v3 7
+
+* Dentro do .control temos os comandos de controle do simulador
+.control
+    echo "===== RESULTADOS ANALISE NODAL MODIFICADA ====="
+    * "op" indica analise dc (instrui o SPICE em DC)
+    op
+    print v(v1) v(v2) v(v3) i(V1)
+    echo "==============================================="
+.endc
+
+.end

@@ -1,0 +1,35 @@
+* Carrega um tanque LC via chave; depois abre e observa ring-down
+
+Vbat  vbatt 0  DC 5
+Rser  vbatt nsw 100
+
+* Chave controlada por tensão: Sxxx n+ n- ctrl+ ctrl- model
+S1    nsw   ntank vctrl 0  SWMOD
+
+* Controle da chave:
+* - Começa FECHADA (Vctrl = 5V)
+* - Abre em 1 ms (Vctrl cai pra 0V)
+Vctrl vctrl 0  PULSE(5 0 1m 1n 1n 1 2m)
+
+.model SWMOD SW(Ron=0.1 Roff=1e12 Vt=2.5 Vh=0.1)
+
+* Tanque LC em paralelo para GND
+L1 ntank 0  10u
+C1 ntank 0  100n
+
+* Pequena perda (senão fica oscilando "pra sempre" em simulador ideal)
+Rloss ntank 0  50k
+
+* Ajuda o simulador: condições iniciais (opcional)
+.ic V(ntank)=0
+
+
+.tran 50n 10m
+.save V(ntank) V(vctrl) I(L1)
+
+.control
+run
+plot v(ntank) v(vctrl)
+.endc
+
+.end

@@ -1,0 +1,33 @@
+* BJT Bias - 2N2222 (ngspice)
+* Fonte de tensao
+VCC vcc 0 DC 10
+* Resistores
+RB1 vcc vb 5k
+RB2 vb  0  5k
+RC  vcc vc 1k
+RE  ve  0  1k
+* Transistor NPN: C B E
+Q1 vc vb ve 2N2222
+
+* Modelo 2N2222 (padrão SPICE, típico e compatível com ngspice)
+.model 2N2222 NPN(
+    + IS=1E-14 BF=200 NF=1.0 VAF=100 IKF=0.3
+    + ISE=1E-13 NE=1.5 BR=3 NR=1.0
+    + RB=10 RC=1 RE=0.5
+    + CJE=25p VJE=0.75 MJE=0.33
+    + CJC=8p  VJC=0.75 MJC=0.33
+    + TF=0.35n TR=10n
+)
+
+* Dentro do .control temos os comandos de controle do simulador
+.control
+    * "op" indica analise dc (instrui o SPICE em DC)
+    op
+    echo "==== DC OP ===="
+    print v(vcc) v(vb) v(ve) v(vc)
+    print @q1[ic] @q1[ib] @q1[ie]
+    echo "==============="
+    quit
+.endc
+
+.end
