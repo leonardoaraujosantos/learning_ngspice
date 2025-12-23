@@ -1,0 +1,52 @@
+// ============================================================================
+// Capacitor Variavel (Varactor) em Verilog-A
+// C(V) = C0 / (1 + V/Vj)^m
+// Util para VCOs, sintonizadores, filtros variaveis
+// ============================================================================
+
+`include "constants.vams"
+`include "disciplines.vams"
+
+module varactor(plus, minus);
+    // Declaracao dos terminais
+    inout plus, minus;
+    electrical plus, minus;
+
+    // Parametros do modelo
+    parameter real C0 = 10p from (0:inf);        // Capacitancia com V=0 (F)
+    parameter real Vj = 0.7 from (0:inf);        // Tensao de juncao (V)
+    parameter real m = 0.5 from (0:1];           // Coeficiente de gradacao
+    parameter real Cmin = 1p from (0:inf);       // Capacitancia minima (F)
+    parameter real Cmax = 100p from (0:inf);     // Capacitancia maxima (F)
+
+    // Variaveis internas
+    real V;           // Tensao aplicada
+    real C;           // Capacitancia instantanea
+    real ratio;       // Razao Cmax/Cmin
+
+    analog begin
+        // Tensao entre terminais
+        V = V(plus, minus);
+
+        // Modelo de capacitancia variavel
+        if (V >= 0) begin
+            // Polarizacao direta: capacitancia aumenta linearmente
+            C = C0 * (1 + m*V/Vj);
+        end else begin
+            // Polarizacao reversa: capacitancia diminui
+            C = C0 / pow(1 - V/Vj, m);
+        end
+
+        // Limitar entre Cmin e Cmax
+        if (C < Cmin)
+            C = Cmin;
+        if (C > Cmax)
+            C = Cmax;
+
+        // Relacao I-V do capacitor: I = C * dV/dt
+        I(plus, minus) <+ C * ddt(V);
+
+        // Contribuicao de carga: Q = C * V
+        I(plus, minus) <+ ddt(C * V);
+    end
+endmodule

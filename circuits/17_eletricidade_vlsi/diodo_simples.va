@@ -1,0 +1,59 @@
+// ============================================================================
+// Modelo de Diodo Simples em Verilog-A
+// Baseado na equacao de Shockley
+// I = Is * (exp(V/(n*Vt)) - 1)
+// ============================================================================
+
+`include "constants.vams"
+`include "disciplines.vams"
+
+module diodo_simples(anode, cathode);
+    // Declaracao dos terminais
+    inout anode, cathode;
+    electrical anode, cathode;
+
+    // Parametros do modelo
+    parameter real Is = 1e-14 from (0:inf);      // Corrente de saturacao (A)
+    parameter real n = 1.0 from (0:inf);         // Coeficiente de emissao
+    parameter real Rs = 0 from [0:inf);          // Resistencia serie (Ohms)
+    parameter real Cj0 = 0 from [0:inf);         // Capacitancia de juncao (F)
+    parameter real Vj = 0.7 from (0:inf);        // Potencial de juncao (V)
+    parameter real m = 0.5 from (0:1];           // Coeficiente de gradacao
+    parameter real Tnom = 27 from [-273:inf);    // Temperatura nominal (C)
+
+    // Variaveis internas
+    real Vd;          // Tensao no diodo (sem Rs)
+    real Id;          // Corrente no diodo
+    real Vt;          // Tensao termica
+    real Cj;          // Capacitancia de juncao variavel
+    real Iseff;       // Is ajustado por temperatura
+
+    analog begin
+        // Tensao termica kT/q
+        Vt = $vt($temperature);
+
+        // Corrente de saturacao ajustada por temperatura
+        // Is(T) = Is(Tnom) * (T/Tnom)^3 * exp(Eg/Vt * (1 - T/Tnom))
+        // Simplificado aqui
+        Iseff = Is * pow($temperature / (Tnom + `P_CELSIUS0), 3.0);
+
+        // Tensao no diodo (descontando queda em Rs)
+        Vd = V(anode, cathode) - I(anode, cathode) * Rs;
+
+        // Equacao de Shockley
+        Id = Iseff * (limexp(Vd / (n * Vt)) - 1);
+
+        // Corrente no diodo
+        I(anode, cathode) <+ Id;
+
+        // Capacitancia de juncao (varicap)
+        if (Cj0 > 0) begin
+            if (Vd < 0) begin
+                Cj = Cj0 / pow(1 - Vd/Vj, m);
+            end else begin
+                Cj = Cj0 * (1 + m*Vd/Vj);
+            end
+            I(anode, cathode) <+ ddt(Cj * Vd);
+        end
+    end
+endmodule

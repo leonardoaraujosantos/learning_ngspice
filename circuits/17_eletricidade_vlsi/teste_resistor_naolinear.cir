@@ -1,0 +1,64 @@
+* ============================================================================
+* Teste de Resistor Nao-Linear usando Verilog-A
+* ============================================================================
+*
+* INSTRUCOES PARA COMPILAR E USAR:
+*
+* 1. Instalar OpenVAF:
+*    https://openvaf.semimod.de/
+*
+* 2. Compilar o modelo Verilog-A:
+*    openvaf resistor_naolinear.va
+*    Isso gera o arquivo: resistor_naolinear.osdi
+*
+* 3. Executar simulacao:
+*    ngspice teste_resistor_naolinear.cir
+*
+* ============================================================================
+
+.title Teste de Resistor Nao-Linear (Verilog-A)
+
+* Carregar modelo compilado
+.pre_osdi resistor_naolinear.osdi
+
+* Circuito de teste
+Vin in 0 DC 0
+Rnl in out resistor_naolinear R0=1k alpha=0.001
+Rload out 0 10k
+
+* Analise DC - Varrer tensao de entrada
+.dc Vin -10 10 0.1
+
+* Bloco de controle
+.control
+  run
+
+  * Calcular resistencia instantanea
+  let V_resistor = v(in) - v(out)
+  let I_resistor = v(out) / 10k
+  let R_instantanea = abs(V_resistor / I_resistor)
+
+  * Plotar caracteristicas
+  plot v(out) vs v(in) title 'Tensao de Saida vs Entrada'
+  plot I_resistor vs V_resistor title 'Curva I-V do Resistor Nao-Linear'
+  plot R_instantanea vs V_resistor title 'Resistencia Instantanea vs Tensao'
+
+  * Exportar dados
+  set filetype=ascii
+  set wr_singlescale
+  set wr_vecnames
+  wrdata resistor_naolinear.csv v(in) v(out) I_resistor R_instantanea
+
+  * Medicoes
+  echo "======================================"
+  echo "Teste de Resistor Nao-Linear"
+  echo "======================================"
+  meas dc R_0V find R_instantanea at=0
+  meas dc R_5V find R_instantanea at=5
+  meas dc R_10V find R_instantanea at=10
+
+  let ratio = R_10V / R_0V
+  echo "Razao R(10V)/R(0V) = " $&ratio
+.endc
+
+.end

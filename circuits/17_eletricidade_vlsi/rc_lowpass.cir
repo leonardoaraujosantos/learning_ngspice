@@ -127,14 +127,82 @@ echo " "
 * ========================================================================
 * MEDICOES AUTOMATICAS (opcional)
 * ========================================================================
+* Comando MEAS (measure): extrai valores especificos dos resultados da simulacao
+*
+* Sintaxe geral:
+*   meas <tipo_analise> <nome_resultado> <operacao> <expressao> <condicao>
+*
+* Parametros:
+*   <tipo_analise>: tipo da analise (ac, dc, tran)
+*   <nome_resultado>: nome da variavel que armazenara o resultado da medicao
+*   <operacao>: tipo de medicao a realizar
+*   <expressao>: o que medir (ex: vdb(vout), fase_graus)
+*   <condicao>: quando/onde medir
+*
+* Operacoes principais:
+*   find <vetor> at=<valor>   : encontra o valor do vetor em um ponto especifico
+*                               Exemplo: find vdb(vout) at=60
+*                               -> retorna o ganho em dB na frequencia de 60Hz
+*
+*   find <vetor> when <cond>  : encontra o valor do vetor quando uma condicao e verdadeira
+*                               Exemplo: find fase_graus when vdb(vout)=-3
+*                               -> retorna a fase quando o ganho for -3dB
+*
+*   when <condicao>           : encontra o valor da variavel independente (ex: frequencia)
+*                               quando uma condicao e satisfeita
+*                               Exemplo: when vdb(vout)=-3
+*                               -> retorna a frequencia onde o ganho e -3dB
+*
+* ========================================================================
+
 * Medir o ganho e fase em pontos especificos
 echo "=== MEDICOES EM FREQUENCIAS ESPECIFICAS ==="
 meas ac ganho_1Hz find vdb(vout) at=1
 meas ac ganho_60Hz find vdb(vout) at=60
 meas ac ganho_600Hz find vdb(vout) at=600
-meas ac fase_1Hz find phase(vout)*180/pi at=1
-meas ac fase_60Hz find phase(vout)*180/pi at=60
-meas ac fase_600Hz find phase(vout)*180/pi at=600
+* Criar vetor de fase em graus para as medicoes
+let fase_graus = phase(vout)*180/pi
+meas ac fase_1Hz find fase_graus at=1
+meas ac fase_60Hz find fase_graus at=60
+meas ac fase_600Hz find fase_graus at=600
+
+* ========================================================================
+* VERIFICACAO DA FREQUENCIA DE CORTE
+* ========================================================================
+echo " "
+echo "=== VERIFICACAO DA FREQUENCIA DE CORTE ==="
+* Frequencia teorica de corte
+let fc_teorica = 1/(2*pi*50*53e-6)
+echo "Frequencia de corte teorica: $&fc_teorica Hz"
+
+* Medir a frequencia onde o ganho e -3dB (definicao de freq. de corte)
+meas ac fc_medida when vdb(vout)=-3
+echo "Frequencia de corte medida (ganho = -3dB): $&fc_medida Hz"
+
+* Calcular o erro percentual
+let erro_percentual = abs((fc_medida - fc_teorica) / fc_teorica * 100)
+echo "Erro percentual: $&erro_percentual %"
+
+* Verificar se o erro esta dentro de uma tolerancia aceitavel (< 1%)
+if erro_percentual < 1
+  echo "✓ PASSOU: Frequencia de corte esta dentro da tolerancia (< 1%)"
+else
+  echo "✗ FALHOU: Frequencia de corte fora da tolerancia esperada"
+end
+
+* Medir a fase na frequencia de corte medida
+meas ac fase_fc find fase_graus when vdb(vout)=-3
+echo "Fase na frequencia de corte: $&fase_fc graus (esperado: -45 graus)"
+
+* Verificar se a fase esta proxima de -45 graus (tolerancia de 1 grau)
+let erro_fase = abs(fase_fc - (-45))
+if erro_fase < 1
+  echo "✓ PASSOU: Fase na frequencia de corte esta correta (≈ -45°)"
+else
+  echo "✗ FALHOU: Fase na frequencia de corte = $&fase_fc° (esperado: -45°)"
+end
+
+echo " "
 
 .endc
 

@@ -1,0 +1,87 @@
+* ============================================================================
+* VCO (Voltage Controlled Oscillator) com Varactor Verilog-A
+* Oscilador LC com capacitor variavel para ajuste de frequencia
+* ============================================================================
+*
+* COMPILAR:
+*   openvaf varactor.va
+*
+* EXECUTAR:
+*   ngspice vco_varactor.cir
+*
+* ============================================================================
+
+.title VCO com Varactor Verilog-A
+
+* Carregar modelo compilado
+.pre_osdi varactor.osdi
+
+* Alimentacao
+Vcc vcc 0 DC 9
+
+* Tensao de controle (tune)
+Vtune tune 0 DC 2.5
+
+* Oscilador Colpitts com varactor
+Q1 coll base emit BC548
+L1 coll 0 10u
+C1 coll emit 100p              ; Capacitor fixo
+Cvar emit tune varactor C0=50p Vj=0.7 m=0.5 Cmin=10p Cmax=200p
+R1 vcc base 47k
+R2 base 0 10k
+RE emit gnd 1k
+CE gnd 0 100u                  ; Bypass do emissor
+
+* Modelo transistor
+.model BC548 NPN(IS=1e-14 BF=200 VAF=100 CJE=8p CJC=3p TF=0.35n)
+
+* Condicoes iniciais para iniciar oscilacao
+.ic v(coll)=4.5 v(emit)=0.1
+
+* Analise transiente
+.tran 0.1u 100u uic
+
+.control
+  * Simular para diferentes tensoes de controle
+  foreach vtune_val 0 1 2.5 5
+
+    * Ajustar tensao de sintonia
+    alter Vtune DC $vtune_val
+
+    * Executar simulacao
+    tran 0.1u 100u uic
+
+    * Plotar forma de onda
+    plot v(coll) title "VCO - Vtune=$vtune_val V"
+
+    * Medir frequencia
+    * Encontrar periodo entre picos
+    meas tran Tperiodo TRIG v(coll) VAL=4.5 RISE=1 FROM=50u TARG v(coll) VAL=4.5 RISE=2
+
+    * Calcular frequencia
+    let freq = 1 / Tperiodo
+    echo "Vtune = " $vtune_val " V  -->  f = " $&freq " Hz"
+
+  end
+
+  * Analise espectral para Vtune=2.5V
+  alter Vtune DC 2.5
+  tran 0.1u 100u uic
+
+  linearize v(coll)
+  fft v(coll)
+
+  set curplot = fft1
+  let coll_db = db(v(coll))
+  plot coll_db xlimit 0 5MEG ylimit -80 0 title 'Espectro do VCO (Vtune=2.5V)'
+
+  * Encontrar frequencia fundamental
+  meas sp freq_fund WHEN coll_db=MAX(coll_db) FROM=50k TO=500k
+
+  echo "======================================"
+  echo "VCO com Varactor Verilog-A"
+  echo "======================================"
+  echo "Frequencia fundamental (Vtune=2.5V): " $&freq_fund " Hz"
+.endc
+
+.end

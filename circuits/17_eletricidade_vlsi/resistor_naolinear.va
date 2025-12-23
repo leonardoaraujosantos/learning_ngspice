@@ -1,0 +1,40 @@
+// ============================================================================
+// Resistor Nao-Linear em Verilog-A
+// Modelo simples para demonstracao de Verilog-A com OpenVAF
+// R(V) = R0 * (1 + alpha * V^2)
+// ============================================================================
+
+`include "constants.vams"
+`include "disciplines.vams"
+
+module resistor_naolinear(p, n);
+    // Declaracao dos terminais
+    inout p, n;
+    electrical p, n;
+
+    // Parametros do modelo
+    parameter real R0 = 1k from (0:inf);        // Resistencia nominal (Ohms)
+    parameter real alpha = 0.001 from [0:inf);   // Coeficiente nao-linear (1/V^2)
+    parameter real Tnom = 27 from [-273:inf);    // Temperatura nominal (C)
+    parameter real tc1 = 0 from (-inf:inf);      // Coeficiente temp linear
+    parameter real tc2 = 0 from (-inf:inf);      // Coeficiente temp quadratico
+
+    // Variaveis internas
+    real R;           // Resistencia instantanea
+    real V;           // Tensao nos terminais
+    real dT;          // Delta de temperatura
+
+    analog begin
+        // Tensao entre os terminais
+        V = V(p, n);
+
+        // Compensacao de temperatura
+        dT = $temperature - (Tnom + `P_CELSIUS0);
+
+        // Resistencia nao-linear com compensacao de temperatura
+        R = R0 * (1 + tc1*dT + tc2*dT*dT) * (1 + alpha*V*V);
+
+        // Relacao V-I usando lei de Ohm
+        I(p, n) <+ V / R;
+    end
+endmodule
