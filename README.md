@@ -74,7 +74,7 @@ learning_ngspice/
 │       ├── vco_varactor.cir                # VCO com varactor Verilog-A
 │       ├── analise_nodal*.cir              # Exemplos análise nodal
 │       └── README.md                       # Documentação Verilog-A + OSDI
-│   └── 17_slicap/                          # SLiCAP - Análise Simbólica
+│   └── 18_eletricidade_vlsi_slicap/        # SLiCAP - Análise Simbólica
 │       ├── rc_lp_slicap.py                 # Script análise filtro RC
 │       ├── SLiCAP.ini                      # Configuração do projeto
 │       ├── cir/                            # Netlists SPICE
@@ -108,7 +108,7 @@ just exemplo-divisor
 
 # 4. Analise simbolica com SLiCAP (opcional)
 # Instalar SLiCAP: pip install SLiCAP
-cd circuits/17_slicap
+cd circuits/18_eletricidade_vlsi_slicap
 python rc_lp_slicap.py
 xdg-open html/index.html  # Ver relatorio HTML com equacoes
 ```

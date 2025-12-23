@@ -42,7 +42,7 @@ python -c "import SLiCAP; print(SLiCAP.__version__)"
 ## Estrutura do Diretório
 
 ```
-17_slicap/
+18_eletricidade_vlsi_slicap/
 ├── rc_lp_slicap.py        # Script principal: análise RC passa-baixa
 ├── SLiCAP.ini             # Arquivo de configuração do projeto
 ├── cir/                   # Netlists SPICE dos circuitos
@@ -128,7 +128,7 @@ O script demonstra as principais funcionalidades do SLiCAP:
 ### Executar o Exemplo
 
 ```bash
-cd circuits/17_slicap
+cd circuits/18_eletricidade_vlsi_slicap
 python rc_lp_slicap.py
 ```
 

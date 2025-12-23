@@ -874,7 +874,7 @@ SLiCAP é uma ferramenta poderosa para:
 1. Execute o exemplo RC do tutorial
 2. Modifique o circuito e veja as equações mudarem
 3. Experimente com seus próprios circuitos
-4. Explore os exemplos em `circuits/17_slicap/`
+4. Explore os exemplos em `circuits/18_eletricidade_vlsi_slicap/`
 
 **Lembre-se:** SLiCAP é para circuitos **lineares**. Para não-lineares, use ngspice!
 
