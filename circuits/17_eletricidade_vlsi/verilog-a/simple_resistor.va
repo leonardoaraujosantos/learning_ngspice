@@ -1,0 +1,15 @@
+`include "disciplines.vams"
+
+module simple_resistor(p, n);
+    // Declare terminals as electrical
+    inout p, n;
+    electrical p, n;
+
+    // Parameter: resistance in Ohms
+    parameter real r = 1k from (0:inf);
+
+    // Analog behavior: Ohm's law
+    analog begin
+        I(p, n) <+ V(p, n) / r;
+    end
+endmodule

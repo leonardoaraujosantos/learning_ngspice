@@ -1,0 +1,15 @@
+`include "disciplines.vams"
+
+module vcvs(inp, inn, outp, outn);
+    // Input and output terminals
+    inout inp, inn, outp, outn;
+    electrical inp, inn, outp, outn;
+
+    // Voltage gain parameter
+    parameter real gain = 1.0;
+
+    analog begin
+        // Output voltage = gain × input voltage
+        V(outp, outn) <+ gain * V(inp, inn);
+    end
+endmodule

@@ -1,0 +1,25 @@
+* Test simple diode OSDI model
+
+* Voltage source for DC sweep
+V1 anode 0 dc 0
+
+* Define diode model with custom parameters
+.model d1 simple_diode is=1e-14 n=1.0 temp=300
+
+* Diode from anode to ground
+N1 anode 0 d1
+
+.control
+    * Load OSDI model
+    pre_osdi simple_diode.osdi
+
+    * DC sweep from -1V to +1V
+    dc V1 -1 1 0.01
+
+    * Save I-V data
+    wrdata diode_iv.txt V(anode) I(V1)
+
+    echo "I-V data saved to diode_iv.txt"
+.endc
+
+.end

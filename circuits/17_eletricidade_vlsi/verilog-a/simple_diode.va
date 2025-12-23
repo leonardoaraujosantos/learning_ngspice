@@ -1,0 +1,23 @@
+`include "disciplines.vams"
+`include "constants.vams"
+
+module simple_diode(anode, cathode);
+    inout anode, cathode;
+    electrical anode, cathode;
+
+    // Parameters
+    parameter real is = 1e-14 from (0:inf);      // Saturation current (A)
+    parameter real n = 1.0 from (0:inf);         // Ideality factor
+    parameter real temp = 300 from (0:inf);      // Temperature (K)
+
+    // Thermal voltage
+    real vt;
+
+    analog begin
+        // Thermal voltage: Vt = kT/q
+        vt = `P_K * temp / `P_Q;
+
+        // Shockley diode equation: I = Is * (exp(V/(n*Vt)) - 1)
+        I(anode, cathode) <+ is * (limexp(V(anode, cathode) / (n * vt)) - 1);
+    end
+endmodule

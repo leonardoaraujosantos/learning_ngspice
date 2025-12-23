@@ -139,6 +139,8 @@ endmodule
 
 **Save this as:** `simple_resistor.va`
 
+**✅ Verified:** Compiles successfully with OpenVAF
+
 **What it does:**
 - Defines a two-terminal component (p and n)
 - Has one parameter: resistance `r` (default 1kΩ)
@@ -167,10 +169,13 @@ endmodule
 
 **Save this as:** `vcvs.va`
 
+**✅ Verified:** Compiles successfully with OpenVAF
+
 ### Example 3: Simple Diode (Shockley Equation)
 
 ```verilog
 `include "disciplines.vams"
+`include "constants.vams"
 
 module simple_diode(anode, cathode);
     inout anode, cathode;
@@ -181,25 +186,75 @@ module simple_diode(anode, cathode);
     parameter real n = 1.0 from (0:inf);         // Ideality factor
     parameter real temp = 300 from (0:inf);      // Temperature (K)
 
-    // Physical constants
-    real vt;        // Thermal voltage
-    real q, k;      // Charge, Boltzmann constant
+    // Thermal voltage
+    real vt;
 
     analog begin
-        // Constants
-        q = 1.602176634e-19;    // Elementary charge (C)
-        k = 1.380649e-23;        // Boltzmann constant (J/K)
+        // Thermal voltage: Vt = kT/q (using constants from constants.vams)
+        vt = `P_K * temp / `P_Q;
 
-        // Thermal voltage: Vt = kT/q
-        vt = k * temp / q;
-
-        // Shockley diode equation: I = Is * (exp(V/(n*Vt)) - 1)
-        I(anode, cathode) <+ is * (exp(V(anode, cathode) / (n * vt)) - 1);
+        // Shockley diode equation with limexp for convergence
+        // I = Is * (exp(V/(n*Vt)) - 1)
+        I(anode, cathode) <+ is * (limexp(V(anode, cathode) / (n * vt)) - 1);
     end
 endmodule
 ```
 
 **Save this as:** `simple_diode.va`
+
+**✅ Verified:** Compiles successfully with OpenVAF
+
+### Example 4: Simple Capacitor
+
+```verilog
+`include "disciplines.vams"
+
+module simple_capacitor(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real c = 1e-9 from (0:inf);  // Capacitance in Farads
+
+    analog begin
+        I(p, n) <+ c * ddt(V(p, n));  // I = C × dV/dt
+    end
+endmodule
+```
+
+**Save this as:** `simple_capacitor.va`
+
+**✅ Verified:** Compiles successfully with OpenVAF
+
+**What it does:**
+- Implements capacitor: I = C × dV/dt
+- Uses `ddt()` function for time derivative
+- Default capacitance: 1nF
+
+### Example 5: Simple Inductor
+
+```verilog
+`include "disciplines.vams"
+
+module simple_inductor(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real l = 1e-3 from (0:inf);  // Inductance in Henrys
+
+    analog begin
+        V(p, n) <+ l * ddt(I(p, n));  // V = L × dI/dt
+    end
+endmodule
+```
+
+**Save this as:** `simple_inductor.va`
+
+**✅ Verified:** Compiles successfully with OpenVAF
+
+**What it does:**
+- Implements inductor: V = L × dI/dt
+- Uses `ddt()` function for current derivative
+- Default inductance: 1mH
 
 ---
 
@@ -406,28 +461,15 @@ gnuplot> plot 'diode_iv.dat' using 1:2 with lines title 'Diode I-V'
 
 ### Example 3: RC Low-Pass Filter with Custom Components
 
-**Verilog-A files:** Use `simple_resistor.va` and create `simple_capacitor.va`:
-
-```verilog
-`include "disciplines.vams"
-
-module simple_capacitor(p, n);
-    inout p, n;
-    electrical p, n;
-
-    parameter real c = 1e-9 from (0:inf);  // Capacitance in Farads
-
-    analog begin
-        I(p, n) <+ c * ddt(V(p, n));  // I = C × dV/dt
-    end
-endmodule
-```
+**Verilog-A files:** Use `simple_resistor.va` and `simple_capacitor.va` from examples above.
 
 **Compile both:**
 ```bash
 openvaf simple_resistor.va
 openvaf simple_capacitor.va
 ```
+
+**✅ Verified:** Both compile successfully
 
 **Circuit:** `test_rc_filter.cir`
 
@@ -496,6 +538,8 @@ module vcr(p, n, ctrl);
 endmodule
 ```
 
+**✅ Verified:** Compiles successfully with OpenVAF
+
 **Test circuit:** `test_vcr.cir`
 
 ```spice
@@ -542,6 +586,7 @@ Vmeas out 0 dc 0
 
 ```verilog
 `include "disciplines.vams"
+`include "constants.vams"
 
 module temp_resistor(p, n);
     inout p, n;
@@ -555,8 +600,8 @@ module temp_resistor(p, n);
     real temp_celsius, delta_t, r_temp;
 
     analog begin
-        // Get simulation temperature
-        temp_celsius = $temperature - 273.15;
+        // Get simulation temperature (using constant from constants.vams)
+        temp_celsius = $temperature - `P_CELSIUS0;
         delta_t = temp_celsius - tnom;
 
         // Temperature-dependent resistance
@@ -567,10 +612,13 @@ module temp_resistor(p, n);
 endmodule
 ```
 
+**✅ Verified:** Compiles successfully with OpenVAF
+
 ### 2. Noise Modeling
 
 ```verilog
 `include "disciplines.vams"
+`include "constants.vams"
 
 module noisy_resistor(p, n);
     inout p, n;
@@ -585,12 +633,14 @@ module noisy_resistor(p, n);
 
         // Thermal noise (Johnson-Nyquist)
         if (has_noise) begin
-            // PSD = 4*k*T/R
-            I(p, n) <+ white_noise(4 * 1.38064852e-23 * $temperature / r, "thermal");
+            // PSD = 4*k*T/R (using constant from constants.vams)
+            I(p, n) <+ white_noise(4 * `P_K * $temperature / r, "thermal");
         end
     end
 endmodule
 ```
+
+**✅ Verified:** Compiles successfully with OpenVAF
 
 ### 3. Using `ddt()` for Dynamic Elements
 
@@ -872,6 +922,69 @@ I(p,n) <+ c * ddt(V(p,n));              // Capacitor
 V(p,n) <+ l * ddt(I(p,n));              // Inductor
 I(p,n) <+ is * (limexp(V(p,n)/vt) - 1); // Diode
 ```
+
+---
+
+## Verified Examples Summary
+
+All examples in this tutorial have been tested and verified with **OpenVAF**. Here's a complete list of working models:
+
+### Basic Components (✅ All Verified)
+
+| Model File | Description | Key Feature |
+|------------|-------------|-------------|
+| `simple_resistor.va` | Ohm's law resistor | I = V/R |
+| `simple_capacitor.va` | Ideal capacitor | I = C × dV/dt |
+| `simple_inductor.va` | Ideal inductor | V = L × dI/dt |
+| `simple_diode.va` | Shockley diode | I = Is(e^(V/Vt)-1) with limexp |
+| `vcvs.va` | Voltage-controlled voltage source | Vout = gain × Vin |
+
+### Advanced Components (✅ All Verified)
+
+| Model File | Description | Key Feature |
+|------------|-------------|-------------|
+| `vcr.va` | Voltage-controlled resistor | R = R0(1 + α×Vctrl) |
+| `temp_resistor.va` | Temperature-dependent resistor | R(T) with tc1, tc2 coefficients |
+| `noisy_resistor.va` | Resistor with thermal noise | Johnson-Nyquist noise |
+
+### Additional Verified Models
+
+The following models are also available in `circuits/17_eletricidade_vlsi/verilog-a/`:
+
+- **`diodo_simples.va`** - Enhanced diode with junction capacitance and temperature effects
+- **`resistor_naolinear.va`** - Non-linear resistor: R(V) = R0(1 + α×V²)
+- **`varactor.va`** - Variable capacitor for VCO applications: C(V) = C0/(1-V/Vj)^m
+
+### Test Circuits Included
+
+| Circuit File | Tests | Expected Behavior |
+|--------------|-------|-------------------|
+| `test_resistor.cir` | simple_resistor | Voltage divider: 10V → 5V |
+| `test_diode.cir` | simple_diode | I-V curve sweep -1V to +1V |
+| `test_rc_filter.cir` | R+C combination | Frequency response, fc=159Hz |
+| `test_vcr.cir` | Voltage-controlled R | Resistance vs control voltage |
+
+### Compilation Quick Reference
+
+```bash
+# Compile any model
+openvaf model_name.va
+
+# Verify output
+ls -lh model_name.osdi
+
+# Test in ngspice
+ngspice test_circuit.cir
+```
+
+### All Models Location
+
+All verified Verilog-A models are available in:
+```
+circuits/17_eletricidade_vlsi/verilog-a/
+```
+
+You can use any of these as templates or reference implementations for your own models!
 
 ---
 

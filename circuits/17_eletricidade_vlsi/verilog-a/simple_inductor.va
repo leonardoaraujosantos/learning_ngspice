@@ -1,0 +1,12 @@
+`include "disciplines.vams"
+
+module simple_inductor(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real l = 1e-3 from (0:inf);  // Inductance in Henrys
+
+    analog begin
+        V(p, n) <+ l * ddt(I(p, n));  // V = L × dI/dt
+    end
+endmodule

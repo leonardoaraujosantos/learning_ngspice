@@ -1,0 +1,28 @@
+* Test simple resistor OSDI model
+
+* Voltage source: 10V
+V1 in 0 dc 10
+
+* Define resistor model (r=500 ohms)
+.model myres simple_resistor r=500
+
+* Use the resistor
+N1 in out myres
+
+* Load to ground (built-in resistor)
+R1 out 0 500
+
+.control
+    * Load OSDI model
+    pre_osdi simple_resistor.osdi
+
+    * Operating point analysis
+    op
+
+    * Print results
+    echo "Test: Two 500-ohm resistors in series with 10V source"
+    print V(in) V(out) I(V1)
+    echo "Expected: V(in)=10V, V(out)=5V, I(V1)=-10mA"
+.endc
+
+.end

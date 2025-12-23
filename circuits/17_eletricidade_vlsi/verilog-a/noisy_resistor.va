@@ -1,0 +1,21 @@
+`include "disciplines.vams"
+`include "constants.vams"
+
+module noisy_resistor(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real r = 1k from (0:inf);
+    parameter integer has_noise = 1;  // Enable/disable noise
+
+    analog begin
+        // DC current (Ohm's law)
+        I(p, n) <+ V(p, n) / r;
+
+        // Thermal noise (Johnson-Nyquist)
+        if (has_noise) begin
+            // PSD = 4*k*T/R
+            I(p, n) <+ white_noise(4 * `P_K * $temperature / r, "thermal");
+        end
+    end
+endmodule

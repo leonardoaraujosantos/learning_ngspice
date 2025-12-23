@@ -1,0 +1,12 @@
+`include "disciplines.vams"
+
+module simple_capacitor(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real c = 1e-9 from (0:inf);  // Capacitance in Farads
+
+    analog begin
+        I(p, n) <+ c * ddt(V(p, n));  // I = C × dV/dt
+    end
+endmodule

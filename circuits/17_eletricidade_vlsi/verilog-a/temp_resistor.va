@@ -1,0 +1,25 @@
+`include "disciplines.vams"
+`include "constants.vams"
+
+module temp_resistor(p, n);
+    inout p, n;
+    electrical p, n;
+
+    parameter real r = 1k from (0:inf);
+    parameter real tc1 = 0.0;     // Linear temp coefficient (1/°C)
+    parameter real tc2 = 0.0;     // Quadratic temp coefficient (1/°C²)
+    parameter real tnom = 27.0;   // Nominal temperature (°C)
+
+    real temp_celsius, delta_t, r_temp;
+
+    analog begin
+        // Get simulation temperature
+        temp_celsius = $temperature - `P_CELSIUS0;
+        delta_t = temp_celsius - tnom;
+
+        // Temperature-dependent resistance
+        r_temp = r * (1.0 + tc1*delta_t + tc2*delta_t*delta_t);
+
+        I(p, n) <+ V(p, n) / r_temp;
+    end
+endmodule

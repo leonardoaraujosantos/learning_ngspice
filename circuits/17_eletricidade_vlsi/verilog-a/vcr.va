@@ -1,0 +1,26 @@
+`include "disciplines.vams"
+
+module vcr(p, n, ctrl);
+    // Resistor terminals and control voltage input
+    inout p, n, ctrl;
+    electrical p, n, ctrl;
+
+    // Parameters
+    parameter real r0 = 1k from (0:inf);      // Base resistance
+    parameter real alpha = 0.1 from (0:1);    // Control sensitivity
+
+    real resistance;
+
+    analog begin
+        // Resistance varies with control voltage
+        // R = R0 * (1 + alpha * Vctrl)
+        resistance = r0 * (1 + alpha * V(ctrl));
+
+        // Ensure resistance stays positive
+        if (resistance < 1.0)
+            resistance = 1.0;
+
+        // Apply Ohm's law
+        I(p, n) <+ V(p, n) / resistance;
+    end
+endmodule
