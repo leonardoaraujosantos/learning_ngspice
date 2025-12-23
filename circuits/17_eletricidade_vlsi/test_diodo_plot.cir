@@ -1,0 +1,26 @@
+* Test OSDI diode model with interactive plot
+
+* Voltage source for DC sweep
+V1 in 0 dc 0
+
+* Define model referencing the module name from diodo_simples.va
+.model d1 diodo_simples
+
+* Use the diode model
+N1 in 0 d1
+
+.control
+    * Load OSDI implementation
+    pre_osdi diodo_simples.osdi
+
+    * DC sweep from 0 to 1V
+    dc V1 0 1 0.01
+
+    * Plot I-V characteristic (works in interactive mode)
+    plot -I(V1) xlabel 'Voltage (V)' ylabel 'Current (A)' title 'Diode I-V Characteristic'
+
+    * Also plot on log scale to see the exponential behavior
+    plot -I(V1) xlabel 'Voltage (V)' ylabel 'Current (A)' title 'Diode I-V (log scale)' ylog
+.endc
+
+.end

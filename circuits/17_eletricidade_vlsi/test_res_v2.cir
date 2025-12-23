@@ -1,0 +1,14 @@
+* Teste de modelo de resistor - usando N prefix
+
+osdi res_model.osdi
+
+V1 p 0 dc 1
+N1 p 0 res_model r=1k
+
+.control
+    op
+    print V(p)
+    print I(V1)
+.endc
+
+.end

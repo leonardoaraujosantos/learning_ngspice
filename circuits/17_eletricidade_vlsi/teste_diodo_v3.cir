@@ -1,0 +1,47 @@
+* ============================================================================
+* Teste de Diodo Simples usando Verilog-A
+* ============================================================================
+
+.title Teste de Diodo Verilog-A
+
+* Load OSDI model BEFORE netlist is parsed (no dot prefix!)
+pre_osdi diodo_simples.osdi
+
+* Retificador de meia onda
+Vin in 0 SIN(0 5 60)
+D1 in out diodo_simples Is=1e-14 n=1.0 Rs=10 Cj0=10p
+Rload out 0 1k
+Cfilt out 0 100u
+
+.control
+  * Analise transiente
+  tran 1m 50m
+  set curplot = tran1
+
+  plot v(in) v(out) title 'Retificador de Meia Onda'
+
+  * Medicoes transiente
+  meas tran Vpico_in MAX v(in)
+  meas tran Vpico_out MAX v(out)
+  meas tran Vripple PP v(out) FROM=33.3m TO=50m
+
+  echo "======================================"
+  echo "Analise Transiente - Retificador"
+  echo "======================================"
+  print Vpico_in Vpico_out Vripple
+
+  * Analise DC - Curva I-V
+  dc Vin -1 1 0.01
+  set curplot = dc1
+
+  * Medicoes DC
+  meas dc I_forward find i(Vin) at=0.7
+  meas dc I_reverse find i(Vin) at=-1
+
+  echo "======================================"
+  echo "Analise DC - Curva I-V"
+  echo "======================================"
+  print I_forward I_reverse
+.endc
+
+.end

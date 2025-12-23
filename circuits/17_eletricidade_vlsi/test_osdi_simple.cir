@@ -1,0 +1,9 @@
+* Minimal OSDI test
+
+.control
+set osdi_enabled
+osdi res_model.osdi
+quit
+.endc
+
+.end

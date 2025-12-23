@@ -1,0 +1,11 @@
+`include "disciplines.vams"
+
+module res_model(p, n);
+    inout p, n;
+    electrical p, n;
+    parameter real r = 1k;  // Resistência de 1k ohm
+
+    analog begin
+        V(p, n) <+ I(p, n) * r;  // Lei de Ohm: V = I * R
+    end
+endmodule

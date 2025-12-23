@@ -1,0 +1,19 @@
+* Test OSDI resistor with .model statement
+
+pre_osdi res_model.osdi
+
+V1 p 0 dc 1
+
+* Define model (even if parameters come from OSDI)
+.model myres res_model r=1k
+
+* Use the model
+N1 p 0 myres
+
+.control
+    op
+    print V(p)
+    print I(V1)
+.endc
+
+.end

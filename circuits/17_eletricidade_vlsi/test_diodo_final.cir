@@ -1,0 +1,27 @@
+* Test OSDI diode model following working pattern
+
+* Voltage source for DC sweep
+V1 in 0 dc 0
+
+* Define model referencing the module name from diodo_simples.va
+.model d1 diodo_simples
+
+* Use the diode model
+N1 in 0 d1
+
+.control
+    * Load OSDI implementation
+    pre_osdi diodo_simples.osdi
+
+    * DC sweep from 0 to 1V
+    dc V1 0 1 0.01
+
+    * Print some key values
+    print V(in)@0.6 I(V1)@0.6
+    print V(in)@0.7 I(V1)@0.7
+
+    * Plot I-V characteristic
+    plot I(V1)
+.endc
+
+.end

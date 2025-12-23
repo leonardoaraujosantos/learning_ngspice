@@ -1,0 +1,16 @@
+* Test OSDI with CORRECT syntax - pre_osdi inside .control block
+
+V1 p 0 dc 1
+N1 p 0 res_model r=1k
+
+.control
+* Load the model dynamically (INSIDE .control block!)
+pre_osdi res_model.osdi
+
+* Run simulation
+op
+print V(p)
+print I(V1)
+.endc
+
+.end

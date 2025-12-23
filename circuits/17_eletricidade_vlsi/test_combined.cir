@@ -1,0 +1,28 @@
+* Combined test: OSDI resistor + diode in series
+
+* Voltage source
+V1 vin 0 dc 0
+
+* Models
+.model myres res_model r=100
+.model mydiode diodo_simples
+
+* Circuit: V1 -> Resistor -> Diode -> Ground
+N1 vin vout myres
+N2 vout 0 mydiode
+
+.control
+    * Load both OSDI models
+    pre_osdi res_model.osdi
+    pre_osdi diodo_simples.osdi
+
+    * DC sweep
+    dc V1 0 2 0.01
+
+    * Save data
+    wrdata combined_iv.txt V(vin) V(vout) I(V1)
+    echo "Data saved to combined_iv.txt"
+    echo "Columns: V(vin), V(vout), I(V1)"
+.endc
+
+.end

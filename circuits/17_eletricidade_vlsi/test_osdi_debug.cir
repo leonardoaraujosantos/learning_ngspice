@@ -1,0 +1,11 @@
+* Debug OSDI loading
+
+.control
+set osdi_enabled
+echo "Attempting to load res_model.osdi..."
+osdi res_model.osdi
+echo "Load attempt complete"
+quit
+.endc
+
+.end

@@ -1,0 +1,31 @@
+* Test OSDI diode model with data output
+
+* Voltage source for DC sweep
+V1 in 0 dc 0
+
+* Define model referencing the module name from diodo_simples.va
+.model d1 diodo_simples
+
+* Use the diode model
+N1 in 0 d1
+
+.control
+    * Load OSDI implementation
+    pre_osdi diodo_simples.osdi
+
+    * DC sweep from 0 to 1V
+    dc V1 0 1 0.01
+
+    * Print header and some values
+    echo "Diode I-V Characteristics:"
+    echo "V(in) at index 60: " V(in)[60]
+    echo "I(V1) at index 60: " I(V1)[60]
+    echo "V(in) at index 70: " V(in)[70]
+    echo "I(V1) at index 70: " I(V1)[70]
+
+    * Save data to file
+    wrdata diodo_iv.txt V(in) I(V1)
+    echo "Data saved to diodo_iv.txt"
+.endc
+
+.end

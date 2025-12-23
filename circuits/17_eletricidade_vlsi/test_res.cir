@@ -1,0 +1,14 @@
+* Teste de modelo de resistor convertido pelo OpenVAF
+
+osdi res_model.osdi
+
+V1 p 0 dc 1
+X1 p 0 res_model
+
+.control
+    op
+    print V(p)
+    print I(V1)
+.endc
+
+.end

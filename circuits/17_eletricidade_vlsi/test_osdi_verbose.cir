@@ -1,0 +1,12 @@
+* Test OSDI with verbose output
+
+.control
+set osdi_enabled
+echo "OSDI enabled status:"
+display osdi_enabled
+pre_osdi res_model.osdi
+echo "After loading OSDI:"
+quit
+.endc
+
+.end

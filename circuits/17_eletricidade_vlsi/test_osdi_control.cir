@@ -1,0 +1,11 @@
+* Test loading OSDI in control block for better error messages
+
+V1 p 0 dc 1
+
+.control
+osdi res_model.osdi
+echo "OSDI load attempted"
+quit
+.endc
+
+.end

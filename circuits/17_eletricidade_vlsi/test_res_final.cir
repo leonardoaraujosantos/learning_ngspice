@@ -1,0 +1,21 @@
+* Test OSDI resistor following working example pattern
+
+V1 p 0 dc 1
+
+* Define model referencing the module name from res_model.va
+.model myres res_model r=1k
+
+* Use the model
+N1 p 0 myres
+
+.control
+    * Load OSDI implementation inside control block
+    pre_osdi res_model.osdi
+
+    * Run simulation
+    op
+    print V(p)
+    print I(V1)
+.endc
+
+.end

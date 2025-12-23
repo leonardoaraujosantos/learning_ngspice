@@ -60,8 +60,29 @@ learning_ngspice/
 │   │   └── 01_buck_boost_conversores.spice # Buck (12V→5V) e Boost (5V→12V)
 │   ├── 15_pwm_modulacao/                   # Modulação PWM (1 circuito)
 │   │   └── 01_pwm_modulador_demodulador.spice # Modulador e demodulador PWM
-│   └── 16_conversao_ad_da/                 # Conversão A/D e D/A (1 circuito)
-│       └── 01_dac_adc_sample_hold.spice    # DAC, ADC e Sample & Hold
+│   ├── 16_conversao_ad_da/                 # Conversão A/D e D/A (1 circuito)
+│   │   └── 01_dac_adc_sample_hold.spice    # DAC, ADC e Sample & Hold
+│   └── 17_eletricidade_vlsi/               # Verilog-A + VLSI (5 módulos)
+│       ├── verilog-a/                      # Módulos Verilog-A customizados
+│       │   ├── diodo_simples.va            # Modelo de diodo (Shockley)
+│       │   ├── resistor_naolinear.va       # Resistor R(V) não-linear
+│       │   ├── varactor.va                 # Capacitor variável C(V)
+│       │   ├── res_model.va                # Resistor simples (teste)
+│       │   └── test_simple.va              # Resistor minimal (debug)
+│       ├── teste_diodo*.cir                # Testes do modelo de diodo
+│       ├── teste_resistor_naolinear.cir    # Teste resistor não-linear
+│       ├── vco_varactor.cir                # VCO com varactor Verilog-A
+│       ├── analise_nodal*.cir              # Exemplos análise nodal
+│       └── README.md                       # Documentação Verilog-A + OSDI
+│   └── 17_slicap/                          # SLiCAP - Análise Simbólica
+│       ├── rc_lp_slicap.py                 # Script análise filtro RC
+│       ├── SLiCAP.ini                      # Configuração do projeto
+│       ├── cir/                            # Netlists SPICE
+│       │   └── rc_lp.cir                   # Filtro RC passa-baixa
+│       ├── html/                           # Relatórios HTML gerados
+│       ├── sphinx/                         # Documentação Sphinx
+│       ├── tex/                            # Saída LaTeX
+│       └── README.md                       # Documentação SLiCAP
 ├── docs/
 │   ├── tutorial_spice.md                   # Tutorial completo SPICE
 │   └── circuitikzmanual.pdf                # Manual CircuiTikZ
@@ -84,6 +105,12 @@ just check
 
 # 3. Rodar um exemplo completo (simula + graficos + esquematico)
 just exemplo-divisor
+
+# 4. Analise simbolica com SLiCAP (opcional)
+# Instalar SLiCAP: pip install SLiCAP
+cd circuits/17_slicap
+python rc_lp_slicap.py
+xdg-open html/index.html  # Ver relatorio HTML com equacoes
 ```
 
 ## Pre-requisitos
@@ -370,7 +397,7 @@ just full circuits/02_filtros/filtro_rc_passa_baixa.spice
 just full-all
 ```
 
-## Conteúdo dos Circuitos (38 circuitos)
+## Conteúdo dos Circuitos (38 circuitos + 5 módulos Verilog-A)
 
 ### 00_esquematicos
 
@@ -517,6 +544,44 @@ Conversão entre sinais analógicos e digitais - fundamentos de sistemas digitai
 |---------|-----------|
 | `01_dac_adc_sample_hold.spice` | DAC R-2R 4-bit, ADC Flash 3-bit (7 comparadores), Sample & Hold com JFET |
 
+### 17_eletricidade_vlsi (5 módulos Verilog-A)
+
+Modelos customizados de dispositivos escritos em **Verilog-A** compilados com **OpenVAF** para uso no ngspice via interface OSDI.
+
+**Pré-requisitos:**
+- OpenVAF (compilador Verilog-A): https://openvaf.semimod.de/
+- ngspice compilado com `--enable-osdi`
+
+**Módulos disponíveis em `verilog-a/`:**
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `diodo_simples.va` | Modelo de diodo baseado na equação de Shockley: I = Is*(exp(V/nVt)-1) com capacitância de junção |
+| `resistor_naolinear.va` | Resistor não-linear dependente de tensão e temperatura: R(V,T) = R0*(1+α*V²) |
+| `varactor.va` | Capacitor variável (varicap) para VCOs: C(V) = C0/(1-V/Vj)^m |
+| `res_model.va` | Resistor simples para teste básico de compilação OpenVAF |
+| `test_simple.va` | Resistor minimalista para debug da toolchain OSDI |
+
+**Circuitos de teste inclusos:**
+- `teste_diodo*.cir` - Curvas I-V, retificador de meia onda, análises DC e transiente
+- `teste_resistor_naolinear.cir` - Análise de resistência instantânea vs tensão
+- `vco_varactor.cir` - Oscilador Colpitts VCO com varactor e análise de frequência
+- `analise_nodal*.cir` - Exemplos de análise nodal e análise nodal modificada (VLSI)
+- `rc_lowpass.cir`, `rlc_lowpass.cir`, `lc_switch.cir` - Filtros e circuitos LC
+
+**Workflow:**
+```bash
+# 1. Compilar modelo Verilog-A
+cd circuits/17_eletricidade_vlsi/verilog-a
+openvaf diodo_simples.va  # Gera diodo_simples.osdi
+
+# 2. Simular circuito que usa o modelo
+cd ..
+ngspice teste_diodo.cir
+```
+
+**Documentação completa:** `circuits/17_eletricidade_vlsi/README.md`
+
 ## Scripts
 
 ### csv_to_png.py
@@ -546,6 +611,7 @@ Componentes suportados:
 ## Documentacao
 
 - [Tutorial SPICE](docs/tutorial_spice.md) - Tutorial completo da linguagem SPICE
+- [Tutorial SLiCAP](docs/TUTORIAL_slicap.md) - Análise simbólica de circuitos com SLiCAP
 - [Guia de Troubleshooting](docs/troubleshooting.md) - Solucoes para erros comuns no ngspice
 
 ## Referencias
