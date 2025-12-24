@@ -610,9 +610,25 @@ Componentes suportados:
 
 ## Documentacao
 
+### Tutoriais
 - [Tutorial SPICE](docs/tutorial_spice.md) - Tutorial completo da linguagem SPICE
 - [Tutorial SLiCAP](docs/TUTORIAL_slicap.md) - Análise simbólica de circuitos com SLiCAP
+- [Tutorial Verilog-A](docs/TUTORIAL_VERILOG_A.md) - Criação de modelos customizados com Verilog-A e OpenVAF
+- [Tutorial Compilar ngspice](docs/TUTORIAL_COMPILE_NGSPICE.md) - Como compilar ngspice do código fonte
+
+### Guias e Referências
 - [Guia de Troubleshooting](docs/troubleshooting.md) - Solucoes para erros comuns no ngspice
+- [Documentação spice_to_schematic](docs/spice_to_schematic.md) - Como usar o script de geração de esquemáticos
+
+### Projetos e Exercícios
+- [Projetos Eletrônica Analógica](docs/projetos_eletronica_analogica.md) - Lista de projetos práticos
+- [Projetos Resolvidos](docs/projetos_eletronica_analogica_solved.md) - Soluções dos projetos
+- [Melhorias nos Circuitos](docs/melhorias_circuitos.md) - Sugestões de melhorias para os circuitos existentes
+
+### Manuais (PDFs)
+- [Manual ngspice](docs/ngspice-manual.pdf) - Manual oficial do ngspice
+- [Manual CircuiTikZ](docs/circuitikzmanual.pdf) - Manual do pacote LaTeX para esquemáticos
+- [Eletrônica Analógica](docs/eletronica_analogica.pdf) - Material de referência
 
 ## Referencias
 

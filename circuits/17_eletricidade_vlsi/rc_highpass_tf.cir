@@ -1,0 +1,22 @@
+* Filtro Passa-Alta RC - Frequência de Corte
+V1 1 0 DC 0 AC 1
+C1 1 2 1u
+R1 2 0 1k
+
+* Análise de Transferência DC (Ganho em 0Hz e Impedâncias)
+.tf V(2) V1
+
+.control
+  * Executa apenas a análise AC (não a .tf)
+  ac dec 100 1 100k
+
+  * Medindo a frequência de corte (-3dB)
+  * Nota: Como a entrada AC é 1, vdb(2) já é o ganho em dB
+  meas ac f_corte WHEN vdb(2)=-3
+
+  * Exibe o valor calculado no terminal
+  print f_corte
+
+.endc
+.end
+
