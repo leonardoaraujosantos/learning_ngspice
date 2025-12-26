@@ -1,0 +1,44 @@
+Oscilador Astavel 5Hz - 2x BC548
+
+* Definindo o modelo do transistor BC548
+.model BC548 NPN(Is=1.822f Xti=3 Eg=1.11 Vaf=72.71 Bf=445.5 Ne=1.394
++ Ise=1.822f Ikf=65.56m Xtb=1.5 Br=35.46 Nc=2 Isc=0 Ikr=0 Rc=0.85
++ Cjc=4.516p Mjc=0.3421 Vjc=0.45 Fc=0.5 Cje=12.23p Mje=0.307 Vje=0.75
++ Tr=10n Tf=481.5p Itf=0.5 Vtf=10 Xtf=2 Rb=10)
+
+* Fontes de Alimentacao
+VCC vcc 0 DC 9V
+
+* Resistores de Coletor (R1 e R4)
+R1 vcc c1 1k
+R4 vcc c2 1k
+
+* Resistores de Base (R2 e R3) para ~5Hz
+R2 vcc b1 15k
+R3 vcc b2 15k
+
+* Capacitores de Acoplamento (10uF)
+C1 c1 b2 10u
+C2 c2 b1 10u
+
+* Transistores (Coletor, Base, Emissor)
+Q1 c1 b1 0 BC548
+Q2 c2 b2 0 BC548
+
+* Condicao Inicial para forcar a oscilacao no simulador
+.ic V(b1)=0 V(b2)=0.7
+
+* Analise Transiente: (Passo, Fim, Inicio)
+.tran 1ms 1s 0
+
+* Comandos de Controle para o NGSPICE
+.control
+run
+* Medindo a frequencia entre dois picos no coletor de Q1
+meas tran periodo TRIG V(c1) VAL=5 RISE=2 TARG V(c1) VAL=5 RISE=3
+let frequencia = 1/periodo
+print frequencia
+.endc
+
+.end
+
