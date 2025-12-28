@@ -25,13 +25,14 @@ L1 in out 500m
 * Capacitor para o terra (500 mF = 0.5 F)
 C1 out 0 500m
 
-* Resistor para o terra (10 kΩ) — fornece amortecimento (dissipa energia)
-R1 out 0 10k
+* Resistor para o terra (10 Ω) — fornece amortecimento (dissipa energia)
+* Valor reduzido de 10k para 10 para aumentar amortecimento (zeta ≈ 0.1)
+R1 out 0 10
 
 * ---------- Análise Transiente ----------
 * Passo de amostragem (TSTEP) = 1 ms (obrigatoriamente > 0 no NGspice)
-* Tempo final = 35 s (≈ 10 ciclos completos, porque T ≈ 3.14 s)
-.tran 1m 35
+* Tempo final = 15 s (≈ 5 ciclos completos, porque T ≈ 3.14 s)
+.tran 1m 15
 
 * ---------- Cálculo de referência ----------
 * Frequência natural aproximada:
@@ -44,15 +45,31 @@ R1 out 0 10k
 * (A presença de R muda um pouco a frequência amortecida, mas é próximo.)
 
 * ---------- Medições (.measure) ----------
-* Mede a tensão no nó OUT depois de ~10 ciclos:
-.measure tran Vout_after_10cycles FIND v(out) AT=31.4
+* Mede picos para visualizar o decaimento do envelope:
 
-* Mede a tensão no final da simulação:
-.measure tran Vout_end FIND v(out) AT=35
+* Primeiro pico (1º ciclo):
+.measure tran Vout_peak_1st MAX v(out) FROM=0 TO=3.14
 
-* (Opcional) Você pode medir picos para ver o envelope:
-* Mede o maior valor de V(out) entre 0 e 5 s:
-* .measure tran Vout_max_0_5 MAX v(out) FROM=0 TO=5
+* Tensão RMS no 1º ciclo:
+.measure tran Vout_RMS_1st RMS v(out) FROM=0 TO=3.14
+
+* Depois de 2 ciclos (~6.28s):
+.measure tran Vout_after_2cycles FIND v(out) AT=6.28
+
+* Pico após 2 ciclos (3º ciclo):
+.measure tran Vout_peak_3rd MAX v(out) FROM=6.28 TO=9.42
+
+* Tensão RMS no 3º ciclo:
+.measure tran Vout_RMS_3rd RMS v(out) FROM=6.28 TO=9.42
+
+* Depois de 4 ciclos (~12.56s):
+.measure tran Vout_after_4cycles FIND v(out) AT=12.56
+
+* Tensão RMS no período final (últimos 3s):
+.measure tran Vout_RMS_final RMS v(out) FROM=12 TO=15
+
+* Tensão no final da simulação:
+.measure tran Vout_end FIND v(out) AT=15
 
 * ---------- Bloco de controle (para rodar, plotar e salvar) ----------
 .control
@@ -66,8 +83,25 @@ R1 out 0 10k
   wrdata vout.dat time v(out)
 
   * Mostra na tela (útil no modo interativo; no batch as .measure já aparecem):
-  echo "V(out) depois de ~10 ciclos (31.4s) = " Vout_after_10cycles
-  echo "V(out) no final (35s)                = " Vout_end
+  echo "==== DECAIMENTO DA OSCILAÇÃO ===="
+  echo ""
+  echo "1º CICLO:"
+  echo "  Pico              = " Vout_peak_1st
+  echo "  RMS               = " Vout_RMS_1st
+  echo ""
+  echo "APÓS 2 CICLOS (6.28s):"
+  echo "  V(out)            = " Vout_after_2cycles
+  echo ""
+  echo "3º CICLO:"
+  echo "  Pico              = " Vout_peak_3rd
+  echo "  RMS               = " Vout_RMS_3rd
+  echo ""
+  echo "APÓS 4 CICLOS (12.56s):"
+  echo "  V(out)            = " Vout_after_4cycles
+  echo ""
+  echo "PERÍODO FINAL (12-15s):"
+  echo "  RMS               = " Vout_RMS_final
+  echo "  V(out) em t=15s   = " Vout_end
 .endc
 
 .end
