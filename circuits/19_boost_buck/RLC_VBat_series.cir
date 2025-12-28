@@ -1,0 +1,73 @@
+* ==============================================================
+* RLC TRANSIENTE (RINGING) — “não é oscilador”, é oscilação amortecida
+* Objetivo:
+*   1) Aplicar um degrau de 0V -> 10V (simula “ligar” a fonte DC)
+*   2) Observar a oscilação natural do circuito RLC e seu decaimento
+*   3) Rodar por ~10 ciclos (≈ 31.4 s) e medir tensão em 2 instantes:
+*        - depois de ~10 ciclos (31.4 s)
+*        - no final da simulação (35 s)
+*
+* Circuito:
+*   V1 (degrau) -> L1 (série) -> nó OUT
+*   nó OUT ligado a R1 || C1 para o GND
+* ==============================================================
+
+* ---------- Fonte ----------
+* PWL cria um degrau: em t=0 está 0V e em t=1us sobe para 10V.
+* Isso evita o SPICE iniciar direto em regime estacionário.
+V1 in 0 PWL(0 0 1u 10)
+
+* ---------- Indutor em série ----------
+* 500 mH = 0.5 H
+L1 in out 500m
+
+* ---------- Carga no nó OUT ----------
+* Capacitor para o terra (500 mF = 0.5 F)
+C1 out 0 500m
+
+* Resistor para o terra (10 kΩ) — fornece amortecimento (dissipa energia)
+R1 out 0 10k
+
+* ---------- Análise Transiente ----------
+* Passo de amostragem (TSTEP) = 1 ms (obrigatoriamente > 0 no NGspice)
+* Tempo final = 35 s (≈ 10 ciclos completos, porque T ≈ 3.14 s)
+.tran 1m 35
+
+* ---------- Cálculo de referência ----------
+* Frequência natural aproximada:
+*   f0 = 1 / (2*pi*sqrt(L*C))
+*   L=0.5 H, C=0.5 F  => f0 ≈ 0.318 Hz
+* Período aproximado:
+*   T ≈ 1/f0 ≈ 3.14 s
+* 10 ciclos => ~31.4 s
+*
+* (A presença de R muda um pouco a frequência amortecida, mas é próximo.)
+
+* ---------- Medições (.measure) ----------
+* Mede a tensão no nó OUT depois de ~10 ciclos:
+.measure tran Vout_after_10cycles FIND v(out) AT=31.4
+
+* Mede a tensão no final da simulação:
+.measure tran Vout_end FIND v(out) AT=35
+
+* (Opcional) Você pode medir picos para ver o envelope:
+* Mede o maior valor de V(out) entre 0 e 5 s:
+* .measure tran Vout_max_0_5 MAX v(out) FROM=0 TO=5
+
+* ---------- Bloco de controle (para rodar, plotar e salvar) ----------
+.control
+  run
+
+  * Se você rodar em modo interativo (ngspice arquivo.cir),
+  * este comando abre/mostra o gráfico:
+  plot v(out)
+
+  * Salva dados em arquivo para plotar fora (gnuplot/python):
+  wrdata vout.dat time v(out)
+
+  * Mostra na tela (útil no modo interativo; no batch as .measure já aparecem):
+  echo "V(out) depois de ~10 ciclos (31.4s) = " Vout_after_10cycles
+  echo "V(out) no final (35s)                = " Vout_end
+.endc
+
+.end
