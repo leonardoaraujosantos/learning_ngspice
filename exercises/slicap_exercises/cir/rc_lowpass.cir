@@ -1,0 +1,10 @@
+"RC Low Pass Filter"
+* First-order RC low pass filter
+* Cutoff frequency fc = 1/(2*pi*R*C)
+* Input signal at node 'in', output at node 'out'
+
+V1 in 0 {V_in}
+R1 in out {R}
+C1 out 0 {C}
+
+.end

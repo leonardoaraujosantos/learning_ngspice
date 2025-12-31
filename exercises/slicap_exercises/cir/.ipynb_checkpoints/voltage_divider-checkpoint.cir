@@ -1,0 +1,9 @@
+"Voltage Divider Circuit"
+* Simple voltage divider with 2 resistors and 10V DC source
+* Output voltage = Vin * R2/(R1+R2)
+
+V1 in 0 {V_in}
+R1 in out {R1}
+R2 out 0 {R2}
+
+.end

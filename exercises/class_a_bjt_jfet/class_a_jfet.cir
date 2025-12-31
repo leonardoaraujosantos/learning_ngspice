@@ -1,49 +1,87 @@
-* BF245 common-source with partial source bypass
-.param VDD=10
-.param F0=100k
-.param VIN=0.1
+* ================================================================================
+* Amplificador Classe A com JFET BF245 em configuração Fonte Comum
+* Topologia: Fonte comum com bypass parcial de source
+* ================================================================================
 
-VDD1 vdd 0 {VDD}
-VIN1 in  0 sin(0 {VIN} {F0}) ac {VIN}
+* --- Parâmetros Globais ---
+.param VDD=10      ; Tensão de alimentação (V)
+.param F0=100k     ; Frequência do sinal de teste (Hz)
+.param VIN=0.1     ; Amplitude do sinal de entrada (V)
 
-CIN1 in g 100n
-RG1  g  0 1Meg
+* --- Fontes de Alimentação e Sinal ---
+VDD1 vdd 0 {VDD}                      ; Fonte de alimentação DC
+VIN1 in  0 sin(0 {VIN} {F0}) ac {VIN} ; Sinal senoidal de entrada (AC + transiente)
 
-RD1  vdd d 2.5k
+* --- Rede de Entrada (Acoplamento AC) ---
+CIN1 in g 100n     ; Capacitor de acoplamento (bloqueia DC, passa AC)
+RG1  g  0 1Meg     ; Resistor de gate (polarização, alta impedância)
 
-J1 d g s BF245B
+* --- Rede de Dreno (Carga Ativa) ---
+RD1  vdd d 2.5k    ; Resistor de dreno (define ganho e ponto de operação)
 
-RS1_ s    nsrc 470
-RS2_ nsrc 0    300
-CS1  nsrc 0    10u
+* --- JFET (Dispositivo Ativo) ---
+J1 d g s BF245B    ; JFET canal N: Dreno, Gate, Source
 
-COUT1 d out 2.2u
-RL1   out 0 1Meg
+* --- Rede de Source (Polarização com Bypass Parcial) ---
+RS1_ s    nsrc 470 ; Resistor de source superior (não bypassed - degeneração)
+RS2_ nsrc 0    300 ; Resistor de source inferior (bypassed)
+CS1  nsrc 0    10u ; Capacitor de bypass parcial (aumenta ganho AC, estabiliza DC)
 
-CDEC1 vdd 0 100n
-CDEC2 vdd 0 10u
+* --- Rede de Saída (Acoplamento AC) ---
+COUT1 d out 2.2u   ; Capacitor de acoplamento de saída (bloqueia DC)
+RL1   out 0 1Meg   ; Resistor de carga (representa carga externa)
 
+* --- Capacitores de Desacoplamento ---
+CDEC1 vdd 0 100n   ; Capacitor de desacoplamento (HF - filtra ruído de alta frequência)
+CDEC2 vdd 0 10u    ; Capacitor de desacoplamento (LF - estabiliza alimentação)
+
+* --- Modelos do JFET BF245 (Canal N) ---
+* VTO   = Tensão de threshold (V)
+* BETA  = Parâmetro de transcondutância (A/V²)
+* LAMBDA = Modulação de canal (1/V)
+* RD/RS = Resistências parasitas de dreno/source (Ω)
+* CGS/CGD = Capacitâncias gate-source/gate-drain (F)
 .model BF245A NJF (VTO=-2.0 BETA=1.8m LAMBDA=0.02 RD=10 RS=10 CGS=5p CGD=3p)
 .model BF245B NJF (VTO=-3.0 BETA=2.8m LAMBDA=0.02 RD=10 RS=10 CGS=5p CGD=3p)
 .model BF245C NJF (VTO=-5.0 BETA=5.0m LAMBDA=0.02 RD=10 RS=10 CGS=5p CGD=3p)
 
+* --- Nós a Salvar para Análise ---
 .save v(in) v(g) v(s) v(d) v(out)
 
-* AC gain @100kHz
+* ================================================================================
+* ANÁLISES
+* ================================================================================
+
+* --- Análise AC (Resposta em Frequência) ---
+* Varre de 1kHz a 10MHz com 200 pontos por década
 .ac dec 200 1k 10Meg
-.meas ac Av_100k    mag(v(out)/v(in))      at={F0}
-.meas ac AvdB_100k  db(mag(v(out)/v(in)))  at={F0}
 
-* Transient + Vpp gain
+* Medições de ganho na frequência de teste (100kHz)
+.meas ac Av_100k    mag(v(out)/v(in))      at={F0}  ; Ganho de tensão (linear)
+.meas ac AvdB_100k  db(mag(v(out)/v(in)))  at={F0}  ; Ganho de tensão (dB)
+
+* --- Análise Transiente (Resposta no Tempo) ---
+* Passo: 0.05us, Tempo final: 200us, Tempo inicial: 120us (descarta transiente inicial)
 .tran 0.05u 200u 120u
-.meas tran Vin_pp   pp v(in)  from=150u to=200u
-.meas tran Vout_pp  pp v(out) from=150u to=200u
-.meas tran Gain_pp  param='Vout_pp/Vin_pp'
 
-* DC point measured at t=0 (portable)
-.meas tran Vg_dc  find v(g) at=0
-.meas tran Vs_dc  find v(s) at=0
-.meas tran Vd_dc  find v(d) at=0
-.meas tran Id_dc  param='(10 - Vd_dc)/2500'
+* Medições de amplitude pico-a-pico entre 150us e 200us
+.meas tran Vin_pp   pp v(in)  from=150u to=200u     ; Amplitude de entrada (Vpp)
+.meas tran Vout_pp  pp v(out) from=150u to=200u     ; Amplitude de saída (Vpp)
+.meas tran Gain_pp  param='Vout_pp/Vin_pp'          ; Ganho Vpp (Vout/Vin)
+
+* --- Medições do Ponto de Operação DC (em t=150us) ---
+.meas tran Vg_dc  find v(g) at=150u                 ; Tensão DC no gate
+.meas tran Vs_dc  find v(s) at=150u                 ; Tensão DC no source
+.meas tran Vd_dc  find v(d) at=150u                 ; Tensão DC no dreno
+.meas tran Id_dc  param='(10 - Vd_dc)/2500'         ; Corrente DC de dreno (mA)
+
+* ================================================================================
+* COMANDOS DE CONTROLE (Plotagem Automática)
+* ================================================================================
+.control
+run                                    ; Executa todas as análises
+plot v(in) v(out)                      ; Gráfico: Sinais de entrada e saída (tempo)
+plot vdb(out) vdb(g) xlimit 1k 10meg   ; Gráfico: Resposta em frequência (dB)
+.endc
 
 .end
