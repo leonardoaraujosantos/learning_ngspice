@@ -1,0 +1,49 @@
+* BF245 common-source with partial source bypass
+.param VDD=10
+.param F0=100k
+.param VIN=0.1
+
+VDD1 vdd 0 {VDD}
+VIN1 in  0 sin(0 {VIN} {F0}) ac {VIN}
+
+CIN1 in g 100n
+RG1  g  0 1Meg
+
+RD1  vdd d 2.5k
+
+J1 d g s BF245B
+
+RS1_ s    nsrc 470
+RS2_ nsrc 0    300
+CS1  nsrc 0    10u
+
+COUT1 d out 2.2u
+RL1   out 0 1Meg
+
+CDEC1 vdd 0 100n
+CDEC2 vdd 0 10u
+
+.model BF245A NJF (VTO=-2.0 BETA=1.8m LAMBDA=0.02 RD=10 RS=10 CGS=5p CGD=3p)
+.model BF245B NJF (VTO=-3.0 BETA=2.8m LAMBDA=0.02 RD=10 RS=10 CGS=5p CGD=3p)
+.model BF245C NJF (VTO=-5.0 BETA=5.0m LAMBDA=0.02 RD=10 RS=10 CGS=5p CGD=3p)
+
+.save v(in) v(g) v(s) v(d) v(out)
+
+* AC gain @100kHz
+.ac dec 200 1k 10Meg
+.meas ac Av_100k    mag(v(out)/v(in))      at={F0}
+.meas ac AvdB_100k  db(mag(v(out)/v(in)))  at={F0}
+
+* Transient + Vpp gain
+.tran 0.05u 200u 120u
+.meas tran Vin_pp   pp v(in)  from=150u to=200u
+.meas tran Vout_pp  pp v(out) from=150u to=200u
+.meas tran Gain_pp  param='Vout_pp/Vin_pp'
+
+* DC point measured at t=0 (portable)
+.meas tran Vg_dc  find v(g) at=0
+.meas tran Vs_dc  find v(s) at=0
+.meas tran Vd_dc  find v(d) at=0
+.meas tran Id_dc  param='(10 - Vd_dc)/2500'
+
+.end
