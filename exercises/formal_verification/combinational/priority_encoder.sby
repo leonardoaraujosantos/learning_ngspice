@@ -1,0 +1,15 @@
+[options]
+# For combinational circuits, 'prove' mode is ideal
+# since there's no temporal behavior - just input/output relationships
+mode prove
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal priority_encoder.sv priority_encoder_formal.sv
+prep -top priority_encoder_formal
+
+[files]
+priority_encoder.sv
+priority_encoder_formal.sv
