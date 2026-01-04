@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1767533929" />
+    <testcase name="test_counter_0_59" classname="test_counter" file="/Users/leonardoaraujo/work/learning_ngspice/exercises/cocotb/sequencial/test_counter.py" lineno="6" time="0.0013151168823242188" sim_time_ns="605.0" ratio_time="460035.1559100798" />
+  </testsuite>
+</testsuites>

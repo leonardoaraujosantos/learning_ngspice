@@ -1,0 +1,8 @@
+# running in mini_alu/src/
+read -formal mini_alu.sv mini_alu_formal.sv
+prep -top mini_alu_formal
+
+hierarchy -smtcheck
+rename -witness
+write_jny -no-connections ../model/design.json
+write_rtlil ../model/design.il

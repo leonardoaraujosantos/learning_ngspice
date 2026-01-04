@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+<testsuite timestamp="2026-01-02T12:39:42" hostname="Leo-Amini-Dev.local" package="mini_alu" id="0" name="default" tests="8" errors="0" failures="0" time="0" skipped="4">
+<properties>
+<property name="os" value="Darwin"/>
+<property name="expect" value="PASS"/>
+<property name="status" value="PASS"/>
+</properties>
+<testcase classname="default" name="build execution" time="0">
+</testcase>
+<testcase classname="default" name="Property ASSERT in mini_alu_formal at mini_alu_formal.sv:53.5-53.23" time="0" type="ASSERT" location="mini_alu_formal.sv:53.5-53.23" id="_witness_.check_assert_mini_alu_formal_sv_53_11">
+</testcase>
+<testcase classname="default" name="Property ASSERT in mini_alu_formal at mini_alu_formal.sv:54.5-54.23" time="0" type="ASSERT" location="mini_alu_formal.sv:54.5-54.23" id="_witness_.check_assert_mini_alu_formal_sv_54_13">
+</testcase>
+<testcase classname="default" name="Property ASSERT in mini_alu_formal at mini_alu_formal.sv:55.5-55.23" time="0" type="ASSERT" location="mini_alu_formal.sv:55.5-55.23" id="_witness_.check_assert_mini_alu_formal_sv_55_15">
+</testcase>
+<testcase classname="default" name="Property ASSERT in mini_alu_formal at mini_alu_formal.sv:56.5-56.23" time="0" type="ASSERT" location="mini_alu_formal.sv:56.5-56.23" id="_witness_.check_assert_mini_alu_formal_sv_56_17">
+</testcase>
+<testcase classname="default" name="Property COVER in mini_alu_formal at mini_alu_formal.sv:62.5-62.36" time="0" type="COVER" location="mini_alu_formal.sv:62.5-62.36" id="_witness_.check_cover_mini_alu_formal_sv_62_20">
+<skipped />
+</testcase>
+<testcase classname="default" name="Property COVER in mini_alu_formal at mini_alu_formal.sv:65.5-65.36" time="0" type="COVER" location="mini_alu_formal.sv:65.5-65.36" id="_witness_.check_cover_mini_alu_formal_sv_65_24">
+<skipped />
+</testcase>
+<testcase classname="default" name="Property COVER in mini_alu_formal at mini_alu_formal.sv:68.5-68.21" time="0" type="COVER" location="mini_alu_formal.sv:68.5-68.21" id="_witness_.check_cover_mini_alu_formal_sv_68_28">
+<skipped />
+</testcase>
+<testcase classname="default" name="Property COVER in mini_alu_formal at mini_alu_formal.sv:71.5-71.75" time="0" type="COVER" location="mini_alu_formal.sv:71.5-71.75" id="_witness_.check_cover_mini_alu_formal_sv_71_30">
+<skipped />
+</testcase>
+<system-out>SBY 12:39:42 [mini_alu] Copy '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/mini_alu.sv' to '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/mini_alu/src/mini_alu.sv'.
+SBY 12:39:42 [mini_alu] Copy '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/mini_alu_formal.sv' to '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/mini_alu/src/mini_alu_formal.sv'.
+SBY 12:39:42 [mini_alu] engine_0: smtbmc boolector
+SBY 12:39:42 [mini_alu] base: starting process &quot;cd mini_alu/src; yosys -ql ../model/design.log ../model/design.ys&quot;
+SBY 12:39:42 [mini_alu] base: finished (returncode=0)
+SBY 12:39:42 [mini_alu] prep: starting process &quot;cd mini_alu/model; yosys -ql design_prep.log design_prep.ys&quot;
+SBY 12:39:42 [mini_alu] prep: finished (returncode=0)
+SBY 12:39:42 [mini_alu] smt2: starting process &quot;cd mini_alu/model; yosys -ql design_smt2.log design_smt2.ys&quot;
+SBY 12:39:42 [mini_alu] smt2: finished (returncode=0)
+SBY 12:39:42 [mini_alu] engine_0: starting process &quot;cd mini_alu; yosys-smtbmc -s boolector --presat --unroll --noprogress -t 1  --append 0 --dump-vcd engine_0/trace.vcd --dump-yw engine_0/trace.yw --dump-vlogtb engine_0/trace_tb.v --dump-smtc engine_0/trace.smtc model/design_smt2.smt2&quot;
+SBY 12:39:42 [mini_alu] engine_0: ##   0:00:00  Solver: boolector
+SBY 12:39:42 [mini_alu] engine_0: ##   0:00:00  Checking assumptions in step 0..
+SBY 12:39:42 [mini_alu] engine_0: ##   0:00:00  Checking assertions in step 0..
+SBY 12:39:42 [mini_alu] engine_0: ##   0:00:00  Status: passed
+SBY 12:39:42 [mini_alu] engine_0: finished (returncode=0)
+SBY 12:39:42 [mini_alu] engine_0: Status returned by engine: pass
+SBY 12:39:42 [mini_alu] summary: Elapsed clock time [H:MM:SS (secs)]: 0:00:00 (0)
+SBY 12:39:42 [mini_alu] summary: Elapsed process time [H:MM:SS (secs)]: 0:00:00 (0)
+SBY 12:39:42 [mini_alu] summary: engine_0 (smtbmc boolector) returned pass
+SBY 12:39:42 [mini_alu] summary: engine_0 did not produce any traces
+SBY 12:39:42 [mini_alu] DONE (PASS, rc=0)
+</system-out>
+<system-err>
+</system-err>
+</testsuite>
+</testsuites>

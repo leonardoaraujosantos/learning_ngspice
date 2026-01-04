@@ -1,0 +1,21 @@
+SBY 23:56:31 [adder4] Copy '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/adder4.sv' to '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/adder4/src/adder4.sv'.
+SBY 23:56:31 [adder4] Copy '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/adder4_formal.sv' to '/Users/leonardoaraujo/work/learning_ngspice/exercises/formal_verification/combinational/adder4/src/adder4_formal.sv'.
+SBY 23:56:31 [adder4] engine_0: smtbmc boolector
+SBY 23:56:31 [adder4] base: starting process "cd adder4/src; yosys -ql ../model/design.log ../model/design.ys"
+SBY 23:56:31 [adder4] base: finished (returncode=0)
+SBY 23:56:31 [adder4] prep: starting process "cd adder4/model; yosys -ql design_prep.log design_prep.ys"
+SBY 23:56:31 [adder4] prep: finished (returncode=0)
+SBY 23:56:31 [adder4] smt2: starting process "cd adder4/model; yosys -ql design_smt2.log design_smt2.ys"
+SBY 23:56:31 [adder4] smt2: finished (returncode=0)
+SBY 23:56:31 [adder4] engine_0: starting process "cd adder4; yosys-smtbmc -s boolector --presat --unroll --noprogress -t 1  --append 0 --dump-vcd engine_0/trace.vcd --dump-yw engine_0/trace.yw --dump-vlogtb engine_0/trace_tb.v --dump-smtc engine_0/trace.smtc model/design_smt2.smt2"
+SBY 23:56:31 [adder4] engine_0: ##   0:00:00  Solver: boolector
+SBY 23:56:31 [adder4] engine_0: ##   0:00:00  Checking assumptions in step 0..
+SBY 23:56:31 [adder4] engine_0: ##   0:00:00  Checking assertions in step 0..
+SBY 23:56:31 [adder4] engine_0: ##   0:00:00  Status: passed
+SBY 23:56:31 [adder4] engine_0: finished (returncode=0)
+SBY 23:56:31 [adder4] engine_0: Status returned by engine: pass
+SBY 23:56:31 [adder4] summary: Elapsed clock time [H:MM:SS (secs)]: 0:00:00 (0)
+SBY 23:56:31 [adder4] summary: Elapsed process time [H:MM:SS (secs)]: 0:00:00 (0)
+SBY 23:56:31 [adder4] summary: engine_0 (smtbmc boolector) returned pass
+SBY 23:56:31 [adder4] summary: engine_0 did not produce any traces
+SBY 23:56:31 [adder4] DONE (PASS, rc=0)

@@ -1,0 +1,14 @@
+[options]
+mode bmc
+depth 1
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal adder4.sv adder4_formal.sv
+prep -top adder4_formal
+
+[files]
+adder4.sv
+adder4_formal.sv

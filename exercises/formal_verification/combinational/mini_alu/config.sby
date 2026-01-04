@@ -1,0 +1,14 @@
+[options]
+mode bmc
+depth 1
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal mini_alu.sv mini_alu_formal.sv
+prep -top mini_alu_formal
+
+[files]
+mini_alu.sv
+mini_alu_formal.sv

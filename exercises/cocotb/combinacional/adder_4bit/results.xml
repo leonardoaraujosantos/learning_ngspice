@@ -1,0 +1,9 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1767554990" />
+    <testcase name="test_basic_addition" classname="test_adder" file="/Users/leonardoaraujo/work/learning_ngspice/exercises/cocotb/combinacional/adder_4bit/test_adder.py" lineno="17" time="0.0003871917724609375" sim_time_ns="50.0" ratio_time="129134.97536945813" />
+    <testcase name="test_carry_in" classname="test_adder" file="/Users/leonardoaraujo/work/learning_ngspice/exercises/cocotb/combinacional/adder_4bit/test_adder.py" lineno="43" time="0.00015926361083984375" sim_time_ns="40.00000000000001" ratio_time="251155.92814371263" />
+    <testcase name="test_overflow" classname="test_adder" file="/Users/leonardoaraujo/work/learning_ngspice/exercises/cocotb/combinacional/adder_4bit/test_adder.py" lineno="66" time="0.00012969970703125" sim_time_ns="40.000000000000014" ratio_time="308404.70588235307" />
+    <testcase name="test_exhaustive" classname="test_adder" file="/Users/leonardoaraujo/work/learning_ngspice/exercises/cocotb/combinacional/adder_4bit/test_adder.py" lineno="90" time="0.005159139633178711" sim_time_ns="5120.0" ratio_time="992413.5348213873" />
+  </testsuite>
+</testsuites>

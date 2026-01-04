@@ -1,0 +1,8 @@
+# running in bcd_counter/src/
+read -formal bcd_counter.sv bcd_counter_formal.sv
+prep -top bcd_counter_formal
+
+hierarchy -smtcheck
+rename -witness
+write_jny -no-connections ../model/design.json
+write_rtlil ../model/design.il
